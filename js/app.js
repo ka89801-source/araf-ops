@@ -829,8 +829,69 @@ function changeStatus(reqId, status) {
 }
 
 function closeRequest(reqId) {
-  changeStatus(reqId, 'closed');
-  navigate('requests');
+  const r = REQUESTS.find(x => x.id === reqId);
+  if (!r) {
+    toast('error', 'الطلب غير موجود');
+    return;
+  }
+
+  showModal('إغلاق الطلب', `
+    <div class="form-group">
+      <label class="form-label">طريقة التواصل مع العميل</label>
+      <select id="closeContactMethod" class="form-input form-select" dir="rtl">
+        <option value="اتصال هاتفي">اتصال هاتفي</option>
+        <option value="واتساب">واتساب</option>
+        <option value="اتصال + واتساب">اتصال + واتساب</option>
+        <option value="تعذر التواصل">تعذر التواصل</option>
+        <option value="أخرى">أخرى</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">نتيجة المعالجة</label>
+      <select id="closeResult" class="form-input form-select" dir="rtl">
+        <option value="تمت المعالجة">تمت المعالجة</option>
+        <option value="تم الرد على العميل">تم الرد على العميل</option>
+        <option value="بانتظار العميل">بانتظار العميل</option>
+        <option value="تعذر الإنهاء">تعذر الإنهاء</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">ملاحظة الإغلاق</label>
+      <textarea id="closeNote" class="form-textarea form-input" dir="rtl" placeholder="مثال: تم التواصل مع العميل عبر الواتساب، وشرح المطلوب له، وتمت معالجة الطلب."></textarea>
+    </div>
+  `, () => {
+    const method = document.getElementById('closeContactMethod')?.value || '';
+    const result = document.getElementById('closeResult')?.value || '';
+    const note   = document.getElementById('closeNote')?.value.trim() || '';
+
+    if (!note) {
+      toast('error', 'الرجاء كتابة ملاحظة الإغلاق');
+      return;
+    }
+
+    r.status = result === 'بانتظار العميل' ? 'waiting' : 'closed';
+    r.updated = new Date().toISOString();
+
+    r.timeline.push({
+      action: result === 'بانتظار العميل' ? 'تمت متابعة الطلب مع العميل' : 'تم إغلاق الطلب',
+      meta: 'الآن',
+      color: result === 'بانتظار العميل' ? 'gray' : 'green',
+      note: `طريقة التواصل: ${method} — النتيجة: ${result}`
+    });
+
+    r.comments.push({
+      author: 'الموظف المسؤول',
+      initials: 'مو',
+      time: 'الآن',
+      text: `طريقة التواصل: ${method}\nالنتيجة: ${result}\nالتفصيل: ${note}`
+    });
+
+    closeModal();
+    toast('success', result === 'بانتظار العميل' ? 'تم تحديث الطلب' : 'تم إغلاق الطلب بنجاح');
+    navigate('requests');
+  }, false);
 }
 
 function addComment(reqId) {
