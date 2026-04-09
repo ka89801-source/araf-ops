@@ -2,36 +2,183 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>تسجيل الدخول - أعراف</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>أعراف | دخول الموظفين</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&family=Cairo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/main.css">
 </head>
+<body style="background:var(--navy)">
 
-<body class="login-body">
+<div class="login-page">
+  <!-- BG shapes -->
+  <div class="login-bg-shapes">
+    <div class="sh sh1"></div>
+    <div class="sh sh2"></div>
+    <div class="sh sh3"></div>
+    <!-- Grid pattern -->
+    <svg style="position:absolute;inset:0;width:100%;height:100%;opacity:.03" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" stroke-width="1"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#grid)"/>
+    </svg>
+  </div>
 
-<div class="login-box">
-  <h2>دخول الموظفين</h2>
+  <!-- Left: Brand -->
+  <div class="login-left">
+    <div class="login-tagline">ARAF LEGAL OS</div>
+    <h1 class="login-headline">
+      لوحة التشغيل<br>
+      <span>الداخلية</span><br>
+      لأعراف
+    </h1>
+    <p class="login-desc">
+      منصة إدارة متكاملة لاستقبال ومعالجة طلبات عملاء أعراف القانونية بكفاءة عالية وسرعة استثنائية.
+    </p>
 
-  <input id="username" placeholder="اسم المستخدم">
-  <input id="password" type="password" placeholder="كلمة المرور">
+    <div class="login-features">
+      <div class="login-feat">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <span class="feat-text">إدارة كاملة لجميع طلبات العملاء في مكان واحد</span>
+      </div>
+      <div class="login-feat">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <span class="feat-text">توزيع ذكي للطلبات على أفراد الفريق القانوني</span>
+      </div>
+      <div class="login-feat">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </div>
+        <span class="feat-text">معالجة سريعة ومتابعة فورية لكل طلب</span>
+      </div>
+      <div class="login-feat">
+        <div class="feat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </div>
+        <span class="feat-text">إشعارات فورية للطلبات العاجلة والجديدة</span>
+      </div>
+    </div>
 
-  <button onclick="login()">دخول</button>
+    <!-- Stats strip -->
+    <div style="margin-top:48px;display:flex;gap:28px">
+      <div>
+        <div style="font-family:'Cairo',sans-serif;font-size:28px;font-weight:900;color:var(--gold)">۸+</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.4);margin-top:2px">طلبات اليوم</div>
+      </div>
+      <div style="width:1px;background:rgba(255,255,255,.08)"></div>
+      <div>
+        <div style="font-family:'Cairo',sans-serif;font-size:28px;font-weight:900;color:var(--gold)">٦</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.4);margin-top:2px">موظفون نشطون</div>
+      </div>
+      <div style="width:1px;background:rgba(255,255,255,.08)"></div>
+      <div>
+        <div style="font-family:'Cairo',sans-serif;font-size:28px;font-weight:900;color:var(--gold)">98%</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.4);margin-top:2px">رضا العملاء</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Form -->
+  <div class="login-right">
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="login-logo-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div>
+          <div class="login-logo-name">أعراف</div>
+          <div class="login-logo-sub">LEGAL OS — OPS</div>
+        </div>
+      </div>
+
+      <h2 class="login-title">دخول الموظفين</h2>
+      <p class="login-sub">للوصول إلى لوحة التشغيل الداخلية</p>
+
+      <div class="login-form" id="loginForm">
+        <div class="form-group">
+          <label class="form-label">اسم المستخدم أو البريد الإلكتروني</label>
+          <input type="text" class="form-input" id="username" placeholder="admin@araf.sa" dir="ltr" style="text-align:right" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label class="form-label">كلمة المرور</label>
+          <div style="position:relative">
+            <input type="password" class="form-input" id="password" placeholder="••••••••" dir="ltr" autocomplete="current-password">
+            <button type="button" onclick="togglePass()" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:rgba(255,255,255,.3)">
+              <svg id="eyeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="login-check">
+          <input type="checkbox" id="remember">
+          <label for="remember">تذكرني في هذا الجهاز</label>
+        </div>
+
+        <button type="button" class="login-btn" id="loginBtn" onclick="doLogin()">
+          <span id="loginBtnText">دخول إلى النظام</span>
+        </button>
+
+        <div id="loginError" style="display:none;margin-top:14px;padding:10px 14px;border-radius:8px;background:rgba(220,38,38,.15);border:1px solid rgba(220,38,38,.25);color:#fca5a5;font-size:13px;text-align:center"></div>
+      </div>
+
+      <div class="login-footer">
+        نظام حصري لموظفي أعراف للمحاماة والاستشارات القانونية<br>
+        <span style="color:rgba(255,255,255,.15)">© 2026 شركة أعراف</span>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
-function login(){
-  const u = document.getElementById('username').value;
-  const p = document.getElementById('password').value;
+function togglePass() {
+  const inp = document.getElementById('password');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
 
-  if(
-    (u === 'admin' && p === '1234') ||
-    (u === 'admin@araf.sa' && p === '1234')
-  ){
-    window.location.href = 'index.html';
+async function doLogin() {
+  const user = document.getElementById('username').value.trim();
+  const pass = document.getElementById('password').value;
+  const btn  = document.getElementById('loginBtn');
+  const txt  = document.getElementById('loginBtnText');
+  const err  = document.getElementById('loginError');
+
+  if (!user || !pass) {
+    err.textContent = 'الرجاء إدخال اسم المستخدم وكلمة المرور';
+    err.style.display = 'block'; return;
+  }
+
+  txt.textContent = 'جاري التحقق...';
+  btn.style.opacity = '.7';
+  btn.disabled = true;
+  err.style.display = 'none';
+
+  await new Promise(r => setTimeout(r, 900));
+
+  // Demo credentials
+  if ((user === 'admin' || user === 'admin@araf.sa') && pass === '1234') {
+    txt.textContent = '✓ تم الدخول بنجاح';
+    btn.style.background = 'linear-gradient(135deg,#16A34A,#22C55E)';
+    setTimeout(() => window.location.href = 'index.html', 600);
   } else {
-    alert('بيانات غير صحيحة');
+    txt.textContent = 'دخول إلى النظام';
+    btn.style.opacity = '1';
+    btn.disabled = false;
+    err.textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة. جرب: admin / 1234';
+    err.style.display = 'block';
   }
 }
-</script>
 
+document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+</script>
 </body>
 </html>
