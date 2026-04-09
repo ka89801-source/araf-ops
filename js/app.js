@@ -349,10 +349,12 @@ function renderDetail() {
         </div>
         <div style="font-size:12px;color:var(--muted);margin-top:4px">${r.id} · وصل ${formatDate(r.created)}</div>
       </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-outline btn-sm" onclick="showStatusModal('${r.id}')">${ICONS.edit} تغيير الحالة</button>
-        <button class="btn btn-primary btn-sm" onclick="showAssignModal('${r.id}')">${ICONS.assign} إسناد</button>
-      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+  <button class="btn btn-outline btn-sm" onclick="showStatusModal('${r.id}')">${ICONS.edit} تغيير الحالة</button>
+  <button class="btn btn-outline btn-sm" onclick="markContacted('${r.id}')">${ICONS.msg} تم التواصل</button>
+  <button class="btn btn-primary btn-sm" onclick="showAssignModal('${r.id}')">${ICONS.assign} إسناد</button>
+  <button class="btn btn-gold btn-sm" onclick="closeRequest('${r.id}')">${ICONS.check} إغلاق الطلب</button>
+</div>
     </div>
 
     <div class="detail-grid">
@@ -826,6 +828,76 @@ function changeStatus(reqId, status) {
     if (currentPage === 'detail') renderDetail();
     if (currentPage === 'requests') renderRequests();
   }
+}
+
+function markContacted(reqId) {
+  const r = REQUESTS.find(x => x.id === reqId);
+  if (!r) {
+    toast('error', 'الطلب غير موجود');
+    return;
+  }
+
+  showModal('تسجيل التواصل مع العميل', `
+    <div class="form-group">
+      <label class="form-label">طريقة التواصل</label>
+      <select id="contactMethod" class="form-input form-select" dir="rtl">
+        <option value="اتصال هاتفي">اتصال هاتفي</option>
+        <option value="واتساب">واتساب</option>
+        <option value="اتصال + واتساب">اتصال + واتساب</option>
+        <option value="لم يتم الرد">لم يتم الرد</option>
+        <option value="أخرى">أخرى</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">حالة الطلب بعد التواصل</label>
+      <select id="contactStatus" class="form-input form-select" dir="rtl">
+        <option value="review">قيد المراجعة</option>
+        <option value="waiting">بانتظار العميل</option>
+        <option value="assigned">جارٍ العمل عليه</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">ملاحظة</label>
+      <textarea id="contactNote" class="form-textarea form-input" dir="rtl" placeholder="مثال: تم التواصل مع العميل عبر الواتساب وطلب تزويدنا بالمستندات الناقصة."></textarea>
+    </div>
+  `, () => {
+    const method = document.getElementById('contactMethod')?.value || '';
+    const newStatus = document.getElementById('contactStatus')?.value || 'review';
+    const note = document.getElementById('contactNote')?.value.trim() || '';
+
+    if (!note) {
+      toast('error', 'الرجاء كتابة ملاحظة');
+      return;
+    }
+
+    r.status = newStatus;
+    r.updated = new Date().toISOString();
+
+    r.timeline.push({
+      action: 'تم التواصل مع العميل',
+      meta: 'الآن',
+      color: 'blue',
+      note: `طريقة التواصل: ${method}`
+    });
+
+    r.comments.push({
+      author: 'الموظف المسؤول',
+      initials: 'مو',
+      time: 'الآن',
+      text: `تم التواصل مع العميل عبر: ${method}\n${note}`
+    });
+
+    closeModal();
+    toast('success', 'تم تسجيل التواصل بنجاح');
+
+    if (currentPage === 'detail') {
+      renderDetail();
+    } else {
+      renderRequests();
+    }
+  }, false);
 }
 
 function closeRequest(reqId) {
