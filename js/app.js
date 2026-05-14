@@ -1457,4 +1457,8 @@ updateSidebarCounts();
 renderNotifications();
 
 navigateTo('dashboard');
+var loader = document.getElementById('appLoader');
+if(loader){
+  loader.classList.add('hide');
+}   
 });
