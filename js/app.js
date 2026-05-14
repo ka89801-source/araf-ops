@@ -1460,3 +1460,4 @@ updateSidebarCounts();
 renderNotifications();
 
 navigateTo('dashboard');
+});
