@@ -1129,11 +1129,59 @@ function renderNotifications() {
 
   document.getElementById('notifList').innerHTML = html;
 }
+async function loadSupabaseRequests(){
+  if(!window.sb){
+    console.warn('Supabase client غير موجود، سيتم استخدام البيانات التجريبية');
+    return;
+  }
 
+  try{
+    const { data, error } = await window.sb
+      .from('service_requests')
+      .select('*')
+      .order('created_at', { ascending:false });
+
+    if(error){
+      console.error('Supabase load error:', error);
+      showToast('تعذر تحميل الطلبات الحقيقية، تم عرض البيانات التجريبية', 'warn');
+      return;
+    }
+
+    MOCK_DATA.service_requests = (data || []).map(function(r){
+      return {
+        id: r.id,
+        customer_name: r.customer_name || '',
+        customer_phone: r.customer_phone || '',
+        service_type: r.service_type || r.service_name || '',
+        service_name: r.service_name || r.service_type || '',
+        price: Number(r.price || 0),
+        payment_status: r.payment_status || 'manual_pending',
+        source: r.source || 'direct_services',
+        details: r.details || '',
+        attachments: Array.isArray(r.attachments) ? r.attachments : [],
+        status: r.status || 'new',
+        priority: r.priority || 'normal',
+        assigned_to: r.assigned_to,
+        assigned_by: r.assigned_by,
+        assigned_at: r.assigned_at,
+        contacted_at: r.contacted_at,
+        closed_by: r.closed_by,
+        closed_at: r.closed_at,
+        close_note: r.close_note,
+        created_at: r.created_at,
+        updated_at: r.updated_at || r.created_at
+      };
+    });
+
+  }catch(e){
+    console.error(e);
+    showToast('حدث خطأ أثناء الاتصال بقاعدة البيانات', 'error');
+  }
+}
 // =============================================================
 // التهيئة
 // =============================================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   if (!checkSession()) return;
 
   // ملء معلومات المستخدم
@@ -1186,7 +1234,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     renderRequestsTable();
   });
-
+await loadSupabaseRequests();
   // الافتراضي: الداشبورد
   navigateTo('dashboard');
 });
