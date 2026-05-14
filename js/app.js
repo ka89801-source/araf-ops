@@ -861,7 +861,7 @@ function autoAssign() {
   showToast(`اقتراح: ${employees[0].full_name} (الأقل ضغطاً)`, 'success');
 }
 
-function confirmAssign() {
+async function confirmAssign() {
   if (!APP.pendingAssignEmpId) {
     showToast('الرجاء اختيار موظف', 'warn');
     return;
@@ -869,27 +869,52 @@ function confirmAssign() {
 
   const r = MOCK_DATA.service_requests.find(x => x.id === APP.selectedRequestId);
   const emp = HELPERS.getEmployee(APP.pendingAssignEmpId);
-  // TODO Supabase: update service_requests SET assigned_to=...
 
-  r.assigned_to = APP.pendingAssignEmpId;
-  r.assigned_by = APP.currentUser.id;
-  r.assigned_at = new Date().toISOString();
-  r.status = 'assigned';
-  r.updated_at = new Date().toISOString();
+  const now = new Date().toISOString();
 
-  MOCK_DATA.activity_log.unshift({
-    id: 'A-' + Date.now(),
-    request_id: r.id,
-    actor_id: APP.currentUser.id,
-    action_type: 'assigned',
-    description: `أسند الطلب إلى ${emp.full_name}`,
-    created_at: new Date().toISOString()
-  });
+  try{
+    const { error } = await window.sb
+      .from('service_requests')
+      .update({
+        assigned_to: APP.pendingAssignEmpId,
+        assigned_by: APP.currentUser.id,
+        assigned_at: now,
+        status: 'assigned',
+        updated_at: now
+      })
+      .eq('id', r.id);
 
-  showToast(`تم إسناد الطلب إلى ${emp.full_name}`, 'success');
-  closeModal('assignModal');
-  openRequestDrawer(r.id);
-  if (APP.currentPage === 'requests') renderRequestsTable();
+    if(error) throw error;
+
+    await window.sb.from('request_activity_log').insert({
+      request_id: r.id,
+      actor_id: APP.currentUser.id,
+      action_type: 'assigned',
+      description: `أسند الطلب إلى ${emp.full_name}`
+    });
+
+    r.assigned_to = APP.pendingAssignEmpId;
+    r.assigned_by = APP.currentUser.id;
+    r.assigned_at = now;
+    r.status = 'assigned';
+    r.updated_at = now;
+
+    showToast(`تم إسناد الطلب إلى ${emp.full_name}`, 'success');
+
+    closeModal('assignModal');
+
+    await loadSupabaseRequests();
+    await loadSupabaseActivity();
+
+    if (APP.currentPage === 'requests') renderRequestsTable();
+    if (APP.currentPage === 'dashboard') renderDashboard();
+
+    openRequestDrawer(r.id);
+
+  }catch(err){
+    console.error(err);
+    showToast('تعذر حفظ الإسناد في قاعدة البيانات', 'error');
+  }
 }
 
 // ===== Modal تغيير الحالة =====
