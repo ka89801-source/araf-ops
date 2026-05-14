@@ -1237,10 +1237,16 @@ async function loadSupabaseRequests(){
   }
 
   try{
-    const { data, error } = await window.sb
-      .from('service_requests')
-      .select('*')
-      .order('created_at', { ascending:false });
+    let query = window.sb
+  .from('service_requests')
+  .select('*')
+  .order('created_at', { ascending:false });
+
+if(APP.currentUser && APP.currentUser.role !== 'admin'){
+  query = query.eq('assigned_to', APP.currentUser.id);
+}
+
+const { data, error } = await query;
 
     if(error){
       console.error('Supabase load error:', error);
