@@ -1272,6 +1272,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     renderRequestsTable();
   });
+await loadSupabaseEmployees();   
 await loadSupabaseRequests();
   // الافتراضي: الداشبورد
   navigateTo('dashboard');
