@@ -237,8 +237,9 @@ const paymentPending = reqs.filter(function(r){
     <div class="kpi-trend">${busiestEmp ? busiestEmp.openCount + ' طلب مفتوح' : ''}</div>
   </div>
 `}
-  document.getElementById('kpiGrid').innerHTML = kpiHTML;
+  `;
 
+  document.getElementById('kpiGrid').innerHTML = kpiHTML;
   // الرسم البياني الخطي (آخر 7 أيام)
   drawTrendChart();
 
