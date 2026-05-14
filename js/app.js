@@ -58,6 +58,12 @@ function showToast(message, type = 'default') {
 // التنقل بين الصفحات
 // =============================================================
 function navigateTo(page) {
+if(APP.currentUser && APP.currentUser.role !== 'admin'){
+  if(page === 'employees' || page === 'activity'){
+    showToast('هذه الصفحة مخصصة للمدير فقط', 'warn');
+    page = 'requests';
+  }
+}   
   APP.currentPage = page;
 
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
