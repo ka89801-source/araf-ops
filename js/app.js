@@ -140,7 +140,9 @@ const reqs = isEmployeeView
 
   // نسبة الإغلاق
   const closeRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-
+const paymentPending = reqs.filter(function(r){
+  return ['manual_pending','pending','unpaid','waiting_payment'].includes(r.payment_status);
+}).length;
   // تعبئة البطاقات
   const kpiHTML = `
     <div class="kpi-card c-nv">
