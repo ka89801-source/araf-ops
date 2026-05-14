@@ -286,64 +286,93 @@
       <div class="error-msg" id="errorMsg"></div>
 
       <form id="loginForm" novalidate>
-        <div class="field">
-          <label for="email">البريد الإلكتروني</label>
-          <input type="email" id="email" name="email" placeholder="name@araf.sa" required autocomplete="username" />
-        </div>
+  <div class="field">
+    <label for="fullName">الاسم</label>
+    <input type="text" id="fullName" name="fullName" placeholder="اكتب اسمك كما هو مضاف في النظام" required autocomplete="name" />
+  </div>
 
-        <div class="field">
-          <label for="password">كلمة المرور</label>
-          <input type="password" id="password" name="password" placeholder="••••••••" required autocomplete="current-password" />
-        </div>
+  <div class="field">
+    <label for="phone">رقم الجوال</label>
+    <input type="tel" id="phone" name="phone" placeholder="05xxxxxxxx" required autocomplete="tel" />
+  </div>
 
-        <div class="login-row">
-          <label><input type="checkbox" /> تذكرني</label>
-          <a href="#">نسيت كلمة المرور؟</a>
-        </div>
+  <button type="submit" class="btn-login">تسجيل الدخول</button>
+</form>
 
-        <button type="submit" class="btn-login">تسجيل الدخول</button>
-      </form>
-
-      <div class="login-hint">
-        <strong>بيانات تجريبية للاختبار:</strong><br />
-        مدير: <code>admin@araf.sa</code> / <code>admin123</code><br />
-        موظف: <code>sara@araf.sa</code> / <code>emp123</code>
-      </div>
     </div>
   </div>
 
-  <script src="js/data.js"></script>
-  <script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script>
     // ===== منطق تسجيل الدخول (Mock) =====
     // TODO Supabase: استبدال هذا بـ supabase.auth.signInWithPassword({ email, password })
-    document.getElementById('loginForm').addEventListener('submit', function (e) {
-      e.preventDefault();
-      const email = document.getElementById('email').value.trim().toLowerCase();
-      const password = document.getElementById('password').value;
-      const errorMsg = document.getElementById('errorMsg');
+    document.getElementById('loginForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
 
-      const user = MOCK_DATA.employees.find(emp =>
-        emp.email.toLowerCase() === email && emp.password === password && emp.status === 'active'
-      );
+  const fullName = document.getElementById('fullName').value.trim();
+  const phone = document.getElementById('phone').value.trim();
+  const errorMsg = document.getElementById('errorMsg');
 
-      if (user) {
-        // حفظ الجلسة في localStorage (مؤقتاً)
-        // TODO Supabase: استبدال بـ session من Supabase Auth
-        localStorage.setItem('araf_session', JSON.stringify({
-          id: user.id,
-          name: user.full_name,
-          email: user.email,
-          role: user.role,
-          loginAt: new Date().toISOString()
-        }));
-        window.location.href = 'index.html';
-      } else {
-        errorMsg.textContent = 'البريد الإلكتروني أو كلمة المرور غير صحيحة، أو الحساب معطّل.';
-        errorMsg.classList.add('show');
-        setTimeout(() => errorMsg.classList.remove('show'), 4000);
-      }
-    });
+  errorMsg.classList.remove('show');
+  errorMsg.textContent = '';
 
+  if (!fullName || !phone) {
+    errorMsg.textContent = 'يرجى إدخال الاسم ورقم الجوال.';
+    errorMsg.classList.add('show');
+    return;
+  }
+
+  if (!/^0\d{9}$/.test(phone)) {
+    errorMsg.textContent = 'يرجى إدخال رقم جوال صحيح يبدأ بـ 0 ويتكون من 10 أرقام.';
+    errorMsg.classList.add('show');
+    return;
+  }
+
+  try {
+    const { data, error } = await window.sb
+      .from('employees')
+      .select('*')
+      .eq('phone', phone)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data) {
+      errorMsg.textContent = 'لا يوجد موظف فعّال بهذا الرقم.';
+      errorMsg.classList.add('show');
+      return;
+    }
+
+    const normalizedInputName = fullName.replace(/\s+/g, ' ').trim();
+    const normalizedDbName = String(data.full_name || '').replace(/\s+/g, ' ').trim();
+
+    if (normalizedInputName !== normalizedDbName) {
+      errorMsg.textContent = 'الاسم ورقم الجوال غير متطابقين مع بيانات الموظف.';
+      errorMsg.classList.add('show');
+      return;
+    }
+
+    localStorage.setItem('araf_session', JSON.stringify({
+      id: data.id,
+      name: data.full_name,
+      email: data.email || '',
+      phone: data.phone || '',
+      role: data.role || 'employee',
+      loginAt: new Date().toISOString()
+    }));
+
+    window.location.href = 'index.html';
+
+  } catch (err) {
+    console.error(err);
+    errorMsg.textContent = 'حدث خطأ أثناء تسجيل الدخول. تأكد من الاتصال أو صلاحيات Supabase.';
+    errorMsg.classList.add('show');
+  }
+});
     // إذا كان مسجلاً دخول مسبقاً، انقله مباشرة
     if (localStorage.getItem('araf_session')) {
       // window.location.href = 'index.html';
