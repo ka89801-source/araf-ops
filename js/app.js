@@ -957,36 +957,62 @@ function openCloseModal(reqId) {
   openModal('closeModal');
 }
 
-function confirmClose() {
+async function confirmClose() {
   const note = document.getElementById('closeNoteInput').value.trim();
   const result = document.getElementById('closeResultSelect').value;
+
   if (!note) {
     showToast('الرجاء كتابة ملاحظة الإغلاق', 'warn');
     return;
   }
 
   const r = MOCK_DATA.service_requests.find(x => x.id === APP.selectedRequestId);
-  // TODO Supabase: update service_requests
-  r.status = result === 'cancelled' ? 'cancelled' : 'closed';
-  r.closed_by = APP.currentUser.id;
-  r.closed_at = new Date().toISOString();
-  r.close_note = note;
-  r.updated_at = new Date().toISOString();
+  const now = new Date().toISOString();
+  const newStatus = result === 'cancelled' ? 'cancelled' : 'closed';
 
-  MOCK_DATA.activity_log.unshift({
-    id: 'A-' + Date.now(),
-    request_id: r.id,
-    actor_id: APP.currentUser.id,
-    action_type: 'closed',
-    description: 'أغلق الطلب',
-    created_at: new Date().toISOString()
-  });
+  try{
+    const { error } = await window.sb
+      .from('service_requests')
+      .update({
+        status: newStatus,
+        closed_by: APP.currentUser.id,
+        closed_at: now,
+        close_note: note,
+        updated_at: now
+      })
+      .eq('id', r.id);
 
-  showToast('تم إغلاق الطلب بنجاح', 'success');
-  closeModal('closeModal');
-  openRequestDrawer(r.id);
-  if (APP.currentPage === 'requests') renderRequestsTable();
-  if (APP.currentPage === 'dashboard') renderDashboard();
+    if(error) throw error;
+
+    await window.sb.from('request_activity_log').insert({
+      request_id: r.id,
+      actor_id: APP.currentUser.id,
+      action_type: 'closed',
+      description: 'أغلق الطلب'
+    });
+
+    r.status = newStatus;
+    r.closed_by = APP.currentUser.id;
+    r.closed_at = now;
+    r.close_note = note;
+    r.updated_at = now;
+
+    showToast('تم إغلاق الطلب بنجاح', 'success');
+
+    closeModal('closeModal');
+
+    await loadSupabaseRequests();
+    await loadSupabaseActivity();
+
+    if (APP.currentPage === 'requests') renderRequestsTable();
+    if (APP.currentPage === 'dashboard') renderDashboard();
+
+    openRequestDrawer(r.id);
+
+  }catch(err){
+    console.error(err);
+    showToast('تعذر حفظ إغلاق الطلب في قاعدة البيانات', 'error');
+  }
 }
 
 // =============================================================
