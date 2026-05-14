@@ -925,28 +925,49 @@ function openStatusModal(reqId) {
   openModal('statusModal');
 }
 
-function confirmStatusChange() {
+async function confirmStatusChange() {
   const newStatus = document.getElementById('newStatusSelect').value;
   const r = MOCK_DATA.service_requests.find(x => x.id === APP.selectedRequestId);
   const oldStatus = r.status;
+  const now = new Date().toISOString();
 
-  // TODO Supabase: update service_requests
-  r.status = newStatus;
-  r.updated_at = new Date().toISOString();
+  try{
+    const { error } = await window.sb
+      .from('service_requests')
+      .update({
+        status: newStatus,
+        updated_at: now
+      })
+      .eq('id', r.id);
 
-  MOCK_DATA.activity_log.unshift({
-    id: 'A-' + Date.now(),
-    request_id: r.id,
-    actor_id: APP.currentUser.id,
-    action_type: 'status_changed',
-    description: `غيّر الحالة من "${HELPERS.statusLabel(oldStatus)}" إلى "${HELPERS.statusLabel(newStatus)}"`,
-    created_at: new Date().toISOString()
-  });
+    if(error) throw error;
 
-  showToast(`تم تغيير الحالة إلى "${HELPERS.statusLabel(newStatus)}"`, 'success');
-  closeModal('statusModal');
-  openRequestDrawer(r.id);
-  if (APP.currentPage === 'requests') renderRequestsTable();
+    await window.sb.from('request_activity_log').insert({
+      request_id: r.id,
+      actor_id: APP.currentUser.id,
+      action_type: 'status_changed',
+      description: `غيّر الحالة من "${HELPERS.statusLabel(oldStatus)}" إلى "${HELPERS.statusLabel(newStatus)}"`
+    });
+
+    r.status = newStatus;
+    r.updated_at = now;
+
+    showToast(`تم تغيير الحالة إلى "${HELPERS.statusLabel(newStatus)}"`, 'success');
+
+    closeModal('statusModal');
+
+    await loadSupabaseRequests();
+    await loadSupabaseActivity();
+
+    if (APP.currentPage === 'requests') renderRequestsTable();
+    if (APP.currentPage === 'dashboard') renderDashboard();
+
+    openRequestDrawer(r.id);
+
+  }catch(err){
+    console.error(err);
+    showToast('تعذر حفظ تغيير الحالة في قاعدة البيانات', 'error');
+  }
 }
 
 // ===== Modal إغلاق الطلب =====
