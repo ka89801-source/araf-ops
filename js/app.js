@@ -1409,7 +1409,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (APP.currentUser.role !== 'admin') {
     document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = 'none');
   }
-
+if (APP.currentUser.role !== 'admin') {
+  document.querySelectorAll('.nav-item[data-page="employees"], .nav-item[data-page="activity"]').forEach(function(el){
+    el.style.display = 'none';
+  });
+}
   // عناصر التنقل
   document.querySelectorAll('.nav-item[data-page]').forEach(el => {
     el.addEventListener('click', () => navigateTo(el.dataset.page));
