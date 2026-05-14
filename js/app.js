@@ -1129,6 +1129,44 @@ function renderNotifications() {
 
   document.getElementById('notifList').innerHTML = html;
 }
+async function loadSupabaseEmployees(){
+  if(!window.sb){
+    console.warn('Supabase client غير موجود، سيتم استخدام الموظفين التجريبيين');
+    return;
+  }
+
+  try{
+    const { data, error } = await window.sb
+      .from('employees')
+      .select('*')
+      .eq('status', 'active')
+      .order('created_at', { ascending:false });
+
+    if(error){
+      console.error('Supabase employees load error:', error);
+      showToast('تعذر تحميل الموظفين الحقيقيين', 'warn');
+      return;
+    }
+
+    MOCK_DATA.employees = (data || []).map(function(e){
+      return {
+        id: e.id,
+        full_name: e.full_name || '',
+        email: e.email || '',
+        phone: e.phone || '',
+        password: '',
+        role: e.role || 'employee',
+        status: e.status || 'active',
+        created_at: e.created_at,
+        last_login_at: e.last_login_at
+      };
+    });
+
+  }catch(e){
+    console.error(e);
+    showToast('حدث خطأ أثناء تحميل الموظفين', 'error');
+  }
+}
 async function loadSupabaseRequests(){
   if(!window.sb){
     console.warn('Supabase client غير موجود، سيتم استخدام البيانات التجريبية');
