@@ -16,6 +16,8 @@ const APP = {
   },
   selectedRequestId: null,
   pendingAssignEmpId: null,
+  supportTickets: [],
+  activityLog: [] 
 };
 
 // ===== التحقق من الجلسة =====
@@ -79,9 +81,10 @@ function navigateTo(page) {
 
   // تحديث المحتوى حسب الصفحة
   if (page === 'dashboard') renderDashboard();
-  if (page === 'requests') renderRequestsPage();
-  if (page === 'employees') renderEmployeesPage();
-  if (page === 'activity') renderActivityPage();
+if (page === 'requests') renderRequestsPage();
+if (page === 'employees') renderEmployeesPage();
+if (page === 'activity') renderActivityPage();
+if (page === 'support') renderSupportPage();
 }
 
 // =============================================================
@@ -1167,6 +1170,23 @@ async function loadSupabaseEmployees(){
     showToast('حدث خطأ أثناء تحميل الموظفين', 'error');
   }
 }
+function normalizeServiceType(value){
+  var v = String(value || '').trim();
+
+  var map = {
+    'استشارة قانونية': 'consultation',
+    'طلب دراسة قضية والتوكيل فيها': 'case_study',
+    'دراسة قضية والتوكيل': 'case_study',
+    'مراجعة عقد': 'contract_review',
+    'صياغة عقد': 'contract_draft',
+    'خدمات ناجز': 'najiz',
+    'خدمات منصة ناجز': 'najiz',
+    'إعداد مذكرة قانونية': 'memo',
+    'المساعد القانوني AI': 'ai_assistant'
+  };
+
+  return map[v] || v;
+}
 async function loadSupabaseRequests(){
   if(!window.sb){
     console.warn('Supabase client غير موجود، سيتم استخدام البيانات التجريبية');
@@ -1190,7 +1210,7 @@ async function loadSupabaseRequests(){
         id: r.id,
         customer_name: r.customer_name || '',
         customer_phone: r.customer_phone || '',
-        service_type: r.service_type || r.service_name || '',
+        service_type: normalizeServiceType(r.service_type || r.service_name || ''),
         service_name: r.service_name || r.service_type || '',
         price: Number(r.price || 0),
         payment_status: r.payment_status || 'manual_pending',
@@ -1214,6 +1234,62 @@ async function loadSupabaseRequests(){
   }catch(e){
     console.error(e);
     showToast('حدث خطأ أثناء الاتصال بقاعدة البيانات', 'error');
+  }
+}
+function updateSidebarCounts(){
+  var openCount = MOCK_DATA.service_requests.filter(function(r){
+    return !['done','closed','cancelled'].includes(r.status);
+  }).length;
+
+  var badge = document.querySelector('.nav-item[data-page="requests"] .nav-badge');
+  if(badge){
+    badge.textContent = openCount;
+  }
+
+  var notifDot = document.querySelector('#notifBtn .dot');
+  if(notifDot){
+    notifDot.style.display = openCount > 0 ? 'block' : 'none';
+  }
+}
+async function loadSupabaseActivity(){
+  if(!window.sb) return;
+
+  try{
+    const { data, error } = await window.sb
+      .from('request_activity_log')
+      .select('*')
+      .order('created_at', { ascending:false });
+
+    if(error){
+      console.error('Activity load error:', error);
+      return;
+    }
+
+    APP.activityLog = data || [];
+    MOCK_DATA.activity_log = APP.activityLog;
+
+  }catch(e){
+    console.error(e);
+  }
+}
+async function loadSupabaseSupportTickets(){
+  if(!window.sb) return;
+
+  try{
+    const { data, error } = await window.sb
+      .from('support_tickets')
+      .select('*')
+      .order('created_at', { ascending:false });
+
+    if(error){
+      console.error('Support tickets load error:', error);
+      return;
+    }
+
+    APP.supportTickets = data || [];
+
+  }catch(e){
+    console.error(e);
   }
 }
 // =============================================================
