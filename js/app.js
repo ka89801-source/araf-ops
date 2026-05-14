@@ -1113,22 +1113,69 @@ function toggleNotifPanel() {
 }
 
 function renderNotifications() {
+  var items = [];
+
+  MOCK_DATA.service_requests
+    .filter(function(r){ return r.status === 'new' || r.status === 'pending'; })
+    .slice(0, 5)
+    .forEach(function(r){
+      items.push({
+        type:'new',
+        text:'طلب جديد: ' + (r.service_name || HELPERS.getServiceName(r.service_type)) + ' — ' + r.customer_name,
+        time: HELPERS.timeAgo(r.created_at)
+      });
+    });
+
+  MOCK_DATA.service_requests
+    .filter(function(r){ return r.status === 'late' || r.priority === 'urgent' || r.priority === 'high'; })
+    .slice(0, 5)
+    .forEach(function(r){
+      items.push({
+        type:'late',
+        text:'طلب يحتاج اهتمام: ' + r.customer_name,
+        time: HELPERS.timeAgo(r.updated_at || r.created_at)
+      });
+    });
+
+  APP.supportTickets
+    .filter(function(t){ return t.status === 'new'; })
+    .slice(0, 5)
+    .forEach(function(t){
+      items.push({
+        type:'supp',
+        text:'رسالة دعم فني جديدة من ' + t.name,
+        time: HELPERS.timeAgo(t.created_at)
+      });
+    });
+
+  var countEl = document.querySelector('.notif-header .count');
+  if(countEl){
+    countEl.textContent = items.length + ' جديدة';
+  }
+
+  if(items.length === 0){
+    document.getElementById('notifList').innerHTML =
+      '<div style="padding:18px;text-align:center;color:var(--tm);font-size:13px;">لا توجد إشعارات جديدة</div>';
+    return;
+  }
+
   const icons = {
     new:  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>',
     late: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
-    done: '<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
-    supp: '<svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'
+    supp: '<svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>'
   };
 
-  const html = MOCK_DATA.notifications.map(n => `
-    <div class="notif-item">
-      <div class="notif-icon n-${n.type}">${icons[n.type]}</div>
-      <div>
-        <div class="notif-text">${n.text}</div>
-        <div class="notif-time">${n.time}</div>
+  const html = items.map(function(n){
+    return `
+      <div class="notif-item">
+        <div class="notif-icon n-${n.type}">${icons[n.type] || icons.new}</div>
+        <div>
+          <div class="notif-text">${n.text}</div>
+          <div class="notif-time">${n.time}</div>
+        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   document.getElementById('notifList').innerHTML = html;
 }
@@ -1292,6 +1339,63 @@ async function loadSupabaseSupportTickets(){
     console.error(e);
   }
 }
+function renderSupportPage(){
+  var page = document.getElementById('page-support');
+  if(!page) return;
+
+  var tickets = APP.supportTickets || [];
+
+  var body = '';
+
+  if(tickets.length === 0){
+    body = `
+      <div class="empty-state" style="background:#fff;border-radius:16px;border:var(--border);">
+        <svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
+        <h3>لا توجد رسائل دعم حالياً</h3>
+        <p>ستظهر هنا رسائل الدعم الفني القادمة من منصة أعراف.</p>
+      </div>
+    `;
+  }else{
+    body = `
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>الاسم</th>
+              <th>الجوال</th>
+              <th>المشكلة</th>
+              <th>الحالة</th>
+              <th>التاريخ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tickets.map(function(t){
+              return `
+                <tr>
+                  <td>${t.name || '—'}</td>
+                  <td>${t.phone || '—'}</td>
+                  <td>${t.problem || '—'}</td>
+                  <td><span class="badge s-${t.status || 'new'}">${t.status === 'closed' ? 'مغلقة' : 'جديدة'}</span></td>
+                  <td class="cell-date">${HELPERS.formatDate(t.created_at)}<small>${HELPERS.formatTime(t.created_at)}</small></td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  page.innerHTML = `
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">الدعم الفني</h1>
+        <p class="page-subtitle">رسائل وشكاوى المستخدمين الواردة من منصة أعراف</p>
+      </div>
+    </div>
+    ${body}
+  `;
+}
 // =============================================================
 // التهيئة
 // =============================================================
@@ -1348,8 +1452,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     renderRequestsTable();
   });
-await loadSupabaseEmployees();   
+await loadSupabaseEmployees();
 await loadSupabaseRequests();
-  // الافتراضي: الداشبورد
-  navigateTo('dashboard');
-});
+await loadSupabaseActivity();
+await loadSupabaseSupportTickets();
+
+updateSidebarCounts();
+renderNotifications();
+
+navigateTo('dashboard');
