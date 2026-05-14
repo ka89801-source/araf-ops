@@ -97,7 +97,13 @@ if (page === 'support') renderSupportPage();
 // لوحة التحكم (Dashboard)
 // =============================================================
 function renderDashboard() {
-  const reqs = MOCK_DATA.service_requests;
+  const isEmployeeView = APP.currentUser && APP.currentUser.role !== 'admin';
+
+const reqs = isEmployeeView
+  ? MOCK_DATA.service_requests.filter(function(r){
+      return r.assigned_to === APP.currentUser.id;
+    })
+  : MOCK_DATA.service_requests;
   const today = new Date().toISOString().slice(0, 10);
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
 
