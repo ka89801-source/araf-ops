@@ -591,9 +591,9 @@ a { color: inherit; text-decoration: none; }
 
 .filter-select {
   height: 40px;
-  padding: 0 32px 0 14px;
+  padding: 0 38px 0 18px;
   border: var(--border);
-  background: var(--bg) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234A6070' stroke-width='2.5'><polyline points='6 9 12 15 18 9'/></svg>") no-repeat left 12px center;
+  background: var(--bg) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%234A6070' stroke-width='2.5'><polyline points='6 9 12 15 18 9'/></svg>") no-repeat left 16px center;
   border-radius: 10px;
   font-size: 13.5px;
   font-family: inherit;
