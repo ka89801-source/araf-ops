@@ -82,13 +82,19 @@ const MOCK_DATA = {
   ],
 
   // ===== الخدمات (أسعار من منصة أعراف) =====
-  services: [
-    { key: 'consultation',  name: 'استشارة قانونية',        price: 250,  color: 'tl' },
-    { key: 'case_study',    name: 'دراسة قضية والتوكيل',    price: 1500, color: 'nv' },
-    { key: 'contract_review',name: 'مراجعة عقد',            price: 500,  color: 'gd' },
-    { key: 'contract_draft', name: 'صياغة عقد',             price: 800,  color: 'purple' },
-    { key: 'najiz',          name: 'خدمات منصة ناجز',        price: 350,  color: 'green' },
-    { key: 'memo',           name: 'إعداد مذكرة قانونية',    price: 1200, color: 'orange' }
+ services: [
+    { key: 'consultation',       name: 'استشارة قانونية',              price: 100, color: 'tl' },
+    { key: 'case_study',         name: 'دراسة قضية والتوكيل',          price: 400, color: 'nv' },
+    { key: 'contract_review',    name: 'مراجعة عقد',                  price: 150, color: 'gd' },
+    { key: 'contract_draft',     name: 'صياغة عقد',                   price: 250, color: 'purple' },
+    { key: 'najiz',              name: 'خدمات منصة ناجز',              price: 200, color: 'green' },
+    { key: 'memo',               name: 'إعداد مذكرة قانونية',          price: 300, color: 'orange' },
+
+    { key: 'official_letter',    name: 'صياغة خطاب رسمي',              price: 150, color: 'tl' },
+    { key: 'gov_violation',      name: 'اعتراض على مخالفة حكومية',      price: 250, color: 'purple' },
+    { key: 'lawsuit_draft',      name: 'تجهيز صحيفة دعوى',             price: 200, color: 'green' },
+    { key: 'court_session',      name: 'حضور جلسة قضائية',             price: 300, color: 'gd' },
+    { key: 'execution_request',  name: 'تقديم طلب تنفيذ عبر ناجز',      price: 300, color: 'orange' }
   ],
 
   // ===== الطلبات =====
