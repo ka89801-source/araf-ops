@@ -1366,13 +1366,32 @@ function normalizeServiceType(value){
 
   var map = {
     'استشارة قانونية': 'consultation',
+    'استشارة قانونية هاتفية': 'consultation',
+
     'طلب دراسة قضية والتوكيل فيها': 'case_study',
     'دراسة قضية والتوكيل': 'case_study',
+
     'مراجعة عقد': 'contract_review',
     'صياغة عقد': 'contract_draft',
+
     'خدمات ناجز': 'najiz',
     'خدمات منصة ناجز': 'najiz',
+
     'إعداد مذكرة قانونية': 'memo',
+
+    'صياغة خطاب رسمي': 'official_letter',
+    'الاعتراض على مخالفة حكومية': 'gov_violation',
+    'اعتراض على مخالفة حكومية': 'gov_violation',
+
+    'تجهيز صحيفة دعوى': 'lawsuit_draft',
+    'رفع دعوى': 'lawsuit_draft',
+
+    'حضور جلسة قضائية نيابة عن العميل': 'court_session',
+    'حضور جلسة قضائية': 'court_session',
+
+    'تقديم طلب تنفيذ عبر ناجز': 'execution_request',
+    'طلب تنفيذ عبر ناجز': 'execution_request',
+
     'المساعد القانوني AI': 'ai_assistant'
   };
 
