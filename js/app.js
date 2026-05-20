@@ -252,7 +252,82 @@ const paymentPending = reqs.filter(function(r){
   // الطلبات العاجلة
   renderUrgentRequests();
 }
+async function refreshDashboardData(){
+  var btn = document.getElementById('refreshDashboardBtn');
+  var oldHTML = btn ? btn.innerHTML : '';
 
+  try{
+    if(btn){
+      btn.disabled = true;
+      btn.classList.add('is-loading');
+      btn.innerHTML = `
+        <svg viewBox="0 0 24 24">
+          <polyline points="23 4 23 10 17 10"/>
+          <polyline points="1 20 1 14 7 14"/>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/>
+          <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>
+        </svg>
+        جاري التحديث...
+      `;
+    }
+
+    if(typeof loadSupabaseEmployees === 'function'){
+      await loadSupabaseEmployees();
+    }
+
+    if(typeof loadSupabaseRequests === 'function'){
+      await loadSupabaseRequests();
+    }
+
+    if(typeof loadSupabaseActivity === 'function'){
+      await loadSupabaseActivity();
+    }
+
+    if(typeof loadSupabaseSupportTickets === 'function'){
+      await loadSupabaseSupportTickets();
+    }
+
+    if(typeof updateSidebarCounts === 'function'){
+      updateSidebarCounts();
+    }
+
+    if(typeof renderNotifications === 'function'){
+      renderNotifications();
+    }
+
+    if(APP.currentPage === 'dashboard'){
+      renderDashboard();
+    }
+
+    if(APP.currentPage === 'requests'){
+      renderRequestsPage();
+    }
+
+    if(APP.currentPage === 'employees'){
+      renderEmployeesPage();
+    }
+
+    if(APP.currentPage === 'activity'){
+      renderActivityPage();
+    }
+
+    if(APP.currentPage === 'support'){
+      renderSupportPage();
+    }
+
+    showToast('تم تحديث البيانات بنجاح', 'success');
+
+  }catch(err){
+    console.error(err);
+    showToast('تعذر تحديث البيانات، حاول مرة أخرى', 'error');
+  }finally{
+    if(btn){
+      btn.disabled = false;
+      btn.classList.remove('is-loading');
+      btn.innerHTML = oldHTML;
+    }
+  }
+}
 // ===== الرسم البياني للاتجاه =====
 function drawTrendChart() {
   const days = 7;
