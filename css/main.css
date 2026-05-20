@@ -1417,3 +1417,17 @@ a { color: inherit; text-decoration: none; }
   from{background-position:0% 50%}
   to{background-position:200% 50%}
 }
+@keyframes refreshSpin{
+  to{
+    transform:rotate(360deg);
+  }
+}
+
+.btn.is-loading{
+  opacity:.75;
+  pointer-events:none;
+}
+
+.btn.is-loading svg{
+  animation:refreshSpin .8s linear infinite;
+}
