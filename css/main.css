@@ -1431,3 +1431,267 @@ a { color: inherit; text-decoration: none; }
 .btn.is-loading svg{
   animation:refreshSpin .8s linear infinite;
 }
+/* =============================================================
+   تحسين عرض لوحة الموظفين على الجوال
+   ============================================================= */
+
+@media (max-width: 640px) {
+  html,
+  body {
+    font-size: 13.5px;
+    overflow-x: hidden;
+  }
+
+  .content {
+    padding: 16px 12px 28px;
+  }
+
+  .topbar {
+    padding: 10px 12px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .topbar-title {
+    font-size: 16px;
+    flex: 1;
+  }
+
+  .topbar-search {
+    order: 3;
+    max-width: none;
+    width: 100%;
+    flex-basis: 100%;
+  }
+
+  .topbar-search input {
+    height: 38px;
+    font-size: 13px;
+  }
+
+  .topbar-actions {
+    margin-right: 0;
+    gap: 6px;
+  }
+
+  .topbar-user {
+    padding: 5px 8px;
+  }
+
+  .topbar-user-name {
+    display: none;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .page-title {
+    font-size: 20px;
+    line-height: 1.5;
+  }
+
+  .page-subtitle {
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  .page-header > div:last-child,
+  .page-header > button,
+  .page-header .btn {
+    width: 100%;
+  }
+
+  .page-header > div[style] {
+    width: 100%;
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 8px !important;
+  }
+
+  .page-header .btn {
+    justify-content: center;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  .kpi-card {
+    padding: 14px 13px;
+    border-radius: 14px;
+  }
+
+  .kpi-label {
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
+
+  .kpi-value {
+    font-size: 24px;
+  }
+
+  .kpi-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
+  }
+
+  .kpi-trend {
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .dash-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  .panel {
+    padding: 16px 14px;
+    border-radius: 15px;
+  }
+
+  .panel-header {
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+  }
+
+  .panel-title {
+    font-size: 15px;
+  }
+
+  .chart-wrap {
+    height: 210px;
+    overflow: hidden;
+  }
+
+  .service-bar-label,
+  .service-bar-value {
+    font-size: 12px;
+  }
+
+  .recent-item {
+    padding: 10px 8px;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .recent-item-left {
+    gap: 8px;
+  }
+
+  .recent-item-right {
+    min-width: 74px;
+  }
+
+  .cell-customer-avatar {
+    width: 30px;
+    height: 30px;
+    font-size: 11px;
+  }
+
+  .toolbar {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .toolbar-search,
+  .filter-select,
+  .toolbar .btn {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .filter-select,
+  .toolbar-search input {
+    height: 38px;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 14px;
+  }
+
+  .table {
+    min-width: 860px;
+  }
+
+  .table th,
+  .table td {
+    padding: 11px 12px;
+    font-size: 12.5px;
+    white-space: nowrap;
+  }
+
+  .drawer {
+    width: 100%;
+    max-width: none;
+    border-radius: 22px 22px 0 0;
+  }
+
+  .drawer-header,
+  .drawer-body,
+  .drawer-footer {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .modal-card {
+    width: calc(100% - 20px);
+    max-height: 90vh;
+    border-radius: 18px;
+  }
+
+  .modal-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .modal-footer .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .toast-wrap {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .toast {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kpi-card {
+    padding: 15px;
+  }
+
+  .content {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .panel {
+    padding: 15px 12px;
+  }
+}
