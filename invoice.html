@@ -411,15 +411,45 @@
   display: block !important;
 }
   
-  @media print{
-    body{background:#fff;padding:0;}
-    .toolbar,.doc-label,.tt-hint{display:none;}
-    .doc{box-shadow:none;margin:0;page-break-after:always;}
-    [contenteditable]:hover,[contenteditable]:focus{box-shadow:none;background:none;}
-    .status-chip:not(.active){opacity:.4;}
-    .a4{width:210mm;min-height:297mm;}
-    .mobile{width:148mm;}
+  @media print {
+  @page {
+    size: 480px auto;
+    margin: 0;
   }
+
+  html,
+  body {
+    width: 480px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #EDEBE4 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .toolbar,
+  .doc-label,
+  .tt-hint {
+    display: none !important;
+  }
+
+  .a4 {
+    display: none !important;
+  }
+
+  .doc.mobile {
+    width: 480px !important;
+    margin: 0 auto !important;
+    box-shadow: var(--shadow) !important;
+    overflow: hidden !important;
+  }
+
+  [contenteditable]:hover,
+  [contenteditable]:focus {
+    box-shadow: none !important;
+    background: none !important;
+  }
+}
 </style>
 </head>
 <body class="invoice-mobile-only">
