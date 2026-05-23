@@ -712,7 +712,7 @@ const isEmployee = APP.currentUser && APP.currentUser.role !== 'admin';
 
 if(isEmployee){
   document.getElementById('drawerActions').innerHTML = `
-  <button class="btn btn-gold" onclick="openInvoiceModal('${r.id}')">
+  <button class="btn btn-gold" onclick="openInvoiceEditor('${r.id}')">
   تصدير الفاتورة
 </button>
     <button class="btn" onclick="quickAction('${r.id}','contacted')" ${isClosed ? 'disabled' : ''}>
@@ -748,7 +748,7 @@ if(isEmployee){
   `;
 }else{
   document.getElementById('drawerActions').innerHTML = `
-  <button class="btn btn-gold" onclick="openInvoiceModal('${r.id}')">
+  <button class="btn btn-gold" onclick="openInvoiceEditor('${r.id}')">
   تصدير الفاتورة
 </button>
     <button class="btn" onclick="openAssignModal('${r.id}')" ${isClosed ? 'disabled' : ''}>
