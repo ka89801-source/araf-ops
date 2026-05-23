@@ -1017,47 +1017,67 @@ function downloadInvoicePDF() {
   const invoice = document.querySelector('.doc.mobile');
 
   if (!invoice) {
-    alert('لم يتم العثور على نسخة الفاتورة');
+    alert('لم يتم العثور على الفاتورة');
     return;
   }
 
-  const oldShadow = invoice.style.boxShadow;
-  invoice.style.boxShadow = 'none';
+  const clone = invoice.cloneNode(true);
 
-  const width = invoice.scrollWidth;
-  const height = invoice.scrollHeight;
+  const wrap = document.createElement('div');
+  wrap.style.position = 'fixed';
+  wrap.style.left = '0';
+  wrap.style.top = '0';
+  wrap.style.width = '480px';
+  wrap.style.background = '#EDEBE4';
+  wrap.style.zIndex = '-9999';
+  wrap.style.overflow = 'visible';
+  wrap.style.direction = 'rtl';
 
-  const opt = {
-    margin: 0,
-    filename: 'فاتورة أعراف - ARAF LEGAL OS.pdf',
-    image: {
-      type: 'jpeg',
-      quality: 1
-    },
-    html2canvas: {
-      scale: 3,
-      useCORS: true,
-      backgroundColor: '#EDEBE4',
-      scrollX: 0,
-      scrollY: 0,
-      windowWidth: width,
-      windowHeight: height
-    },
-    jsPDF: {
-      unit: 'px',
-      format: [width, height],
-      orientation: 'portrait'
-    }
-  };
+  clone.style.width = '480px';
+  clone.style.margin = '0';
+  clone.style.boxShadow = 'none';
+  clone.style.transform = 'none';
+  clone.style.position = 'relative';
+  clone.style.left = '0';
+  clone.style.right = '0';
 
-  html2pdf()
-    .set(opt)
-    .from(invoice)
-    .save()
-    .then(function () {
-      invoice.style.boxShadow = oldShadow;
-    });
+  wrap.appendChild(clone);
+  document.body.appendChild(wrap);
+
+  setTimeout(function () {
+    const width = 480;
+    const height = clone.scrollHeight;
+
+    html2pdf()
+      .set({
+        margin: 0,
+        filename: 'فاتورة أعراف - ARAF LEGAL OS.pdf',
+        image: {
+          type: 'jpeg',
+          quality: 1
+        },
+        html2canvas: {
+          scale: 4,
+          useCORS: true,
+          backgroundColor: '#EDEBE4',
+          scrollX: 0,
+          scrollY: 0,
+          windowWidth: width,
+          windowHeight: height
+        },
+        jsPDF: {
+          unit: 'px',
+          format: [width, height],
+          orientation: 'portrait'
+        }
+      })
+      .from(clone)
+      .save()
+      .then(function () {
+        document.body.removeChild(wrap);
+      });
+  }, 300);
 }
-</script> 
+</script>
 </body>
 </html>
