@@ -401,6 +401,16 @@
     letter-spacing:0;
   }
 
+/* عرض نسخة الجوال فقط داخل الداش بورد */
+.invoice-mobile-only .a4,
+.invoice-mobile-only .doc-label {
+  display: none !important;
+}
+
+.invoice-mobile-only #docMobile {
+  display: block !important;
+}
+  
   @media print{
     body{background:#fff;padding:0;}
     .toolbar,.doc-label,.tt-hint{display:none;}
@@ -903,6 +913,72 @@
   document.querySelectorAll('img.logo-light').forEach(function(i){i.src=LOGO_LIGHT;});
   document.querySelectorAll('img.logo-dark').forEach(function(i){i.src=LOGO_DARK;});
 </script>
+<script>
+function pickStatus(el){
+  const group = el.closest('[data-status-group]');
+  if (!group) return;
+  group.querySelectorAll('.status-chip').forEach(x => x.classList.remove('active'));
+  el.classList.add('active');
+}
 
+function setEditableText(selector, value){
+  const el = document.querySelector(selector);
+  if (el) el.textContent = value || '';
+}
+
+function formatMoney(n){
+  const num = Number(n || 0);
+  return num.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+window.addEventListener('DOMContentLoaded', function(){
+  const raw = localStorage.getItem('araf_invoice_data');
+  if (!raw) return;
+
+  const data = JSON.parse(raw);
+  const doc = document.getElementById('docMobile');
+  if (!doc) return;
+
+  const amount = Number(data.price || 0);
+  const vat = amount * 0.15;
+  const total = amount + vat;
+
+  const editable = doc.querySelectorAll('[contenteditable="true"]');
+
+  const invoiceNumber = doc.querySelector('.inv-tag .num b');
+  if (invoiceNumber) invoiceNumber.textContent = data.invoice_no;
+
+  const rows = doc.querySelectorAll('.meta-row .v');
+  if (rows[0]) rows[0].textContent = data.customer_name || '';
+  if (rows[1]) rows[1].textContent = data.customer_phone || '';
+  if (rows[2]) rows[2].textContent = data.customer_email || '—';
+  if (rows[3]) rows[3].textContent = data.issue_date || '';
+  if (rows[4]) rows[4].textContent = data.due_date || '';
+  if (rows[5]) rows[5].textContent = data.payment_method || 'تحويل بنكي';
+
+  const serviceName = doc.querySelector('.svc-name');
+  if (serviceName) serviceName.textContent = data.service_name || '';
+
+  const serviceDesc = doc.querySelector('.svc-desc');
+  if (serviceDesc) serviceDesc.textContent = data.details || '';
+
+  const qty = doc.querySelector('.svc-table .qty');
+  if (qty) qty.textContent = '١';
+
+  const serviceAmount = doc.querySelector('.svc-table .amount');
+  if (serviceAmount) serviceAmount.textContent = formatMoney(amount);
+
+  const totalRows = doc.querySelectorAll('.totals .ttl-row .v');
+  if (totalRows[0]) totalRows[0].textContent = formatMoney(amount) + ' ر.س';
+  if (totalRows[1]) totalRows[1].textContent = formatMoney(vat) + ' ر.س';
+  if (totalRows[2]) totalRows[2].textContent = '0.00 ر.س';
+
+  const grand = doc.querySelector('.grand .gv');
+  if (grand) grand.innerHTML = formatMoney(total) + ' <small>ر.س</small>';
+});
+</script>
 </body>
 </html>
