@@ -712,6 +712,9 @@ const isEmployee = APP.currentUser && APP.currentUser.role !== 'admin';
 
 if(isEmployee){
   document.getElementById('drawerActions').innerHTML = `
+  <button class="btn btn-gold" onclick="openInvoiceModal('${r.id}')">
+  تصدير الفاتورة
+</button>
     <button class="btn" onclick="quickAction('${r.id}','contacted')" ${isClosed ? 'disabled' : ''}>
       <svg viewBox="0 0 24 24">
         <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72"/>
