@@ -952,26 +952,37 @@ function quickAction(reqId, action) {
 // =============================================================
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-function openInvoiceModal(reqId) {
-  APP.selectedRequestId = reqId;
-
+function openInvoiceEditor(reqId) {
   const r = MOCK_DATA.service_requests.find(x => x.id === reqId);
-  if (!r) return;
 
-  document.getElementById('invNo').value = 'ARF-' + new Date().getFullYear() + '-' + r.id.replace(/\D/g, '');
-  document.getElementById('invCustomer').value = r.customer_name || '';
-  document.getElementById('invPhone').value = r.customer_phone || '';
-  document.getElementById('invEmail').value = '';
-  document.getElementById('invService').value = HELPERS.getServiceName(r.service_type);
-  document.getElementById('invDesc').value = r.details || '';
-  document.getElementById('invAmount').value = Number(r.price || 0);
-  document.getElementById('invVat').value = 15;
-  document.getElementById('invPayment').value = HELPERS.paymentLabel(r.payment_status);
-  document.getElementById('invStatus').value = HELPERS.statusLabel(r.status);
+  if (!r) {
+    showToast('لم يتم العثور على الطلب', 'error');
+    return;
+  }
 
-  openModal('invoiceModal');
+  const today = new Date();
+  const due = new Date();
+  due.setDate(today.getDate() + 7);
+
+  const invoiceData = {
+    request_id: r.id,
+    invoice_no: 'ARF-' + new Date().getFullYear() + '-' + r.id.replace(/\D/g, ''),
+    customer_name: r.customer_name || '',
+    customer_phone: r.customer_phone || '',
+    customer_email: r.customer_email || '',
+    service_name: HELPERS.getServiceName(r.service_type),
+    details: r.details || '',
+    price: r.price || 0,
+    payment_method: HELPERS.paymentLabel(r.payment_status),
+    status: HELPERS.statusLabel(r.status),
+    issue_date: today.toLocaleDateString('ar-SA'),
+    due_date: due.toLocaleDateString('ar-SA')
+  };
+
+  localStorage.setItem('araf_invoice_data', JSON.stringify(invoiceData));
+
+  window.open('invoice.html', '_blank');
 }
-
 function exportInvoicePDF() {
   const amount = Number(document.getElementById('invAmount').value || 0);
   const vatRate = Number(document.getElementById('invVat').value || 0);
