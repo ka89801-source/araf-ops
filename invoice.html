@@ -1010,7 +1010,36 @@ window.addEventListener('DOMContentLoaded', function(){
   if (grand) grand.innerHTML = formatMoney(total) + ' <small>ر.س</small>';
 });
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
+<script>
+function downloadInvoiceImage() {
+
+  const invoice = document.querySelector('.doc.mobile');
+
+  if (!invoice) {
+    alert('لم يتم العثور على الفاتورة');
+    return;
+  }
+
+  html2canvas(invoice, {
+    scale: 3,
+    useCORS: true,
+    backgroundColor: '#EDEBE4'
+  }).then(function(canvas) {
+
+    const link = document.createElement('a');
+
+    link.download = 'فاتورة أعراف.png';
+
+    link.href = canvas.toDataURL('image/png');
+
+    link.click();
+
+  });
+
+}
+</script>
 }
 </script>
 </body>
