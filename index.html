@@ -482,6 +482,27 @@
     </div>
   </div>
 
+<div class="modal-overlay" id="resetRequestsModal" onclick="if(event.target===this)closeModal('resetRequestsModal')">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>تصفير الطلبات</h3>
+      <button class="drawer-close" onclick="closeModal('resetRequestsModal')">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <p style="font-size:14px;color:var(--t2);line-height:1.9;">
+        هذا الإجراء يحتاج موافقة مدير آخر. بعد الاعتماد سيتم تصفير عداد الطلبات وبدء العد من جديد.
+      </p>
+
+      <div id="resetRequestsStatus" style="margin-top:14px;"></div>
+    </div>
+
+    <div class="modal-footer" id="resetRequestsActions"></div>
+  </div>
+</div>
+  
   <!-- =========================
      Toast Notifications
      ========================= -->
