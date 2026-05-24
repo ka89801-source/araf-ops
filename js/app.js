@@ -1716,3 +1716,168 @@ if(loader){
   loader.classList.add('hide');
 }   
 });
+async function openResetRequestsModal() {
+  openModal('resetRequestsModal');
+  await renderResetRequestsModal();
+}
+
+async function getPendingResetRequest() {
+  const { data, error } = await window.sb
+    .from('ops_reset_requests')
+    .select('*')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error(error);
+    return null;
+  }
+
+  return data;
+}
+
+async function renderResetRequestsModal() {
+  const box = document.getElementById('resetRequestsStatus');
+  const actions = document.getElementById('resetRequestsActions');
+
+  const pending = await getPendingResetRequest();
+
+  if (!pending) {
+    box.innerHTML = `
+      <div class="empty-state" style="padding:18px;">
+        لا يوجد طلب تصفير قائم حاليًا.
+      </div>
+    `;
+
+    actions.innerHTML = `
+      <button class="btn" onclick="closeModal('resetRequestsModal')">إلغاء</button>
+      <button class="btn btn-danger" onclick="requestResetRequestsCounter()">طلب تصفير الطلبات</button>
+    `;
+    return;
+  }
+
+  const isRequester = pending.requested_by === APP.currentUser.id;
+
+  box.innerHTML = `
+    <div style="background:#fff;border:var(--border);border-radius:12px;padding:16px;line-height:1.9;">
+      <strong>يوجد طلب تصفير بانتظار الاعتماد</strong><br>
+      طالب التصفير: ${pending.requested_by_name || pending.requested_by}<br>
+      تاريخ الطلب: ${HELPERS.formatDateTime(pending.created_at)}
+    </div>
+  `;
+
+  if (isRequester) {
+    actions.innerHTML = `
+      <button class="btn" onclick="closeModal('resetRequestsModal')">إغلاق</button>
+      <button class="btn btn-danger" onclick="cancelResetRequestsCounter('${pending.id}')">إلغاء طلب التصفير</button>
+    `;
+  } else {
+    actions.innerHTML = `
+      <button class="btn" onclick="closeModal('resetRequestsModal')">إلغاء</button>
+      <button class="btn btn-danger" onclick="approveResetRequestsCounter('${pending.id}')">اعتماد التصفير</button>
+    `;
+  }
+}
+
+async function requestResetRequestsCounter() {
+  const pending = await getPendingResetRequest();
+
+  if (pending) {
+    showToast('يوجد طلب تصفير قائم بالفعل', 'warn');
+    await renderResetRequestsModal();
+    return;
+  }
+
+  const { error } = await window.sb
+    .from('ops_reset_requests')
+    .insert({
+      requested_by: APP.currentUser.id,
+      requested_by_name: APP.currentUser.full_name || APP.currentUser.name || 'مدير',
+      status: 'pending'
+    });
+
+  if (error) {
+    console.error(error);
+    showToast('تعذر إنشاء طلب التصفير', 'error');
+    return;
+  }
+
+  showToast('تم إرسال طلب التصفير بانتظار موافقة مدير آخر', 'success');
+  await renderResetRequestsModal();
+}
+
+async function approveResetRequestsCounter(resetId) {
+  const { data: pending, error: readError } = await window.sb
+    .from('ops_reset_requests')
+    .select('*')
+    .eq('id', resetId)
+    .eq('status', 'pending')
+    .maybeSingle();
+
+  if (readError || !pending) {
+    showToast('طلب التصفير غير موجود أو تم التعامل معه', 'error');
+    return;
+  }
+
+  if (pending.requested_by === APP.currentUser.id) {
+    showToast('لا يمكن لطالب التصفير اعتماد طلبه بنفسه', 'warn');
+    return;
+  }
+
+  const now = new Date().toISOString();
+
+  const { error: settingError } = await window.sb
+    .from('ops_settings')
+    .upsert({
+      key: 'requests_reset_at',
+      value: now,
+      updated_at: now
+    });
+
+  if (settingError) {
+    console.error(settingError);
+    showToast('تعذر حفظ وقت التصفير', 'error');
+    return;
+  }
+
+  const { error: approveError } = await window.sb
+    .from('ops_reset_requests')
+    .update({
+      status: 'approved',
+      approved_by: APP.currentUser.id,
+      approved_by_name: APP.currentUser.full_name || APP.currentUser.name || 'مدير',
+      approved_at: now
+    })
+    .eq('id', resetId);
+
+  if (approveError) {
+    console.error(approveError);
+    showToast('تعذر اعتماد التصفير', 'error');
+    return;
+  }
+
+  showToast('تم اعتماد التصفير وبدأ العداد من جديد', 'success');
+  closeModal('resetRequestsModal');
+
+  if (typeof refreshDashboardData === 'function') {
+    await refreshDashboardData();
+  }
+}
+
+async function cancelResetRequestsCounter(resetId) {
+  const { error } = await window.sb
+    .from('ops_reset_requests')
+    .update({ status: 'cancelled' })
+    .eq('id', resetId);
+
+  if (error) {
+    console.error(error);
+    showToast('تعذر إلغاء طلب التصفير', 'error');
+    return;
+  }
+
+  showToast('تم إلغاء طلب التصفير', 'success');
+  await renderResetRequestsModal();
+}
