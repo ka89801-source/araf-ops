@@ -1820,6 +1820,66 @@ async function loadSupabaseSupportTickets(){
     console.error(e);
   }
 }
+
+function openConvertSupportModal(ticketId) {
+  const ticket = (APP.supportTickets || []).find(function(item) {
+    return item.id === ticketId;
+  });
+
+  if (!ticket) {
+    showToast('تعذر العثور على رسالة الدعم', 'error');
+    return;
+  }
+
+  // منع تحويل الرسالة أكثر من مرة
+  if (ticket.status === 'converted' || ticket.converted_request_id) {
+    showToast('تم تحويل هذه الرسالة إلى طلب مسبقًا', 'warn');
+    return;
+  }
+
+  APP.selectedSupportTicketId = ticketId;
+
+  document.getElementById('convertSupportCustomerName').textContent =
+    ticket.name || '—';
+
+  document.getElementById('convertSupportCustomerPhone').textContent =
+    ticket.phone || '—';
+
+  document.getElementById('convertSupportProblem').textContent =
+    ticket.problem || '—';
+
+  const serviceSelect =
+    document.getElementById('convertSupportService');
+
+  serviceSelect.innerHTML =
+    '<option value="">اختر الخدمة المناسبة</option>' +
+    MOCK_DATA.services.map(function(service) {
+      return `
+        <option value="${service.key}">
+          ${service.name}
+        </option>
+      `;
+    }).join('');
+
+  const priceInput =
+    document.getElementById('convertSupportPrice');
+
+  priceInput.value = '';
+
+  // تعبئة السعر تلقائيًا عند اختيار الخدمة
+  serviceSelect.onchange = function() {
+    const selectedService = MOCK_DATA.services.find(function(service) {
+      return service.key === serviceSelect.value;
+    });
+
+    priceInput.value = selectedService
+      ? selectedService.price
+      : '';
+  };
+
+  openModal('convertSupportModal');
+}
+
 function renderSupportPage(){
   var page = document.getElementById('page-support');
   if(!page) return;
