@@ -1910,6 +1910,7 @@ function openConvertSupportModal(ticketId) {
     document.getElementById('convertSupportPrice');
 
   priceInput.value = '';
+  document.getElementById('convertSupportPaymentStatus').value = 'pending'; 
 
   // تعبئة السعر تلقائيًا عند اختيار الخدمة
   serviceSelect.onchange = function() {
