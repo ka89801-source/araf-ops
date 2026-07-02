@@ -1910,17 +1910,39 @@ function renderSupportPage(){
             </tr>
           </thead>
           <tbody>
-            ${tickets.map(function(t){
-              return `
-                <tr>
-                  <td>${t.name || '—'}</td>
-                  <td>${t.phone || '—'}</td>
-                  <td>${t.problem || '—'}</td>
-                  <td><span class="badge s-${t.status || 'new'}">${t.status === 'closed' ? 'مغلقة' : 'جديدة'}</span></td>
-                  <td class="cell-date">${HELPERS.formatDate(t.created_at)}<small>${HELPERS.formatTime(t.created_at)}</small></td>
-                </tr>
-              `;
-            }).join('')}
+           ${tickets.map(function(t){
+  const isConverted =
+    t.status === 'converted' ||
+    t.converted_request_id;
+
+  return `
+    <tr
+      onclick="openConvertSupportModal('${t.id}')"
+      style="cursor:pointer;${isConverted ? 'opacity:.75;' : ''}"
+      title="${isConverted
+        ? 'تم تحويل هذه الرسالة إلى طلب'
+        : 'اضغط لعرض الرسالة وتحويلها إلى طلب'
+      }"
+    >
+      <td>${t.name || '—'}</td>
+
+      <td>${t.phone || '—'}</td>
+
+      <td>${t.problem || '—'}</td>
+
+      <td>
+        <span class="badge ${isConverted ? 's-done' : 's-new'}">
+          ${isConverted ? 'محوّلة إلى طلب' : 'جديدة'}
+        </span>
+      </td>
+
+      <td class="cell-date">
+        ${HELPERS.formatDate(t.created_at)}
+        <small>${HELPERS.formatTime(t.created_at)}</small>
+      </td>
+    </tr>
+  `;
+}).join('')}
           </tbody>
         </table>
       </div>
