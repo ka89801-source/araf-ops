@@ -1352,8 +1352,7 @@ if (isFinalStatus) {
   : `غيّر الحالة من "${HELPERS.statusLabel(oldStatus)}" إلى "${HELPERS.statusLabel(newStatus)}"`
     });
 
-    r.status = newStatus;
-    r.updated_at = now;
+   Object.assign(r, updateData);
 
     showToast(`تم تغيير الحالة إلى "${HELPERS.statusLabel(newStatus)}"`, 'success');
 
