@@ -1305,7 +1305,9 @@ async function confirmStatusChange() {
       request_id: r.id,
       actor_id: APP.currentUser.id,
       action_type: 'status_changed',
-      description: `غيّر الحالة من "${HELPERS.statusLabel(oldStatus)}" إلى "${HELPERS.statusLabel(newStatus)}"`
+      description: statusComment
+  ? `غيّر الحالة من "${HELPERS.statusLabel(oldStatus)}" إلى "${HELPERS.statusLabel(newStatus)}" — التعليق: ${statusComment}`
+  : `غيّر الحالة من "${HELPERS.statusLabel(oldStatus)}" إلى "${HELPERS.statusLabel(newStatus)}"`
     });
 
     r.status = newStatus;
