@@ -1938,7 +1938,8 @@ async function confirmConvertSupportTicket() {
 
   const priceValue =
     document.getElementById('convertSupportPrice').value;
-
+const paymentStatus =
+  document.getElementById('convertSupportPaymentStatus').value;
   if (!serviceKey) {
     showToast('اختر تصنيف الخدمة أولًا', 'warn');
     return;
