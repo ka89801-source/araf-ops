@@ -1317,14 +1317,28 @@ async function confirmStatusChange() {
   const r = MOCK_DATA.service_requests.find(x => x.id === APP.selectedRequestId);
   const oldStatus = r.status;
   const now = new Date().toISOString();
+const isFinalStatus =
+  newStatus === 'done' ||
+  newStatus === 'cancelled';
 
+const updateData = {
+  status: newStatus,
+  updated_at: now
+};
+
+if (isFinalStatus) {
+  updateData.closed_by = APP.currentUser.id;
+  updateData.closed_at = now;
+  updateData.close_note = statusComment || null;
+} else {
+  updateData.closed_by = null;
+  updateData.closed_at = null;
+  updateData.close_note = null;
+}
   try{
     const { error } = await window.sb
       .from('service_requests')
-      .update({
-        status: newStatus,
-        updated_at: now
-      })
+      .update(updateData)
       .eq('id', r.id);
 
     if(error) throw error;
