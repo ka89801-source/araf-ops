@@ -395,9 +395,18 @@
             <option value="waiting">بانتظار مستندات</option>
             <option value="progress">قيد التنفيذ</option>
             <option value="done">مكتمل</option>
+            <option value="cancelled">ملغي</option>
             <option value="late">متأخر</option>
           </select>
         </div>
+        <div class="field">
+  <label>تعليق على تغيير الحالة</label>
+  <textarea
+    id="statusCommentInput"
+    rows="4"
+    placeholder="اكتب تعليقًا مختصرًا يوضح سبب تغيير الحالة أو آخر مستجدات الطلب..."
+  ></textarea>
+</div>
       </div>
       <div class="modal-footer">
         <button class="btn" onclick="closeModal('statusModal')">إلغاء</button>
