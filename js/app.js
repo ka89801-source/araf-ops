@@ -576,6 +576,52 @@ function renderRequestsTable() {
   document.getElementById('requestsTableBody').innerHTML = html;
 }
 
+// ===== أزرار حذف الطلب بموافقة مستخدمين =====
+function getPendingDeleteRequestFor(requestId) {
+  return (APP.deleteRequests || []).find(function(item) {
+    return item.request_id === requestId && item.status === 'pending';
+  }) || null;
+}
+
+function renderDeleteRequestAction(request) {
+  const pending = getPendingDeleteRequestFor(request.id);
+
+  // لا يوجد طلب حذف معلق
+  if (!pending) {
+    return `
+      <button class="btn btn-danger btn-sm"
+              onclick="requestServiceRequestDeletion(event, '${request.id}')"
+              title="طلب حذف الطلب">
+        حذف
+      </button>
+    `;
+  }
+
+  // المستخدم الحالي هو من طلب الحذف
+  if (pending.requested_by === APP.currentUser.id) {
+    return `
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span class="badge" style="background:var(--orange-l);color:#92400E;">
+          بانتظار الاعتماد
+        </span>
+
+        <button class="btn btn-sm"
+                onclick="cancelServiceRequestDeletion(event, '${pending.id}')">
+          إلغاء
+        </button>
+      </div>
+    `;
+  }
+
+  // المستخدم الآخر يستطيع اعتماد الحذف
+  return `
+    <button class="btn btn-danger btn-sm"
+            onclick="approveServiceRequestDeletion(event, '${request.id}')">
+      اعتماد الحذف
+    </button>
+  `;
+}
+
 // إعادة ضبط الفلاتر
 function resetFilters() {
   APP.filters = { search: '', service: 'all', status: 'all', employee: 'all', payment: 'all', priority: 'all' };
