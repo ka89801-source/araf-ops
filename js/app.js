@@ -16,7 +16,8 @@ const APP = {
   },
   selectedRequestId: null,
   pendingAssignEmpId: null,
-  supportTickets: [],
+ supportTickets: [],
+selectedSupportTicketId: null,
 activityLog: [],
 deleteRequests: [] 
 };
