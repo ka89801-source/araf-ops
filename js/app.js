@@ -1784,9 +1784,9 @@ if (APP.currentUser.role !== 'admin') {
   });
 await loadSupabaseEmployees();
 await loadSupabaseRequests();
+await loadDeleteRequests();
 await loadSupabaseActivity();
 await loadSupabaseSupportTickets();
-
 updateSidebarCounts();
 renderNotifications();
 
