@@ -1580,6 +1580,31 @@ const { data, error } = await query;
     showToast('حدث خطأ أثناء الاتصال بقاعدة البيانات', 'error');
   }
 }
+
+async function loadDeleteRequests() {
+  if (!window.sb) return;
+
+  try {
+    const { data, error } = await window.sb
+      .from('request_delete_requests')
+      .select('*')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Delete requests load error:', error);
+      APP.deleteRequests = [];
+      return;
+    }
+
+    APP.deleteRequests = data || [];
+
+  } catch (error) {
+    console.error(error);
+    APP.deleteRequests = [];
+  }
+}
+
 function updateSidebarCounts(){
   var openCount = MOCK_DATA.service_requests.filter(function(r){
     return !['done','closed','cancelled'].includes(r.status);
