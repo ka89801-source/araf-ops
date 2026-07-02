@@ -539,13 +539,14 @@ const HELPERS = {
 
   /** ترجمة المصدر */
   sourceLabel(s) {
-    return {
-      direct_services: 'الخدمات المباشرة',
-      support: 'الدعم الفني',
-      subscription: 'الباقة الشهرية',
-      ai_assistant: 'المساعد القانوني'
-    }[s] || s;
-  },
+  return {
+    direct_services: 'الخدمات المباشرة',
+    support: 'الدعم الفني',
+    support_ticket: 'محوّل من الدعم الفني',
+    subscription: 'الباقة الشهرية',
+    ai_assistant: 'المساعد القانوني'
+  }[s] || s;
+},
 
   /** تنسيق التاريخ */
   formatDate(iso) {
