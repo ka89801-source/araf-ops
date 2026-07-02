@@ -690,6 +690,40 @@ async function requestServiceRequestDeletion(event, requestId) {
   }
 }
 
+async function cancelServiceRequestDeletion(event, deleteRequestId) {
+  if (event) {
+    event.stopPropagation();
+  }
+
+  const confirmed = window.confirm(
+    'هل تريد إلغاء طلب الحذف؟'
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const { error } = await window.sb
+      .from('request_delete_requests')
+      .delete()
+      .eq('id', deleteRequestId);
+
+    if (error) {
+      throw error;
+    }
+
+    await loadDeleteRequests();
+    renderRequestsTable();
+
+    showToast('تم إلغاء طلب الحذف', 'success');
+
+  } catch (error) {
+    console.error('Cancel deletion error:', error);
+    showToast('تعذر إلغاء طلب الحذف', 'error');
+  }
+}
+
 // إعادة ضبط الفلاتر
 function resetFilters() {
   APP.filters = { search: '', service: 'all', status: 'all', employee: 'all', payment: 'all', priority: 'all' };
