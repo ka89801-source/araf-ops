@@ -17,7 +17,8 @@ const APP = {
   selectedRequestId: null,
   pendingAssignEmpId: null,
   supportTickets: [],
-  activityLog: [] 
+activityLog: [],
+deleteRequests: [] 
 };
 
 // ===== التحقق من الجلسة =====
