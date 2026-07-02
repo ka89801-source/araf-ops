@@ -918,72 +918,69 @@ function openRequestDrawer(reqId) {
     </div>
   `;
 
-  // أزرار الإجراءات
-const isClosed = ['closed', 'cancelled'].includes(r.status);
-const isEmployee = APP.currentUser && APP.currentUser.role !== 'admin';
+ // أزرار الإجراءات
+const actionsElement = document.getElementById('drawerActions');
 
-if(isEmployee){
-  document.getElementById('drawerActions').innerHTML = `
-</button>
-    <button class="btn" onclick="quickAction('${r.id}','contacted')" ${isClosed ? 'disabled' : ''}>
-      <svg viewBox="0 0 24 24">
-        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72"/>
-      </svg>
-      تم التواصل
-    </button>
+const isEmployee =
+  APP.currentUser &&
+  APP.currentUser.role !== 'admin';
 
-    <button class="btn" onclick="quickAction('${r.id}','waiting')" ${isClosed ? 'disabled' : ''}>
-      <svg viewBox="0 0 24 24">
-        <rect x="2" y="5" width="20" height="14" rx="2"/>
-        <line x1="2" y1="10" x2="22" y2="10"/>
-      </svg>
-      في انتظار الدفع
-    </button>
+const isAssignedToCurrentUser =
+  isEmployee &&
+  r.assigned_to === APP.currentUser.id;
 
-    <button class="btn" onclick="quickAction('${r.id}','waiting')" ${isClosed ? 'disabled' : ''}>
-      <svg viewBox="0 0 24 24">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-      </svg>
-      بانتظار مستندات
-    </button>
+// إعادة إظهار منطقة الأزرار عند فتح أي طلب
+actionsElement.style.display = 'flex';
 
-    <button class="btn btn-primary" onclick="openCloseModal('${r.id}')" ${isClosed ? 'disabled' : ''} style="flex:2;">
+// المدير: إسناد الطلب وتغيير حالته
+if (!isEmployee) {
+  actionsElement.innerHTML = `
+    <button class="btn" onclick="openAssignModal('${r.id}')">
       <svg viewBox="0 0 24 24">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-        <polyline points="22 4 12 14.01 9 11.01"/>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+        <circle cx="8.5" cy="7" r="4"/>
+        <line x1="20" y1="8" x2="20" y2="14"/>
+        <line x1="23" y1="11" x2="17" y2="11"/>
       </svg>
-      إغلاق الطلب
-    </button>
-  `;
-}else{
-  document.getElementById('drawerActions').innerHTML = `
-</button>
-    <button class="btn" onclick="openAssignModal('${r.id}')" ${isClosed ? 'disabled' : ''}>
-      <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+
       ${emp ? 'إعادة الإسناد' : 'إسناد لموظف'}
     </button>
 
-    <button class="btn" onclick="openStatusModal('${r.id}')" ${isClosed ? 'disabled' : ''}>
-      <svg viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+    <button class="btn btn-primary" onclick="openStatusModal('${r.id}')">
+      <svg viewBox="0 0 24 24">
+        <path d="M21.5 2v6h-6"/>
+        <path d="M2.5 22v-6h6"/>
+        <path d="M2 11.5a10 10 0 0 1 18.8-4.3"/>
+        <path d="M22 12.5a10 10 0 0 1-18.8 4.2"/>
+      </svg>
+
       تغيير الحالة
     </button>
+  `;
 
-    <button class="btn" onclick="quickAction('${r.id}','contacted')" ${isClosed ? 'disabled' : ''}>
-      <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07"/></svg>
-      تم التواصل
-    </button>
+// الموظف المسند إليه الطلب: تغيير الحالة فقط
+} else if (isAssignedToCurrentUser) {
+  actionsElement.innerHTML = `
+    <button
+      class="btn btn-primary"
+      onclick="openStatusModal('${r.id}')"
+      style="width:100%;"
+    >
+      <svg viewBox="0 0 24 24">
+        <path d="M21.5 2v6h-6"/>
+        <path d="M2.5 22v-6h6"/>
+        <path d="M2 11.5a10 10 0 0 1 18.8-4.3"/>
+        <path d="M22 12.5a10 10 0 0 1-18.8 4.2"/>
+      </svg>
 
-    <button class="btn" onclick="quickAction('${r.id}','waiting')" ${isClosed ? 'disabled' : ''}>
-      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-      بانتظار مستندات
-    </button>
-
-    <button class="btn btn-primary" onclick="openCloseModal('${r.id}')" ${isClosed ? 'disabled' : ''} style="flex:2;">
-      <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-      إغلاق الطلب
+      تغيير الحالة
     </button>
   `;
+
+// بقية الموظفين: لا تظهر لهم إجراءات
+} else {
+  actionsElement.innerHTML = '';
+  actionsElement.style.display = 'none';
 }
 
   // افتح الـ drawer
