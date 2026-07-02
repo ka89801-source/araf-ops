@@ -1034,6 +1034,27 @@ function renderRequestTimeline(r) {
     });
   });
 
+// تغييرات حالة الطلب والتعليقات المرتبطة بها
+const statusActivities = (APP.activityLog || []).filter(function(activity) {
+  return (
+    activity.request_id === r.id &&
+    activity.action_type === 'status_changed'
+  );
+});
+
+statusActivities.forEach(function(activity) {
+  const actor = HELPERS.getEmployee(activity.actor_id);
+
+  events.push({
+    type: 'status',
+    text: `
+      ${actor ? `<strong>${actor.full_name}</strong>: ` : ''}
+      ${activity.description || 'تم تغيير حالة الطلب'}
+    `,
+    time: activity.created_at
+  });
+});
+   
   if (r.closed_at) {
     const emp = HELPERS.getEmployee(r.closed_by);
     events.push({
