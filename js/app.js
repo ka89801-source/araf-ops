@@ -1277,8 +1277,15 @@ async function confirmAssign() {
 // ===== Modal تغيير الحالة =====
 function openStatusModal(reqId) {
   APP.selectedRequestId = reqId;
-  const r = MOCK_DATA.service_requests.find(x => x.id === reqId);
+
+  const r = MOCK_DATA.service_requests.find(
+    x => x.id === reqId
+  );
+
   document.getElementById('newStatusSelect').value = r.status;
+
+  document.getElementById('statusCommentInput').value = '';
+
   openModal('statusModal');
 }
 
