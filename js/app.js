@@ -630,6 +630,66 @@ function renderDeleteRequestAction(request) {
   `;
 }
 
+async function requestServiceRequestDeletion(event, requestId) {
+  if (event) {
+    event.stopPropagation();
+  }
+
+  const request = MOCK_DATA.service_requests.find(function(item) {
+    return item.id === requestId;
+  });
+
+  if (!request) {
+    showToast('تعذر العثور على الطلب', 'error');
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `هل تريد إرسال طلب حذف للطلب الخاص بالعميل "${request.customer_name}"؟\n\nلن يُحذف الطلب حتى يوافق المستخدم الآخر.`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const existingRequest = getPendingDeleteRequestFor(requestId);
+
+    if (existingRequest) {
+      showToast('يوجد طلب حذف معلق لهذا الطلب بالفعل', 'warn');
+      return;
+    }
+
+    const { error } = await window.sb
+      .from('request_delete_requests')
+      .insert({
+        request_id: requestId,
+        requested_by: APP.currentUser.id,
+        requested_by_name:
+          APP.currentUser.full_name ||
+          APP.currentUser.name ||
+          'مستخدم',
+        status: 'pending'
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    await loadDeleteRequests();
+    renderRequestsTable();
+
+    showToast(
+      'تم إرسال طلب الحذف وبانتظار موافقة المستخدم الآخر',
+      'success'
+    );
+
+  } catch (error) {
+    console.error('Delete request error:', error);
+    showToast('تعذر إرسال طلب الحذف', 'error');
+  }
+}
+
 // إعادة ضبط الفلاتر
 function resetFilters() {
   APP.filters = { search: '', service: 'all', status: 'all', employee: 'all', payment: 'all', priority: 'all' };
