@@ -1284,6 +1284,8 @@ function openStatusModal(reqId) {
 
 async function confirmStatusChange() {
   const newStatus = document.getElementById('newStatusSelect').value;
+    const statusComment =
+    document.getElementById('statusCommentInput').value.trim(); 
   const r = MOCK_DATA.service_requests.find(x => x.id === APP.selectedRequestId);
   const oldStatus = r.status;
   const now = new Date().toISOString();
