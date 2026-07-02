@@ -505,6 +505,28 @@ function renderRequestsPage() {
   renderRequestsTable();
 }
 
+function renderPaymentStatus(request) {
+  const isFinalStatus =
+    request.status === 'done' ||
+    request.status === 'cancelled' ||
+    request.status === 'closed';
+
+  const isPendingPayment =
+    request.payment_status === 'pending' ||
+    request.payment_status === 'manual_pending' ||
+    request.payment_status === 'waiting_payment';
+
+  if (isFinalStatus && isPendingPayment) {
+    return '<span style="color:var(--tm);">—</span>';
+  }
+
+  return `
+    <span class="badge pay-${request.payment_status}">
+      ${HELPERS.paymentLabel(request.payment_status)}
+    </span>
+  `;
+}
+
 function renderRequestsTable() {
   const f = APP.filters;
   let reqs = [...MOCK_DATA.service_requests];
