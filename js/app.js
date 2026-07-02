@@ -583,7 +583,7 @@ function renderRequestsTable() {
         </td>
         <td>${HELPERS.getServiceName(r.service_type)}</td>
         <td><span class="cell-price">${HELPERS.formatPrice(r.price)}<small>ر.س</small></span></td>
-        <td><span class="badge pay-${r.payment_status}">${HELPERS.paymentLabel(r.payment_status)}</span></td>
+        <td>${renderPaymentStatus(r)}</td>
         <td><span class="badge s-${r.status}">${HELPERS.statusLabel(r.status)}</span></td>
         <td><span class="badge p-${r.priority}">${HELPERS.priorityLabel(r.priority)}</span></td>
         <td>
