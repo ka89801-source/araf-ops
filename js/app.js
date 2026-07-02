@@ -1880,6 +1880,107 @@ function openConvertSupportModal(ticketId) {
   openModal('convertSupportModal');
 }
 
+async function confirmConvertSupportTicket() {
+  const ticketId = APP.selectedSupportTicketId;
+
+  if (!ticketId) {
+    showToast('لم يتم تحديد رسالة الدعم', 'error');
+    return;
+  }
+
+  const serviceKey =
+    document.getElementById('convertSupportService').value;
+
+  const priceValue =
+    document.getElementById('convertSupportPrice').value;
+
+  if (!serviceKey) {
+    showToast('اختر تصنيف الخدمة أولًا', 'warn');
+    return;
+  }
+
+  const selectedService = MOCK_DATA.services.find(function(service) {
+    return service.key === serviceKey;
+  });
+
+  if (!selectedService) {
+    showToast('تعذر العثور على تصنيف الخدمة', 'error');
+    return;
+  }
+
+  const price = Number(priceValue);
+
+  if (
+    priceValue === '' ||
+    !Number.isFinite(price) ||
+    price < 0
+  ) {
+    showToast('أدخل سعرًا صحيحًا للخدمة', 'warn');
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `هل تريد تحويل رسالة الدعم إلى طلب مصنف كـ "${selectedService.name}"؟`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const { data, error } = await window.sb.rpc(
+      'convert_support_ticket_to_request',
+      {
+        p_ticket_id: ticketId,
+        p_service_type: selectedService.key,
+        p_service_name: selectedService.name,
+        p_price: price,
+        p_converted_by: APP.currentUser.id,
+        p_converted_by_name:
+          APP.currentUser.full_name ||
+          APP.currentUser.name ||
+          'موظف'
+      }
+    );
+
+    if (error) {
+      throw error;
+    }
+
+    closeModal('convertSupportModal');
+    APP.selectedSupportTicketId = null;
+
+    if (typeof loadSupabaseSupportTickets === 'function') {
+      await loadSupabaseSupportTickets();
+    }
+
+    if (typeof loadSupabaseRequests === 'function') {
+      await loadSupabaseRequests();
+    }
+
+    if (typeof updateSidebarCounts === 'function') {
+      updateSidebarCounts();
+    }
+
+    renderSupportPage();
+
+    showToast(
+      'تم تحويل رسالة الدعم إلى طلب بنجاح',
+      'success'
+    );
+
+  } catch (error) {
+    console.error('Support conversion error:', error);
+
+    showToast(
+      error && error.message
+        ? error.message
+        : 'تعذر تحويل رسالة الدعم إلى طلب',
+      'error'
+    );
+  }
+}
+
 function renderSupportPage(){
   var page = document.getElementById('page-support');
   if(!page) return;
