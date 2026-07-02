@@ -566,9 +566,13 @@ function renderRequestsTable() {
           }
         </td>
         <td class="cell-date">
-          ${HELPERS.formatDate(r.created_at)}
-          <small>${HELPERS.formatTime(r.created_at)}</small>
-        </td>
+  ${HELPERS.formatDate(r.created_at)}
+  <small>${HELPERS.formatTime(r.created_at)}</small>
+</td>
+
+<td onclick="event.stopPropagation()">
+  ${renderDeleteRequestAction(r)}
+</td>
       </tr>
     `;
   }).join('');
