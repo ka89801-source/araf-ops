@@ -1983,9 +1983,11 @@ const paymentStatus =
         p_price: price,
         p_converted_by: APP.currentUser.id,
         p_converted_by_name:
-          APP.currentUser.full_name ||
-          APP.currentUser.name ||
-          'موظف'
+  APP.currentUser.full_name ||
+  APP.currentUser.name ||
+  'موظف',
+
+p_payment_status: paymentStatus
       }
     );
 
