@@ -724,6 +724,69 @@ async function cancelServiceRequestDeletion(event, deleteRequestId) {
   }
 }
 
+async function approveServiceRequestDeletion(event, requestId) {
+  if (event) {
+    event.stopPropagation();
+  }
+
+  const request = MOCK_DATA.service_requests.find(function(item) {
+    return item.id === requestId;
+  });
+
+  if (!request) {
+    showToast('تعذر العثور على الطلب', 'error');
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `هل توافق على حذف طلب العميل "${request.customer_name}" نهائيًا؟\n\nلا يمكن التراجع عن الحذف بعد تنفيذه.`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    const { data, error } = await window.sb.rpc(
+      'approve_and_delete_service_request',
+      {
+        p_request_id: requestId,
+        p_approved_by: APP.currentUser.id,
+        p_approved_by_name:
+          APP.currentUser.full_name ||
+          APP.currentUser.name ||
+          'مستخدم'
+      }
+    );
+
+    if (error) {
+      throw error;
+    }
+
+    await loadSupabaseRequests();
+    await loadDeleteRequests();
+
+    updateSidebarCounts();
+    renderRequestsPage();
+
+    if (APP.currentPage === 'dashboard') {
+      renderDashboard();
+    }
+
+    showToast('تم حذف الطلب نهائيًا', 'success');
+
+  } catch (error) {
+    console.error('Approve deletion error:', error);
+
+    const message =
+      error && error.message
+        ? error.message
+        : 'تعذر حذف الطلب';
+
+    showToast(message, 'error');
+  }
+}
+
 // إعادة ضبط الفلاتر
 function resetFilters() {
   APP.filters = { search: '', service: 'all', status: 'all', employee: 'all', payment: 'all', priority: 'all' };
