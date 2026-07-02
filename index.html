@@ -512,6 +512,104 @@
     <div class="modal-footer" id="resetRequestsActions"></div>
   </div>
 </div>
+
+<!-- =========================
+     Modal تحويل رسالة دعم إلى طلب
+     ========================= -->
+<div
+  class="modal-overlay"
+  id="convertSupportModal"
+  onclick="if(event.target===this)closeModal('convertSupportModal')"
+>
+  <div class="modal">
+    <div class="modal-header">
+      <h3>تحويل رسالة الدعم إلى طلب</h3>
+
+      <button
+        class="drawer-close"
+        onclick="closeModal('convertSupportModal')"
+      >
+        <svg viewBox="0 0 24 24">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+
+      <div
+        style="
+          background:var(--bg);
+          border:var(--border);
+          border-radius:12px;
+          padding:14px;
+          margin-bottom:18px;
+        "
+      >
+        <div style="font-size:13px;margin-bottom:7px;">
+          <strong>العميل:</strong>
+          <span id="convertSupportCustomerName">—</span>
+        </div>
+
+        <div style="font-size:13px;margin-bottom:7px;">
+          <strong>رقم الجوال:</strong>
+          <span id="convertSupportCustomerPhone">—</span>
+        </div>
+
+        <div style="font-size:13px;">
+          <strong>الرسالة:</strong>
+          <div
+            id="convertSupportProblem"
+            style="
+              color:var(--t2);
+              line-height:1.8;
+              margin-top:5px;
+              white-space:pre-wrap;
+            "
+          >—</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>تصنيف الخدمة</label>
+
+        <select id="convertSupportService">
+          <option value="">اختر الخدمة المناسبة</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>سعر الخدمة</label>
+
+        <input
+          id="convertSupportPrice"
+          type="number"
+          min="0"
+          step="1"
+          placeholder="أدخل سعر الخدمة"
+        />
+      </div>
+
+    </div>
+
+    <div class="modal-footer">
+      <button
+        class="btn"
+        onclick="closeModal('convertSupportModal')"
+      >
+        إلغاء
+      </button>
+
+      <button
+        class="btn btn-primary"
+        onclick="confirmConvertSupportTicket()"
+      >
+        تحويل إلى طلب
+      </button>
+    </div>
+  </div>
+</div>
   
   <!-- =========================
      Toast Notifications
