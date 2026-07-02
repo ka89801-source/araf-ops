@@ -284,6 +284,10 @@ async function refreshDashboardData(){
       await loadSupabaseActivity();
     }
 
+if(typeof loadDeleteRequests === 'function'){
+  await loadDeleteRequests();
+}
+     
     if(typeof loadSupabaseSupportTickets === 'function'){
       await loadSupabaseSupportTickets();
     }
