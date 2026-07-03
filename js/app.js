@@ -506,27 +506,30 @@ function renderRequestsPage() {
 }
 
 function renderPaymentStatus(request) {
-  const isFinalStatus =
-    request.status === 'done' ||
-    request.status === 'cancelled' ||
-    request.status === 'closed';
-
-  const isPendingPayment =
-    request.payment_status === 'pending' ||
-    request.payment_status === 'manual_pending' ||
-    request.payment_status === 'waiting_payment';
-
-  if (isFinalStatus && isPendingPayment) {
+  // الطلب الملغي لا توجد له حالة دفع
+  if (request.status === 'cancelled') {
     return '<span style="color:var(--tm);">—</span>';
   }
 
+  // الطلب المكتمل يظهر أن الدفع حوالة
+  if (
+    request.status === 'done' ||
+    request.status === 'closed'
+  ) {
+    return `
+      <span class="badge pay-paid">
+        حوالة
+      </span>
+    `;
+  }
+
+  // جميع الطلبات الأخرى ما زالت بانتظار الدفع
   return `
-    <span class="badge pay-${request.payment_status}">
-      ${HELPERS.paymentLabel(request.payment_status)}
+    <span class="badge pay-pending">
+      بانتظار الدفع
     </span>
   `;
 }
-
 function renderRequestsTable() {
   const f = APP.filters;
   let reqs = [...MOCK_DATA.service_requests];
