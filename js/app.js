@@ -145,6 +145,16 @@ const reqs = isEmployeeView
 const paymentPending = reqs.filter(function(r){
   return ['manual_pending','pending','unpaid','waiting_payment'].includes(r.payment_status);
 }).length;
+
+// إجمالي المبالغ المكتسبة من الطلبات المكتملة فقط
+const totalEarned = reqs
+  .filter(function(request) {
+    return request.status === 'done';
+  })
+  .reduce(function(total, request) {
+    return total + (Number(request.price) || 0);
+  }, 0);
+   
   // تعبئة البطاقات
   const kpiHTML = `
     <div class="kpi-card c-nv">
