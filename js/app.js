@@ -156,7 +156,71 @@ const totalEarned = reqs
   }, 0);
    
   // تعبئة البطاقات
-  const kpiHTML = `
+  const kpiHTML = `<div
+  class="kpi-card"
+  style="
+    grid-column:1 / -1;
+    background:linear-gradient(135deg,#1B3A4B 0%,#234D63 60%,#3D7B8A 100%);
+    padding:24px 28px;
+    border:none;
+    color:#fff;
+  "
+>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;">
+
+    <div>
+      <div style="font-size:14px;color:rgba(255,255,255,.72);margin-bottom:7px;">
+        إجمالي المبالغ المكتسبة
+      </div>
+
+      <div
+        style="
+          font-family:'Cairo',sans-serif;
+          font-size:36px;
+          font-weight:800;
+          line-height:1.2;
+          color:#fff;
+        "
+      >
+        ${HELPERS.formatPrice(totalEarned)}
+        <small style="font-size:17px;font-weight:600;color:#D9BF8E;">
+          ر.س
+        </small>
+      </div>
+
+      <div style="font-size:12px;color:rgba(255,255,255,.65);margin-top:8px;">
+        يحتسب الطلبات المكتملة فقط
+      </div>
+    </div>
+
+    <div
+      style="
+        width:58px;
+        height:58px;
+        border-radius:17px;
+        background:rgba(201,169,110,.18);
+        color:#D9BF8E;
+        display:grid;
+        place-items:center;
+        flex-shrink:0;
+      "
+    >
+      <svg
+        viewBox="0 0 24 24"
+        width="28"
+        height="28"
+        stroke="currentColor"
+        fill="none"
+        stroke-width="2"
+      >
+        <rect x="2" y="5" width="20" height="14" rx="2"/>
+        <line x1="2" y1="10" x2="22" y2="10"/>
+        <circle cx="17" cy="15" r="1"/>
+      </svg>
+    </div>
+
+  </div>
+</div>
     <div class="kpi-card c-nv">
       <div class="kpi-header">
         <span class="kpi-label">${isEmployeeView ? 'إجمالي الطلبات المسندة لك' : 'إجمالي الطلبات'}</span>
