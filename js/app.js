@@ -110,14 +110,24 @@ function renderCaseResponsibleCell(request, employee) {
 }
 
 function renderCaseFollowupSection(request, employee) {
+  const nextSessionLabel = request.case_next_session_at
+    ? HELPERS.formatDate(request.case_next_session_at)
+    : 'لا يوجد موعد محدد';
+
+  const updatedBy = request.case_followup_updated_by_name || 'لم يتم التحديث بعد';
+
+  const updatedAt = request.case_followup_updated_at
+    ? HELPERS.formatDateTime(request.case_followup_updated_at)
+    : '—';
+
   return `
     <div class="drawer-section">
       <h4>متابعة القضية</h4>
 
       <div class="case-followup-grid">
         <div class="case-followup-item">
-          <div class="case-followup-label">مرحلة القضية</div>
-          <div class="case-followup-value">${getCaseStageLabel(request)}</div>
+          <div class="case-followup-label">المرحلة الحالية</div>
+          <div class="case-followup-value">${request.case_current_stage || getCaseStageLabel(request)}</div>
         </div>
 
         <div class="case-followup-item">
@@ -126,23 +136,88 @@ function renderCaseFollowupSection(request, employee) {
         </div>
 
         <div class="case-followup-item">
-          <div class="case-followup-label">تاريخ الإحالة</div>
-          <div class="case-followup-value">${request.assigned_at ? HELPERS.formatDateTime(request.assigned_at) : 'لم تُحل بعد'}</div>
+          <div class="case-followup-label">عدد الجلسات المحضورة</div>
+          <div class="case-followup-value">${Number(request.case_sessions_count || 0)} جلسة</div>
         </div>
 
         <div class="case-followup-item">
-          <div class="case-followup-label">آخر تحديث</div>
-          <div class="case-followup-value">${HELPERS.formatDateTime(request.updated_at || request.created_at)}</div>
+          <div class="case-followup-label">موعد الجلسة القادمة</div>
+          <div class="case-followup-value">${nextSessionLabel}</div>
         </div>
 
         <div class="case-followup-item">
-          <div class="case-followup-label">نوع القضية</div>
-          <div class="case-followup-value">${getRequestDisplayName(request)}</div>
+          <div class="case-followup-label">الإجراء القادم</div>
+          <div class="case-followup-value">${request.case_next_action || 'لم يتم تحديد إجراء قادم'}</div>
         </div>
 
         <div class="case-followup-item">
-          <div class="case-followup-label">الأهمية</div>
-          <div class="case-followup-value">${HELPERS.priorityLabel(request.priority)}</div>
+          <div class="case-followup-label">آخر تحديث للمتابعة</div>
+          <div class="case-followup-value">${updatedBy}<br><span style="color:var(--tm);font-size:11px;">${updatedAt}</span></div>
+        </div>
+      </div>
+
+      <div class="case-followup-editor">
+        <div class="case-followup-editor-head">
+          <strong>تحديث متابعة القضية</strong>
+          <span>هذه البيانات داخلية لفريق أعراف ولا تظهر للعميل.</span>
+        </div>
+
+        <div class="case-followup-form">
+          <div class="case-field">
+            <label>المرحلة التي وصلت لها القضية</label>
+            <input
+              id="caseStageInput"
+              type="text"
+              value="${String(request.case_current_stage || '').replace(/"/g, '&quot;')}"
+              placeholder="مثال: تم قيد الدعوى / بانتظار الجلسة الأولى / صدر حكم ابتدائي"
+            />
+          </div>
+
+          <div class="case-field">
+            <label>عدد الجلسات التي تم حضورها</label>
+            <input
+              id="caseSessionsCountInput"
+              type="number"
+              min="0"
+              step="1"
+              value="${Number(request.case_sessions_count || 0)}"
+              placeholder="0"
+            />
+          </div>
+
+          <div class="case-field case-field-full">
+            <label>أبرز ما حصل في آخر جلسة</label>
+            <textarea
+              id="caseLastSessionInput"
+              rows="4"
+              placeholder="مثال: حضرنا الجلسة، وطلبت الدائرة إرفاق مستندات إضافية خلال 5 أيام..."
+            >${request.case_last_session_summary || ''}</textarea>
+          </div>
+
+          <div class="case-field">
+            <label>الإجراء القادم</label>
+            <input
+              id="caseNextActionInput"
+              type="text"
+              value="${String(request.case_next_action || '').replace(/"/g, '&quot;')}"
+              placeholder="مثال: إعداد مذكرة رد / انتظار موعد الجلسة / رفع مستند"
+            />
+          </div>
+
+          <div class="case-field">
+            <label>موعد الجلسة القادمة</label>
+            <input
+              id="caseNextSessionInput"
+              type="date"
+              value="${request.case_next_session_at || ''}"
+            />
+          </div>
+        </div>
+
+        <div class="case-followup-save">
+          <button class="btn btn-primary" onclick="saveCaseFollowup('${request.id}')">
+            حفظ متابعة القضية
+          </button>
         </div>
       </div>
     </div>
