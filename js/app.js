@@ -1313,6 +1313,8 @@ function openRequestDrawer(reqId) {
         </div>
       </div>
     </div>
+    
+    ${isCaseRequest(r) ? renderCaseFollowupSection(r, emp) : ''}
 
     <div class="drawer-section">
       <h4>المرفقات</h4>
