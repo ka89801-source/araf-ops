@@ -2345,8 +2345,12 @@ async function loadSupabaseSupportTickets() {
         email: ticket.email || '',
         problem: ticket.problem || ticket.message || ticket.details || '',
         status: ticket.status || 'new',
-        created_at: ticket.created_at,
-        updated_at: ticket.updated_at || ticket.created_at
+delete_status: ticket.delete_status || null,
+delete_requested_by: ticket.delete_requested_by || null,
+delete_requested_by_name: ticket.delete_requested_by_name || '',
+delete_requested_at: ticket.delete_requested_at || null,
+created_at: ticket.created_at,
+updated_at: ticket.updated_at || ticket.created_at
       };
     });
 
