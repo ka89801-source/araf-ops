@@ -2982,6 +2982,43 @@ function hideAppLoader() {
 // =============================================================
 // التشغيل الأولي
 // =============================================================
+function withTimeout(promise, ms, label) {
+  return Promise.race([
+    promise,
+    new Promise(function(resolve) {
+      setTimeout(function() {
+        console.warn('تجاوز وقت تحميل: ' + label);
+        resolve(null);
+      }, ms);
+    })
+  ]);
+}
+
+async function loadInitialDataFast() {
+  const tasks = [];
+
+  if (typeof loadSupabaseEmployees === 'function') {
+    tasks.push(withTimeout(loadSupabaseEmployees(), 5000, 'الموظفون'));
+  }
+
+  if (typeof loadSupabaseRequests === 'function') {
+    tasks.push(withTimeout(loadSupabaseRequests(), 6000, 'الطلبات'));
+  }
+
+  if (typeof loadSupabaseActivity === 'function') {
+    tasks.push(withTimeout(loadSupabaseActivity(), 4000, 'سجل النشاط'));
+  }
+
+  if (typeof loadDeleteRequests === 'function') {
+    tasks.push(withTimeout(loadDeleteRequests(), 4000, 'طلبات الحذف'));
+  }
+
+  if (typeof loadSupabaseSupportTickets === 'function') {
+    tasks.push(withTimeout(loadSupabaseSupportTickets(), 4000, 'الدعم الفني'));
+  }
+
+  await Promise.allSettled(tasks);
+}
 async function initApp() {
   if (!checkSession()) {
     return;
