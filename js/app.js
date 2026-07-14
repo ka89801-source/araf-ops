@@ -2443,25 +2443,79 @@ function renderSupportPage() {
         <td>${ticket.name || '—'}</td>
         <td>${ticket.phone || '—'}</td>
         <td style="max-width:330px;white-space:normal;line-height:1.7;">${ticket.problem || '—'}</td>
-        <td><span class="badge s-${ticket.status === 'new' ? 'new' : 'assigned'}">${ticket.status === 'new' ? 'جديد' : ticket.status}</span></td>
+        <td>${renderSupportStatus(ticket)}</td>
         <td class="cell-date">${HELPERS.formatDate(ticket.created_at)}<small>${HELPERS.formatTime(ticket.created_at)}</small></td>
         <td>
-          <div class="support-actions">
-  <button class="btn btn-primary btn-sm" onclick="openConvertSupportModal('${ticket.id}')">
-    تحويل إلى طلب
-  </button>
-
-  <button class="btn btn-danger btn-sm" onclick="deleteSupportTicket(event, '${ticket.id}')">
-    حذف
-  </button>
-</div>
-        </td>
+  ${renderSupportDeleteAction(ticket)}
+</td>
       </tr>
     `;
   }).join('');
 }
 
-async function deleteSupportTicket(event, ticketId) {
+function renderSupportStatus(ticket) {
+  if (ticket.delete_status === 'pending') {
+    return '<span class="badge s-cancelled">بانتظار اعتماد الحذف</span>';
+  }
+
+  return `
+    <span class="badge s-${ticket.status === 'new' ? 'new' : 'assigned'}">
+      ${ticket.status === 'new' ? 'جديد' : ticket.status}
+    </span>
+  `;
+}
+
+function renderSupportDeleteAction(ticket) {
+  if (ticket.delete_status === 'pending') {
+    if (ticket.delete_requested_by === APP.currentUser.id) {
+      return `
+        <div class="support-actions">
+          <span class="badge" style="background:var(--orange-l);color:#92400E;">
+            بانتظار الاعتماد
+          </span>
+
+          <button
+            class="btn btn-sm"
+            onclick="cancelSupportTicketDeletion(event, '${ticket.id}')"
+          >
+            إلغاء
+          </button>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="support-actions">
+        <button
+          class="btn btn-danger btn-sm"
+          onclick="approveSupportTicketDeletion(event, '${ticket.id}')"
+        >
+          اعتماد الحذف
+        </button>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="support-actions">
+      <button
+        class="btn btn-primary btn-sm"
+        onclick="openConvertSupportModal('${ticket.id}')"
+      >
+        تحويل إلى طلب
+      </button>
+
+      <button
+        class="btn btn-danger btn-sm"
+        onclick="requestSupportTicketDeletion(event, '${ticket.id}')"
+      >
+        طلب حذف
+      </button>
+    </div>
+  `;
+}
+
+async function requestSupportTicketDeletion(event, ticketId) {
   if (event) {
     event.stopPropagation();
   }
@@ -2476,7 +2530,152 @@ async function deleteSupportTicket(event, ticketId) {
   }
 
   const confirmed = window.confirm(
-    `هل تريد حذف رسالة الدعم الخاصة بـ "${ticket.name || 'العميل'}"؟\n\nلا يمكن التراجع عن الحذف بعد تنفيذه.`
+    `هل تريد إرسال طلب حذف رسالة الدعم الخاصة بـ "${ticket.name || 'العميل'}"؟\n\nلن تُحذف الرسالة حتى يوافق المستخدم الآخر.`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  const oldTickets = [...(APP.supportTickets || [])];
+  const now = new Date().toISOString();
+
+  APP.supportTickets = APP.supportTickets.map(function(item) {
+    if (item.id !== ticketId) {
+      return item;
+    }
+
+    return {
+      ...item,
+      delete_status: 'pending',
+      delete_requested_by: APP.currentUser.id,
+      delete_requested_by_name:
+        APP.currentUser.full_name ||
+        APP.currentUser.name ||
+        'مستخدم',
+      delete_requested_at: now
+    };
+  });
+
+  renderSupportPage();
+  updateSidebarCounts();
+  renderNotifications();
+
+  try {
+    const { error } = await window.sb
+      .from('support_tickets')
+      .update({
+        delete_status: 'pending',
+        delete_requested_by: APP.currentUser.id,
+        delete_requested_by_name:
+          APP.currentUser.full_name ||
+          APP.currentUser.name ||
+          'مستخدم',
+        delete_requested_at: now
+      })
+      .eq('id', ticketId);
+
+    if (error) {
+      throw error;
+    }
+
+    showToast('تم إرسال طلب حذف رسالة الدعم وبانتظار الاعتماد', 'success');
+
+  } catch (error) {
+    console.error('Support delete request error:', error);
+
+    APP.supportTickets = oldTickets;
+    renderSupportPage();
+    updateSidebarCounts();
+    renderNotifications();
+
+    showToast('تعذر إرسال طلب حذف رسالة الدعم', 'error');
+  }
+}
+
+async function cancelSupportTicketDeletion(event, ticketId) {
+  if (event) {
+    event.stopPropagation();
+  }
+
+  const confirmed = window.confirm(
+    'هل تريد إلغاء طلب حذف رسالة الدعم؟'
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  const oldTickets = [...(APP.supportTickets || [])];
+
+  APP.supportTickets = APP.supportTickets.map(function(item) {
+    if (item.id !== ticketId) {
+      return item;
+    }
+
+    return {
+      ...item,
+      delete_status: null,
+      delete_requested_by: null,
+      delete_requested_by_name: '',
+      delete_requested_at: null
+    };
+  });
+
+  renderSupportPage();
+  updateSidebarCounts();
+  renderNotifications();
+
+  try {
+    const { error } = await window.sb
+      .from('support_tickets')
+      .update({
+        delete_status: null,
+        delete_requested_by: null,
+        delete_requested_by_name: null,
+        delete_requested_at: null
+      })
+      .eq('id', ticketId);
+
+    if (error) {
+      throw error;
+    }
+
+    showToast('تم إلغاء طلب حذف رسالة الدعم', 'success');
+
+  } catch (error) {
+    console.error('Cancel support delete request error:', error);
+
+    APP.supportTickets = oldTickets;
+    renderSupportPage();
+    updateSidebarCounts();
+    renderNotifications();
+
+    showToast('تعذر إلغاء طلب حذف رسالة الدعم', 'error');
+  }
+}
+
+async function approveSupportTicketDeletion(event, ticketId) {
+  if (event) {
+    event.stopPropagation();
+  }
+
+  const ticket = (APP.supportTickets || []).find(function(item) {
+    return item.id === ticketId;
+  });
+
+  if (!ticket) {
+    showToast('تعذر العثور على رسالة الدعم', 'error');
+    return;
+  }
+
+  if (ticket.delete_requested_by === APP.currentUser.id) {
+    showToast('لا يمكن لطالب الحذف اعتماد الحذف بنفسه', 'warn');
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `هل توافق على حذف رسالة الدعم الخاصة بـ "${ticket.name || 'العميل'}" نهائيًا؟\n\nلا يمكن التراجع بعد الحذف.`
   );
 
   if (!confirmed) {
@@ -2494,21 +2693,19 @@ async function deleteSupportTicket(event, ticketId) {
   renderNotifications();
 
   try {
-    if (window.sb) {
-      const { error } = await window.sb
-        .from('support_tickets')
-        .delete()
-        .eq('id', ticketId);
+    const { error } = await window.sb
+      .from('support_tickets')
+      .delete()
+      .eq('id', ticketId);
 
-      if (error) {
-        throw error;
-      }
+    if (error) {
+      throw error;
     }
 
-    showToast('تم حذف رسالة الدعم', 'success');
+    showToast('تم حذف رسالة الدعم نهائيًا', 'success');
 
   } catch (error) {
-    console.error('Delete support ticket error:', error);
+    console.error('Approve support delete error:', error);
 
     APP.supportTickets = oldTickets;
     renderSupportPage();
