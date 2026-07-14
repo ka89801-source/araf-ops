@@ -1050,15 +1050,37 @@ async function requestServiceRequestDeletion(event, requestId) {
     return;
   }
 
-  try {
-    const existingRequest = getPendingDeleteRequestFor(requestId);
+  const now = new Date().toISOString();
 
-    if (existingRequest) {
-      showToast('يوجد طلب حذف معلق لهذا الطلب بالفعل', 'warn');
+  const tempDeleteRequest = {
+    id: 'temp-' + Date.now(),
+    request_id: requestId,
+    requested_by: APP.currentUser.id,
+    requested_by_name:
+      APP.currentUser.full_name ||
+      APP.currentUser.name ||
+      'مستخدم',
+    status: 'pending',
+    created_at: now
+  };
+
+  // إظهار الحالة فورًا بدون انتظار رجوع Supabase
+  APP.deleteRequests = [
+    tempDeleteRequest,
+    ...(APP.deleteRequests || []).filter(function(item) {
+      return item.request_id !== requestId || item.status !== 'pending';
+    })
+  ];
+
+  renderActiveRequestsPage();
+
+  try {
+    if (!window.sb) {
+      showToast('تم وضع الطلب بانتظار الاعتماد', 'success');
       return;
     }
 
-    const { error } = await window.sb
+    const { data, error } = await window.sb
       .from('request_delete_requests')
       .insert({
         request_id: requestId,
@@ -1068,13 +1090,18 @@ async function requestServiceRequestDeletion(event, requestId) {
           APP.currentUser.name ||
           'مستخدم',
         status: 'pending'
-      });
+      })
+      .select('*')
+      .single();
 
     if (error) {
       throw error;
     }
 
-    await loadDeleteRequests();
+    APP.deleteRequests = (APP.deleteRequests || []).map(function(item) {
+      return item.id === tempDeleteRequest.id ? data : item;
+    });
+
     renderActiveRequestsPage();
 
     showToast(
@@ -1082,8 +1109,19 @@ async function requestServiceRequestDeletion(event, requestId) {
       'success'
     );
 
+    loadDeleteRequests().then(function() {
+      renderActiveRequestsPage();
+    });
+
   } catch (error) {
     console.error('Delete request error:', error);
+
+    APP.deleteRequests = (APP.deleteRequests || []).filter(function(item) {
+      return item.id !== tempDeleteRequest.id;
+    });
+
+    renderActiveRequestsPage();
+
     showToast('تعذر إرسال طلب الحذف', 'error');
   }
 }
