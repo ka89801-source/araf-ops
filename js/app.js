@@ -14,6 +14,14 @@ const APP = {
     payment: 'all',
     priority: 'all'
   },
+  caseFilters: {
+    search: '',
+    service: 'all',
+    status: 'all',
+    employee: 'all',
+    payment: 'all',
+    priority: 'all'
+  },
   selectedRequestId: null,
   pendingAssignEmpId: null,
  supportTickets: [],
@@ -21,6 +29,80 @@ selectedSupportTicketId: null,
 activityLog: [],
 deleteRequests: [] 
 };
+
+// ===== تصنيف الطلبات وعرضها =====
+function isCaseRequest(request) {
+  if (!request) return false;
+
+  const rawType = String(
+    request.raw_service_type ||
+    request.service_category ||
+    request.service_type ||
+    ''
+  ).trim();
+
+  const source = String(request.source || '').trim();
+
+  return (
+    rawType === 'التوكيل في القضايا' ||
+    rawType === 'case_representation' ||
+    source === 'cases' ||
+    source === 'custom_case'
+  );
+}
+
+function getRequestDisplayName(request) {
+  if (!request) return '—';
+
+  const explicitName = String(request.service_name || '').trim();
+  if (explicitName) return explicitName;
+
+  return HELPERS.getServiceName(request.service_type);
+}
+
+function getRequestCategoryLabel(request) {
+  return isCaseRequest(request) ? 'توكيل في قضية' : 'خدمة مباشرة';
+}
+
+function getRequestKindForPage(page) {
+  return page === 'cases' ? 'cases' : 'direct';
+}
+
+function isRequestListPage(page = APP.currentPage) {
+  return page === 'requests' || page === 'cases';
+}
+
+function getRequestPageConfig(kind = 'direct') {
+  const isCases = kind === 'cases';
+
+  return {
+    kind,
+    filters: isCases ? APP.caseFilters : APP.filters,
+    countId: isCases ? 'caseRequestsCount' : 'requestsCount',
+    bodyId: isCases ? 'caseRequestsTableBody' : 'requestsTableBody',
+    searchId: isCases ? 'caseSearchInput' : 'searchInput',
+    serviceId: isCases ? 'caseFilterService' : 'filterService',
+    statusId: isCases ? 'caseFilterStatus' : 'filterStatus',
+    employeeId: isCases ? 'caseFilterEmployee' : 'filterEmployee',
+    paymentId: isCases ? 'caseFilterPayment' : 'filterPayment',
+    priorityId: isCases ? 'caseFilterPriority' : 'filterPriority'
+  };
+}
+
+function getRequestsByKind(kind, requests = MOCK_DATA.service_requests) {
+  return (requests || []).filter(function(request) {
+    return kind === 'cases' ? isCaseRequest(request) : !isCaseRequest(request);
+  });
+}
+
+function renderActiveRequestsPage() {
+  if (APP.currentPage === 'cases') {
+    renderCaseRequestsPage();
+    return;
+  }
+
+  renderRequestsPage();
+}
 
 // ===== التحقق من الجلسة =====
 // TODO Supabase: استبدال بـ supabase.auth.getSession()
@@ -77,7 +159,8 @@ if(APP.currentUser && APP.currentUser.role !== 'admin'){
 
   const titles = {
     dashboard: 'لوحة التحكم',
-    requests: 'الطلبات',
+    requests: 'الخدمات المباشرة',
+    cases: 'طلبات توكيل القضايا',
     employees: 'الموظفون',
     activity: 'سجل النشاط',
     support: 'الدعم الفني'
@@ -90,6 +173,7 @@ if(APP.currentUser && APP.currentUser.role !== 'admin'){
   // تحديث المحتوى حسب الصفحة
   if (page === 'dashboard') renderDashboard();
 if (page === 'requests') renderRequestsPage();
+if (page === 'cases') renderCaseRequestsPage();
 if (page === 'employees') renderEmployeesPage();
 if (page === 'activity') renderActivityPage();
 if (page === 'support') renderSupportPage();
@@ -101,126 +185,119 @@ if (page === 'support') renderSupportPage();
 function renderDashboard() {
   const isEmployeeView = APP.currentUser && APP.currentUser.role !== 'admin';
 
-const reqs = isEmployeeView
-  ? MOCK_DATA.service_requests.filter(function(r){
-      return r.assigned_to === APP.currentUser.id;
-    })
-  : MOCK_DATA.service_requests;
+  const reqs = isEmployeeView
+    ? MOCK_DATA.service_requests.filter(function(request) {
+        return request.assigned_to === APP.currentUser.id;
+      })
+    : MOCK_DATA.service_requests;
+
+  const directReqs = getRequestsByKind('direct', reqs);
+  const caseReqs = getRequestsByKind('cases', reqs);
+
   const today = new Date().toISOString().slice(0, 10);
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
 
-  // الإحصائيات
   const total = reqs.length;
-  const newReqs = reqs.filter(r => r.status === 'new' || r.status === 'pending').length;
-  const inProgress = reqs.filter(r => ['assigned', 'review', 'contacted', 'waiting', 'progress'].includes(r.status)).length;
-  const completed = reqs.filter(r => ['done', 'closed'].includes(r.status)).length;
-  const late = reqs.filter(r => r.status === 'late').length;
-  const todayCount = reqs.filter(r => r.created_at.slice(0, 10) === today).length;
-  const weekCount = reqs.filter(r => r.created_at.slice(0, 10) >= weekAgo).length;
+  const directCount = directReqs.length;
+  const caseCount = caseReqs.length;
+  const newReqs = reqs.filter(request => request.status === 'new' || request.status === 'pending').length;
+  const inProgress = reqs.filter(request => ['assigned', 'review', 'contacted', 'waiting', 'progress'].includes(request.status)).length;
+  const completed = reqs.filter(request => ['done', 'closed'].includes(request.status)).length;
+  const late = reqs.filter(request => request.status === 'late').length;
+  const todayCount = reqs.filter(request => String(request.created_at || '').slice(0, 10) === today).length;
+  const weekCount = reqs.filter(request => String(request.created_at || '').slice(0, 10) >= weekAgo).length;
 
-  // متوسط وقت الإغلاق (بالساعات)
-  const closedReqs = reqs.filter(r => r.closed_at);
+  const closedReqs = reqs.filter(request => request.closed_at);
   let avgClose = 0;
+
   if (closedReqs.length > 0) {
-    const totalHours = closedReqs.reduce((sum, r) => {
-      return sum + (new Date(r.closed_at) - new Date(r.created_at)) / 3600000;
+    const totalHours = closedReqs.reduce(function(sum, request) {
+      return sum + (new Date(request.closed_at) - new Date(request.created_at)) / 3600000;
     }, 0);
+
     avgClose = (totalHours / closedReqs.length).toFixed(1);
   }
 
-  // الخدمة الأكثر طلباً
-  const serviceCounts = {};
-  reqs.forEach(r => serviceCounts[r.service_type] = (serviceCounts[r.service_type] || 0) + 1);
-  const topService = Object.entries(serviceCounts).sort((a, b) => b[1] - a[1])[0];
-
-  // الموظف الأكثر انشغالاً
   const empOpen = MOCK_DATA.employees
-    .filter(e => e.role === 'employee' && e.status === 'active')
-    .map(e => ({ ...e, openCount: HELPERS.openRequestsByEmployee(e.id) }))
+    .filter(employee => employee.role === 'employee' && employee.status === 'active')
+    .map(employee => ({ ...employee, openCount: HELPERS.openRequestsByEmployee(employee.id) }))
     .sort((a, b) => b.openCount - a.openCount);
+
   const busiestEmp = empOpen[0];
-
-  // نسبة الإغلاق
   const closeRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-const paymentPending = reqs.filter(function(r){
-  return ['manual_pending','pending','unpaid','waiting_payment'].includes(r.payment_status);
-}).length;
 
-// إجمالي المبالغ المكتسبة من الطلبات المكتملة فقط
-const totalEarned = reqs
-  .filter(function(request) {
-    return request.status === 'done';
-  })
-  .reduce(function(total, request) {
-    return total + (Number(request.price) || 0);
+  const paymentPending = reqs.filter(function(request) {
+    return ['manual_pending', 'pending', 'unpaid', 'waiting_payment', 'pending_quote'].includes(request.payment_status);
+  }).length;
+
+  // المبالغ المكتسبة: الطلبات ذات الحالة «مكتمل» فقط
+  const completedDirectForRevenue = directReqs.filter(request => request.status === 'done');
+  const completedCasesForRevenue = caseReqs.filter(request => request.status === 'done');
+
+  const directEarned = completedDirectForRevenue.reduce(function(totalValue, request) {
+    return totalValue + (Number(request.price) || 0);
   }, 0);
-   
-  // تعبئة البطاقات
-  const kpiHTML = `<div
-  class="kpi-card"
-  style="
-    grid-column:1 / -1;
-    background:linear-gradient(135deg,#1B3A4B 0%,#234D63 60%,#3D7B8A 100%);
-    padding:24px 28px;
-    border:none;
-    color:#fff;
-  "
->
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;">
 
-    <div>
-      <div style="font-size:14px;color:rgba(255,255,255,.72);margin-bottom:7px;">
-        إجمالي المبالغ المكتسبة
+  const casesEarned = completedCasesForRevenue.reduce(function(totalValue, request) {
+    return totalValue + (Number(request.price) || 0);
+  }, 0);
+
+  const totalEarned = directEarned + casesEarned;
+
+  const kpiHTML = `
+    <section class="earnings-card" aria-label="مجموع المبالغ المكتسبة">
+      <div class="earnings-card-head">
+        <div class="earnings-heading">
+          <div class="earnings-icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="2" y="5" width="20" height="14" rx="3"/>
+              <path d="M2 10h20"/>
+              <path d="M16 15h2"/>
+            </svg>
+          </div>
+          <div>
+            <div class="earnings-eyebrow">الأداء المالي</div>
+            <h2 class="earnings-title">مجموع المبالغ المكتسبة</h2>
+          </div>
+        </div>
+
+        <div class="earnings-total-wrap">
+          <span class="earnings-total-label">الإجمالي</span>
+          <div class="earnings-total-value">
+            ${HELPERS.formatPrice(totalEarned)}
+            <small>ر.س</small>
+          </div>
+        </div>
       </div>
 
-      <div
-        style="
-          font-family:'Cairo',sans-serif;
-          font-size:36px;
-          font-weight:800;
-          line-height:1.2;
-          color:#fff;
-        "
-      >
-        ${HELPERS.formatPrice(totalEarned)}
-        <small style="font-size:17px;font-weight:600;color:#D9BF8E;">
-          ر.س
-        </small>
+      <div class="earnings-breakdown">
+        <article class="earnings-part earnings-part-direct">
+          <div class="earnings-part-top">
+            <span class="earnings-dot"></span>
+            <span class="earnings-part-label">الخدمات المباشرة</span>
+          </div>
+          <div class="earnings-part-value">${HELPERS.formatPrice(directEarned)} <small>ر.س</small></div>
+          <div class="earnings-part-meta">${completedDirectForRevenue.length} طلب مكتمل</div>
+        </article>
+
+        <div class="earnings-divider" aria-hidden="true"></div>
+
+        <article class="earnings-part earnings-part-cases">
+          <div class="earnings-part-top">
+            <span class="earnings-dot"></span>
+            <span class="earnings-part-label">توكيل القضايا</span>
+          </div>
+          <div class="earnings-part-value">${HELPERS.formatPrice(casesEarned)} <small>ر.س</small></div>
+          <div class="earnings-part-meta">${completedCasesForRevenue.length} طلب مكتمل</div>
+        </article>
       </div>
 
-      <div style="font-size:12px;color:rgba(255,255,255,.65);margin-top:8px;">
-        يحتسب الطلبات المكتملة فقط
+      <div class="earnings-note">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg>
+        تُحتسب المبالغ للطلبات التي تحمل الحالة «مكتمل» فقط، ولا تدخل الطلبات المغلقة أو الملغاة أو غير المسعّرة في الإجمالي.
       </div>
-    </div>
+    </section>
 
-    <div
-      style="
-        width:58px;
-        height:58px;
-        border-radius:17px;
-        background:rgba(201,169,110,.18);
-        color:#D9BF8E;
-        display:grid;
-        place-items:center;
-        flex-shrink:0;
-      "
-    >
-      <svg
-        viewBox="0 0 24 24"
-        width="28"
-        height="28"
-        stroke="currentColor"
-        fill="none"
-        stroke-width="2"
-      >
-        <rect x="2" y="5" width="20" height="14" rx="2"/>
-        <line x1="2" y1="10" x2="22" y2="10"/>
-        <circle cx="17" cy="15" r="1"/>
-      </svg>
-    </div>
-
-  </div>
-</div>
     <div class="kpi-card c-nv">
       <div class="kpi-header">
         <span class="kpi-label">${isEmployeeView ? 'إجمالي الطلبات المسندة لك' : 'إجمالي الطلبات'}</span>
@@ -228,6 +305,24 @@ const totalEarned = reqs
       </div>
       <div class="kpi-value">${total}</div>
       <div class="kpi-trend up">↑ ${weekCount} طلب هذا الأسبوع</div>
+    </div>
+
+    <div class="kpi-card c-tl">
+      <div class="kpi-header">
+        <span class="kpi-label">الخدمات المباشرة</span>
+        <div class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+      </div>
+      <div class="kpi-value">${directCount}</div>
+      <div class="kpi-trend">من إجمالي الطلبات</div>
+    </div>
+
+    <div class="kpi-card c-gd">
+      <div class="kpi-header">
+        <span class="kpi-label">طلبات توكيل القضايا</span>
+        <div class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 6h6L5 7z"/><path d="M19 7l-3 6h6l-3-6z"/><path d="M8 21h8"/></svg></div>
+      </div>
+      <div class="kpi-value">${caseCount}</div>
+      <div class="kpi-trend">تظهر بمسمى القضية الفعلي</div>
     </div>
 
     <div class="kpi-card c-blue">
@@ -239,7 +334,7 @@ const totalEarned = reqs
       <div class="kpi-trend">بانتظار التوزيع</div>
     </div>
 
-    <div class="kpi-card c-tl">
+    <div class="kpi-card c-purple">
       <div class="kpi-header">
         <span class="kpi-label">${isEmployeeView ? 'طلباتك قيد المعالجة' : 'قيد المعالجة'}</span>
         <div class="kpi-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
@@ -266,6 +361,15 @@ const totalEarned = reqs
       <div class="kpi-trend down">تحتاج تدخلاً عاجلاً</div>
     </div>
 
+    <div class="kpi-card c-orange">
+      <div class="kpi-header">
+        <span class="kpi-label">بانتظار الدفع</span>
+        <div class="kpi-icon"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>
+      </div>
+      <div class="kpi-value">${paymentPending}</div>
+      <div class="kpi-trend">طلبات تحتاج تحققاً من الدفع</div>
+    </div>
+
     <div class="kpi-card c-gd">
       <div class="kpi-header">
         <span class="kpi-label">${isEmployeeView ? 'طلباتك اليوم' : 'طلبات اليوم'}</span>
@@ -280,53 +384,28 @@ const totalEarned = reqs
         <span class="kpi-label">متوسط وقت الإغلاق</span>
         <div class="kpi-icon"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
       </div>
-      <div class="kpi-value">${avgClose}<small style="font-size:14px;font-weight:600;color:var(--t2);margin-right:4px;">ساعة</small></div>
+      <div class="kpi-value">${avgClose}<small class="kpi-unit">ساعة</small></div>
       <div class="kpi-trend">لكل طلب مغلق</div>
     </div>
 
-    ${isEmployeeView ? `
-  <div class="kpi-card c-orange">
-    <div class="kpi-header">
-      <span class="kpi-label">بانتظار الدفع</span>
-      <div class="kpi-icon">
-        <svg viewBox="0 0 24 24">
-          <rect x="2" y="5" width="20" height="14" rx="2"/>
-          <line x1="2" y1="10" x2="22" y2="10"/>
-        </svg>
+    ${!isEmployeeView ? `
+      <div class="kpi-card c-nv">
+        <div class="kpi-header">
+          <span class="kpi-label">الأكثر انشغالاً</span>
+          <div class="kpi-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        </div>
+        <div class="kpi-value kpi-person">${busiestEmp ? busiestEmp.full_name : '—'}</div>
+        <div class="kpi-trend">${busiestEmp ? busiestEmp.openCount + ' طلب مفتوح' : ''}</div>
       </div>
-    </div>
-    <div class="kpi-value">${paymentPending}</div>
-    <div class="kpi-trend">طلبات تحتاج تحقق من الدفع</div>
-  </div>
-` : `
-  <div class="kpi-card c-orange">
-    <div class="kpi-header">
-      <span class="kpi-label">الأكثر انشغالاً</span>
-      <div class="kpi-icon">
-        <svg viewBox="0 0 24 24">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-          <circle cx="12" cy="7" r="4"/>
-        </svg>
-      </div>
-    </div>
-    <div class="kpi-value" style="font-size:18px;line-height:1.4;">${busiestEmp ? busiestEmp.full_name : '—'}</div>
-    <div class="kpi-trend">${busiestEmp ? busiestEmp.openCount + ' طلب مفتوح' : ''}</div>
-  </div>
-`}
+    ` : ''}
   `;
 
   document.getElementById('kpiGrid').innerHTML = kpiHTML;
-  // الرسم البياني الخطي (آخر 7 أيام)
-  drawTrendChart();
 
-  // الخدمات الأكثر طلباً
-  renderServicesChart(serviceCounts, total);
-
-  // آخر الطلبات
-  renderRecentRequests();
-
-  // الطلبات العاجلة
-  renderUrgentRequests();
+  drawTrendChart(reqs);
+  renderServicesChart(reqs);
+  renderRecentRequests(reqs);
+  renderUrgentRequests(reqs);
 }
 async function refreshDashboardData(){
   var btn = document.getElementById('refreshDashboardBtn');
@@ -380,7 +459,11 @@ if(typeof loadDeleteRequests === 'function'){
     }
 
     if(APP.currentPage === 'requests'){
-      renderRequestsPage();
+      renderActiveRequestsPage();
+    }
+
+    if(APP.currentPage === 'cases'){
+      renderCaseRequestsPage();
     }
 
     if(APP.currentPage === 'employees'){
@@ -408,280 +491,404 @@ if(typeof loadDeleteRequests === 'function'){
     }
   }
 }
+
 // ===== الرسم البياني للاتجاه =====
-function drawTrendChart() {
+function drawTrendChart(requests = MOCK_DATA.service_requests) {
   const days = 7;
   const buckets = [];
+
   for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 86400000);
-    const dayStr = d.toISOString().slice(0, 10);
-    const count = MOCK_DATA.service_requests.filter(r => r.created_at.slice(0, 10) === dayStr).length;
+    const date = new Date(Date.now() - i * 86400000);
+    const dayString = date.toISOString().slice(0, 10);
+    const dayRequests = (requests || []).filter(request => String(request.created_at || '').slice(0, 10) === dayString);
+
     buckets.push({
-      day: d.toLocaleDateString('ar-SA', { weekday: 'short' }),
-      count
+      day: date.toLocaleDateString('ar-SA', { weekday: 'short' }),
+      direct: dayRequests.filter(request => !isCaseRequest(request)).length,
+      cases: dayRequests.filter(request => isCaseRequest(request)).length
     });
   }
 
-  const max = Math.max(...buckets.map(b => b.count), 4);
-  const w = 700, h = 220, pad = 30;
-  const stepX = (w - pad * 2) / (buckets.length - 1);
+  const maxValue = Math.max(
+    ...buckets.flatMap(bucket => [bucket.direct, bucket.cases]),
+    4
+  );
 
-  let pathD = '';
-  let areaD = '';
-  const points = buckets.map((b, i) => {
-    const x = pad + i * stepX;
-    const y = h - pad - (b.count / max) * (h - pad * 2);
-    return { x, y, ...b };
-  });
+  const width = 700;
+  const height = 205;
+  const padding = 30;
+  const stepX = (width - padding * 2) / Math.max(buckets.length - 1, 1);
 
-  points.forEach((p, i) => {
-    pathD += (i === 0 ? 'M' : 'L') + ` ${p.x} ${p.y} `;
-  });
+  function createPoints(key) {
+    return buckets.map(function(bucket, index) {
+      return {
+        x: padding + index * stepX,
+        y: height - padding - (bucket[key] / maxValue) * (height - padding * 2),
+        value: bucket[key],
+        day: bucket.day
+      };
+    });
+  }
 
-  areaD = pathD + ` L ${points[points.length-1].x} ${h-pad} L ${points[0].x} ${h-pad} Z`;
+  function createPath(points) {
+    return points.map(function(point, index) {
+      return `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`;
+    }).join(' ');
+  }
 
-  const svg = `
-    <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%;" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#3D7B8A" stop-opacity="0.25"/>
-          <stop offset="100%" stop-color="#3D7B8A" stop-opacity="0"/>
-        </linearGradient>
-      </defs>
-      ${[0,1,2,3].map(i => {
-        const y = pad + i * ((h - pad*2) / 3);
-        return `<line x1="${pad}" y1="${y}" x2="${w-pad}" y2="${y}" stroke="rgba(27,58,75,0.06)" stroke-dasharray="3,4"/>`;
+  const directPoints = createPoints('direct');
+  const casePoints = createPoints('cases');
+  const directPath = createPath(directPoints);
+  const casePath = createPath(casePoints);
+
+  document.getElementById('trendChart').innerHTML = `
+    <div class="trend-legend">
+      <span><i class="trend-key trend-key-direct"></i>الخدمات المباشرة</span>
+      <span><i class="trend-key trend-key-cases"></i>توكيل القضايا</span>
+    </div>
+
+    <svg viewBox="0 0 ${width} ${height}" class="trend-svg" preserveAspectRatio="none" aria-label="حركة الخدمات المباشرة وطلبات توكيل القضايا خلال آخر سبعة أيام">
+      ${[0, 1, 2, 3].map(function(index) {
+        const y = padding + index * ((height - padding * 2) / 3);
+        return `<line x1="${padding}" y1="${y}" x2="${width - padding}" y2="${y}" stroke="rgba(27,58,75,0.07)" stroke-dasharray="3,4"/>`;
       }).join('')}
-      <path d="${areaD}" fill="url(#areaGrad)"/>
-      <path d="${pathD}" fill="none" stroke="#3D7B8A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-      ${points.map(p => `
-        <circle cx="${p.x}" cy="${p.y}" r="5" fill="#fff" stroke="#3D7B8A" stroke-width="2.5"/>
-        <text x="${p.x}" y="${h-8}" text-anchor="middle" font-size="11" fill="#8A9DAB" font-family="Tajawal">${p.day}</text>
-        <text x="${p.x}" y="${p.y - 12}" text-anchor="middle" font-size="11" font-weight="700" fill="#1B3A4B" font-family="Cairo">${p.count}</text>
-      `).join('')}
+
+      <path d="${directPath}" fill="none" stroke="#3D7B8A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="${casePath}" fill="none" stroke="#C9A96E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+      ${directPoints.map(function(point) {
+        return `<circle cx="${point.x}" cy="${point.y}" r="4.5" fill="#fff" stroke="#3D7B8A" stroke-width="2.5"/>`;
+      }).join('')}
+
+      ${casePoints.map(function(point) {
+        return `<circle cx="${point.x}" cy="${point.y}" r="4.5" fill="#fff" stroke="#C9A96E" stroke-width="2.5"/>`;
+      }).join('')}
+
+      ${buckets.map(function(bucket, index) {
+        const x = padding + index * stepX;
+        return `<text x="${x}" y="${height - 7}" text-anchor="middle" font-size="11" fill="#8A9DAB" font-family="Tajawal">${bucket.day}</text>`;
+      }).join('')}
     </svg>
   `;
-  document.getElementById('trendChart').innerHTML = svg;
 }
 
-// ===== مخطط الخدمات الأكثر طلباً =====
-function renderServicesChart(counts, total) {
-  const colors = {
-    tl: ['#3D7B8A', '#4F9BAD'],
-    nv: ['#1B3A4B', '#234D63'],
-    gd: ['#C9A96E', '#D9BF8E'],
-    purple: ['#8B5CF6', '#A78BFA'],
-    green: ['#10B981', '#34D399'],
-    orange: ['#F59E0B', '#FBBF24']
-  };
+// ===== مخطط الخدمات والقضايا الأكثر طلباً =====
+function renderServicesChart(requests = MOCK_DATA.service_requests) {
+  const counts = {};
 
-  const html = MOCK_DATA.services
-    .map(s => ({ ...s, count: counts[s.key] || 0 }))
+  (requests || []).forEach(function(request) {
+    const name = getRequestDisplayName(request);
+    counts[name] = (counts[name] || 0) + 1;
+  });
+
+  const items = Object.entries(counts)
+    .map(function(entry) {
+      return { name: entry[0], count: entry[1] };
+    })
     .sort((a, b) => b.count - a.count)
-    .map(s => {
-      const pct = total > 0 ? (s.count / total) * 100 : 0;
-      const [c1, c2] = colors[s.color] || colors.tl;
-      return `
-        <div class="service-bar">
-          <div class="service-bar-row">
-            <span class="service-bar-label">${s.name}</span>
-            <span class="service-bar-value">${s.count} طلب</span>
-          </div>
-          <div class="service-bar-track">
-            <div class="service-bar-fill" style="width:${pct}%;--bar-color:${c1};--bar-color-l:${c2};"></div>
-          </div>
-        </div>
-      `;
-    }).join('');
+    .slice(0, 8);
 
-  document.getElementById('servicesChart').innerHTML = html;
-}
+  const total = Math.max((requests || []).length, 1);
+  const palette = [
+    ['#3D7B8A', '#4F9BAD'],
+    ['#C9A96E', '#D9BF8E'],
+    ['#1B3A4B', '#234D63'],
+    ['#8B5CF6', '#A78BFA'],
+    ['#10B981', '#34D399'],
+    ['#F59E0B', '#FBBF24'],
+    ['#0EA5E9', '#38BDF8'],
+    ['#EC4899', '#F472B6']
+  ];
 
-// ===== آخر الطلبات =====
-function renderRecentRequests() {
-  const recent = [...MOCK_DATA.service_requests]
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .slice(0, 5);
-
-  const html = recent.map(r => {
-    const emp = HELPERS.getEmployee(r.assigned_to);
-    return `
-      <div class="recent-item" onclick="openRequestDrawer('${r.id}')">
-        <div class="recent-item-left">
-          <div class="cell-customer-avatar">${HELPERS.initials(r.customer_name)}</div>
-          <div>
-            <div style="font-weight:600;font-size:13.5px;color:var(--t1);">${r.customer_name}</div>
-            <div style="font-size:12px;color:var(--t2);margin-top:2px;">${HELPERS.getServiceName(r.service_type)}</div>
-          </div>
-        </div>
-        <div class="recent-item-right">
-          <span class="badge s-${r.status}">${HELPERS.statusLabel(r.status)}</span>
-          <div style="font-size:11px;color:var(--tm);margin-top:4px;text-align:left;">${HELPERS.timeAgo(r.created_at)}</div>
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  document.getElementById('recentList').innerHTML = html;
-}
-
-// ===== الطلبات العاجلة =====
-function renderUrgentRequests() {
-  const urgent = MOCK_DATA.service_requests
-    .filter(r => (r.priority === 'urgent' || r.priority === 'high' || r.status === 'late')
-                  && !['done', 'closed', 'cancelled'].includes(r.status))
-    .slice(0, 5);
-
-  if (urgent.length === 0) {
-    document.getElementById('urgentList').innerHTML = `
-      <div style="padding:24px;text-align:center;color:var(--tm);font-size:13px;">
-        لا توجد طلبات عاجلة حالياً ✓
-      </div>
-    `;
+  if (!items.length) {
+    document.getElementById('servicesChart').innerHTML = '<div class="empty-mini">لا توجد بيانات كافية بعد</div>';
     return;
   }
 
-  const html = urgent.map(r => {
+  document.getElementById('servicesChart').innerHTML = items.map(function(item, index) {
+    const percentage = (item.count / total) * 100;
+    const colors = palette[index % palette.length];
+
     return `
-      <div class="recent-item" onclick="openRequestDrawer('${r.id}')">
-        <div class="recent-item-left">
-          <div style="width:32px;height:32px;border-radius:8px;background:var(--red-l);color:#991B1B;display:grid;place-items:center;font-weight:700;">
-            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2.2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          </div>
-          <div>
-            <div style="font-weight:600;font-size:13.5px;color:var(--t1);">${r.id}</div>
-            <div style="font-size:12px;color:var(--t2);margin-top:2px;">${r.customer_name}</div>
-          </div>
+      <div class="service-bar">
+        <div class="service-bar-row">
+          <span class="service-bar-label">${item.name}</span>
+          <span class="service-bar-value">${item.count} طلب</span>
         </div>
-        <div class="recent-item-right">
-          <span class="badge p-${r.priority}">${HELPERS.priorityLabel(r.priority)}</span>
+        <div class="service-bar-track">
+          <div class="service-bar-fill" style="width:${percentage}%;--bar-color:${colors[0]};--bar-color-l:${colors[1]};"></div>
         </div>
       </div>
     `;
   }).join('');
+}
 
-  document.getElementById('urgentList').innerHTML = html;
+// ===== آخر الطلبات =====
+function renderRecentRequests(requests = MOCK_DATA.service_requests) {
+  const recent = [...(requests || [])]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 5);
+
+  if (!recent.length) {
+    document.getElementById('recentList').innerHTML = '<div class="empty-mini">لا توجد طلبات حتى الآن</div>';
+    return;
+  }
+
+  document.getElementById('recentList').innerHTML = recent.map(function(request) {
+    return `
+      <div class="recent-item" onclick="openRequestDrawer('${request.id}')">
+        <div class="recent-item-left">
+          <div class="cell-customer-avatar">${HELPERS.initials(request.customer_name)}</div>
+          <div>
+            <div class="recent-customer-name">${request.customer_name}</div>
+            <div class="recent-service-name">${getRequestDisplayName(request)}</div>
+            <span class="request-category-chip ${isCaseRequest(request) ? 'case' : 'direct'}">${getRequestCategoryLabel(request)}</span>
+          </div>
+        </div>
+        <div class="recent-item-right">
+          <span class="badge s-${request.status}">${HELPERS.statusLabel(request.status)}</span>
+          <div class="recent-time">${HELPERS.timeAgo(request.created_at)}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ===== الطلبات العاجلة =====
+function renderUrgentRequests(requests = MOCK_DATA.service_requests) {
+  const urgent = (requests || [])
+    .filter(request => (
+      request.priority === 'urgent' ||
+      request.priority === 'high' ||
+      request.status === 'late'
+    ) && !['done', 'closed', 'cancelled'].includes(request.status))
+    .slice(0, 5);
+
+  if (!urgent.length) {
+    document.getElementById('urgentList').innerHTML = '<div class="empty-mini">لا توجد طلبات عاجلة حالياً ✓</div>';
+    return;
+  }
+
+  document.getElementById('urgentList').innerHTML = urgent.map(function(request) {
+    return `
+      <div class="recent-item" onclick="openRequestDrawer('${request.id}')">
+        <div class="recent-item-left">
+          <div class="urgent-icon">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2.2"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div>
+            <div class="recent-customer-name">${request.id}</div>
+            <div class="recent-service-name">${request.customer_name} · ${getRequestDisplayName(request)}</div>
+          </div>
+        </div>
+        <div class="recent-item-right">
+          <span class="badge p-${request.priority}">${HELPERS.priorityLabel(request.priority)}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 // =============================================================
-// صفحة الطلبات
+// صفحات الخدمات المباشرة وطلبات توكيل القضايا
 // =============================================================
 function renderRequestsPage() {
-  // املأ الفلاتر
-  const empOptions = MOCK_DATA.employees
-    .filter(e => e.status === 'active')
-    .map(e => `<option value="${e.id}">${e.full_name}</option>`).join('');
-  document.getElementById('filterEmployee').innerHTML = `<option value="all">كل الموظفين</option><option value="unassigned">غير مسند</option>${empOptions}`;
+  renderRequestCollectionPage('direct');
+}
 
-  const svcOptions = MOCK_DATA.services.map(s => `<option value="${s.key}">${s.name}</option>`).join('');
-  document.getElementById('filterService').innerHTML = `<option value="all">كل الخدمات</option>${svcOptions}`;
+function renderCaseRequestsPage() {
+  renderRequestCollectionPage('cases');
+}
 
-  renderRequestsTable();
+function buildRequestServiceOptions(kind) {
+  if (kind === 'direct') {
+    const known = MOCK_DATA.services.map(function(service) {
+      return { value: service.key, label: service.name };
+    });
+
+    const extras = getRequestsByKind('direct')
+      .filter(function(request) {
+        return !MOCK_DATA.services.some(service => service.key === request.service_type);
+      })
+      .map(function(request) {
+        return { value: request.service_type, label: getRequestDisplayName(request) };
+      });
+
+    const combined = [...known, ...extras];
+    const seen = new Set();
+
+    return combined.filter(function(item) {
+      const key = `${item.value}::${item.label}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  const names = getRequestsByKind('cases')
+    .map(getRequestDisplayName)
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, 'ar'));
+
+  return [...new Set(names)].map(function(name) {
+    return { value: name, label: name };
+  });
+}
+
+function renderRequestCollectionPage(kind) {
+  const config = getRequestPageConfig(kind);
+
+  const employeeOptions = MOCK_DATA.employees
+    .filter(employee => employee.status === 'active')
+    .map(employee => `<option value="${employee.id}">${employee.full_name}</option>`)
+    .join('');
+
+  const serviceOptions = buildRequestServiceOptions(kind)
+    .map(item => `<option value="${item.value}">${item.label}</option>`)
+    .join('');
+
+  const employeeSelect = document.getElementById(config.employeeId);
+  const serviceSelect = document.getElementById(config.serviceId);
+
+  if (employeeSelect) {
+    employeeSelect.innerHTML = `<option value="all">كل الموظفين</option><option value="unassigned">غير مسند</option>${employeeOptions}`;
+    employeeSelect.value = config.filters.employee;
+  }
+
+  if (serviceSelect) {
+    serviceSelect.innerHTML = `<option value="all">${kind === 'cases' ? 'كل أنواع القضايا' : 'كل الخدمات'}</option>${serviceOptions}`;
+    serviceSelect.value = config.filters.service;
+  }
+
+  renderRequestsTable(kind);
 }
 
 function renderPaymentStatus(request) {
-  // الطلب الملغي لا توجد له حالة دفع
   if (request.status === 'cancelled') {
     return '<span style="color:var(--tm);">—</span>';
   }
 
-  // الطلب المكتمل يظهر أن الدفع حوالة
-  if (
-    request.status === 'done' ||
-    request.status === 'closed'
-  ) {
-    return `
-      <span class="badge pay-paid">
-        حوالة
-      </span>
-    `;
+  if (request.status === 'done' || request.status === 'closed') {
+    return '<span class="badge pay-paid">حوالة</span>';
   }
 
-  // جميع الطلبات الأخرى ما زالت بانتظار الدفع
-  return `
-    <span class="badge pay-pending">
-      بانتظار الدفع
-    </span>
-  `;
+  if (request.payment_status === 'pending_quote') {
+    return '<span class="badge pay-pending">بانتظار التسعير</span>';
+  }
+
+  return '<span class="badge pay-pending">بانتظار الدفع</span>';
 }
-function renderRequestsTable() {
-  const f = APP.filters;
-  let reqs = [...MOCK_DATA.service_requests];
 
-  // تطبيق الفلاتر
-  if (f.search) {
-    const q = f.search.toLowerCase();
-    reqs = reqs.filter(r =>
-      r.customer_name.toLowerCase().includes(q) ||
-      r.customer_phone.includes(q) ||
-      r.id.toLowerCase().includes(q)
-    );
+function renderRequestsTable(kind = 'direct') {
+  const config = getRequestPageConfig(kind);
+  const filters = config.filters;
+  let requests = getRequestsByKind(kind);
+
+  if (filters.search) {
+    const query = filters.search.toLowerCase();
+
+    requests = requests.filter(function(request) {
+      return (
+        String(request.customer_name || '').toLowerCase().includes(query) ||
+        String(request.customer_phone || '').includes(query) ||
+        String(request.id || '').toLowerCase().includes(query) ||
+        getRequestDisplayName(request).toLowerCase().includes(query) ||
+        String(request.details || '').toLowerCase().includes(query)
+      );
+    });
   }
-  if (f.service !== 'all') reqs = reqs.filter(r => r.service_type === f.service);
-  if (f.status !== 'all') reqs = reqs.filter(r => r.status === f.status);
-  if (f.employee !== 'all') {
-    if (f.employee === 'unassigned') reqs = reqs.filter(r => !r.assigned_to);
-    else reqs = reqs.filter(r => r.assigned_to === f.employee);
+
+  if (filters.service !== 'all') {
+    requests = requests.filter(function(request) {
+      return kind === 'cases'
+        ? getRequestDisplayName(request) === filters.service
+        : request.service_type === filters.service;
+    });
   }
-  if (f.payment !== 'all') reqs = reqs.filter(r => r.payment_status === f.payment);
-  if (f.priority !== 'all') reqs = reqs.filter(r => r.priority === f.priority);
 
-  // ترتيب
-  reqs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  if (filters.status !== 'all') {
+    requests = requests.filter(request => request.status === filters.status);
+  }
 
-  document.getElementById('requestsCount').textContent = `${reqs.length} طلب`;
+  if (filters.employee !== 'all') {
+    if (filters.employee === 'unassigned') {
+      requests = requests.filter(request => !request.assigned_to);
+    } else {
+      requests = requests.filter(request => request.assigned_to === filters.employee);
+    }
+  }
 
-  if (reqs.length === 0) {
-    document.getElementById('requestsTableBody').innerHTML = `
-      <tr><td colspan="10">
-        <div class="empty-state">
-          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <h3>لا توجد طلبات مطابقة</h3>
-          <p>جرّب تعديل الفلاتر أو إعادة ضبطها</p>
-        </div>
-      </td></tr>
+  if (filters.payment !== 'all') {
+    requests = requests.filter(request => request.payment_status === filters.payment);
+  }
+
+  if (filters.priority !== 'all') {
+    requests = requests.filter(request => request.priority === filters.priority);
+  }
+
+  requests.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  const countElement = document.getElementById(config.countId);
+  const tableBody = document.getElementById(config.bodyId);
+
+  if (countElement) {
+    countElement.textContent = `${requests.length} طلب`;
+  }
+
+  if (!tableBody) return;
+
+  if (!requests.length) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="10">
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <h3>${kind === 'cases' ? 'لا توجد طلبات توكيل مطابقة' : 'لا توجد خدمات مباشرة مطابقة'}</h3>
+            <p>جرّب تعديل الفلاتر أو إعادة ضبطها</p>
+          </div>
+        </td>
+      </tr>
     `;
     return;
   }
 
-  const html = reqs.map(r => {
-    const emp = HELPERS.getEmployee(r.assigned_to);
+  tableBody.innerHTML = requests.map(function(request) {
+    const employee = HELPERS.getEmployee(request.assigned_to);
+
     return `
-      <tr onclick="openRequestDrawer('${r.id}')">
-        <td><span class="cell-id">${r.id}</span></td>
+      <tr onclick="openRequestDrawer('${request.id}')">
+        <td><span class="cell-id">${request.id}</span></td>
         <td>
           <div class="cell-customer">
-            <div class="cell-customer-avatar">${HELPERS.initials(r.customer_name)}</div>
+            <div class="cell-customer-avatar">${HELPERS.initials(request.customer_name)}</div>
             <div>
-              <div class="cell-customer-name">${r.customer_name}</div>
-              <div class="cell-customer-phone">${r.customer_phone}</div>
+              <div class="cell-customer-name">${request.customer_name}</div>
+              <div class="cell-customer-phone">${request.customer_phone}</div>
             </div>
           </div>
         </td>
-        <td>${HELPERS.getServiceName(r.service_type)}</td>
-        <td><span class="cell-price">${HELPERS.formatPrice(r.price)}<small>ر.س</small></span></td>
-        <td>${renderPaymentStatus(r)}</td>
-        <td><span class="badge s-${r.status}">${HELPERS.statusLabel(r.status)}</span></td>
-        <td><span class="badge p-${r.priority}">${HELPERS.priorityLabel(r.priority)}</span></td>
         <td>
-          ${emp
-            ? `<span class="cell-employee"><span class="cell-employee-avatar">${HELPERS.initials(emp.full_name)}</span>${emp.full_name.split(' ')[0]}</span>`
-            : `<span class="cell-unassigned">— غير مسند —</span>`
+          <div class="request-name-cell">${getRequestDisplayName(request)}</div>
+          <div class="request-kind-cell">${getRequestCategoryLabel(request)}</div>
+        </td>
+        <td><span class="cell-price">${HELPERS.formatPrice(request.price)}<small>ر.س</small></span></td>
+        <td>${renderPaymentStatus(request)}</td>
+        <td><span class="badge s-${request.status}">${HELPERS.statusLabel(request.status)}</span></td>
+        <td><span class="badge p-${request.priority}">${HELPERS.priorityLabel(request.priority)}</span></td>
+        <td>
+          ${employee
+            ? `<span class="cell-employee"><span class="cell-employee-avatar">${HELPERS.initials(employee.full_name)}</span>${employee.full_name.split(' ')[0]}</span>`
+            : '<span class="cell-unassigned">— غير مسند —</span>'
           }
         </td>
         <td class="cell-date">
-  ${HELPERS.formatDate(r.created_at)}
-  <small>${HELPERS.formatTime(r.created_at)}</small>
-</td>
-
-<td onclick="event.stopPropagation()">
-  ${renderDeleteRequestAction(r)}
-</td>
+          ${HELPERS.formatDate(request.created_at)}
+          <small>${HELPERS.formatTime(request.created_at)}</small>
+        </td>
+        <td onclick="event.stopPropagation()">${renderDeleteRequestAction(request)}</td>
       </tr>
     `;
   }).join('');
-
-  document.getElementById('requestsTableBody').innerHTML = html;
 }
 
 // ===== أزرار حذف الطلب بموافقة مستخدمين =====
@@ -691,7 +898,7 @@ function getPendingDeleteRequestFor(requestId) {
   }) || null;
 }
 
-function renderDeleteRequestAction(request) {
+function renderDeleteRequestAction(request) {  
   const pending = getPendingDeleteRequestFor(request.id);
 
   // لا يوجد طلب حذف معلق
@@ -777,7 +984,7 @@ async function requestServiceRequestDeletion(event, requestId) {
     }
 
     await loadDeleteRequests();
-    renderRequestsTable();
+    renderActiveRequestsPage();
 
     showToast(
       'تم إرسال طلب الحذف وبانتظار موافقة المستخدم الآخر',
@@ -814,7 +1021,7 @@ async function cancelServiceRequestDeletion(event, deleteRequestId) {
     }
 
     await loadDeleteRequests();
-    renderRequestsTable();
+    renderActiveRequestsPage();
 
     showToast('تم إلغاء طلب الحذف', 'success');
 
@@ -867,7 +1074,7 @@ async function approveServiceRequestDeletion(event, requestId) {
     await loadDeleteRequests();
 
     updateSidebarCounts();
-    renderRequestsPage();
+    renderActiveRequestsPage();
 
     if (APP.currentPage === 'dashboard') {
       renderDashboard();
@@ -888,15 +1095,32 @@ async function approveServiceRequestDeletion(event, requestId) {
 }
 
 // إعادة ضبط الفلاتر
-function resetFilters() {
-  APP.filters = { search: '', service: 'all', status: 'all', employee: 'all', payment: 'all', priority: 'all' };
-  document.getElementById('searchInput').value = '';
-  document.getElementById('filterService').value = 'all';
-  document.getElementById('filterStatus').value = 'all';
-  document.getElementById('filterEmployee').value = 'all';
-  document.getElementById('filterPayment').value = 'all';
-  document.getElementById('filterPriority').value = 'all';
-  renderRequestsTable();
+function resetFilters(kind) {
+  const activeKind = kind || getRequestKindForPage(APP.currentPage);
+  const config = getRequestPageConfig(activeKind);
+
+  Object.assign(config.filters, {
+    search: '',
+    service: 'all',
+    status: 'all',
+    employee: 'all',
+    payment: 'all',
+    priority: 'all'
+  });
+
+  [
+    [config.searchId, ''],
+    [config.serviceId, 'all'],
+    [config.statusId, 'all'],
+    [config.employeeId, 'all'],
+    [config.paymentId, 'all'],
+    [config.priorityId, 'all']
+  ].forEach(function(item) {
+    const element = document.getElementById(item[0]);
+    if (element) element.value = item[1];
+  });
+
+  renderRequestsTable(activeKind);
   showToast('تمت إعادة ضبط الفلاتر', 'success');
 }
 
@@ -914,7 +1138,7 @@ function openRequestDrawer(reqId) {
 
   // الهيدر
   document.getElementById('drawerId').textContent = r.id;
-  document.getElementById('drawerTitle').textContent = `${HELPERS.getServiceName(r.service_type)} — ${r.customer_name}`;
+  document.getElementById('drawerTitle').textContent = `${getRequestDisplayName(r)} — ${r.customer_name}`;
   document.getElementById('drawerMeta').innerHTML = `
     <span class="badge s-${r.status}">${HELPERS.statusLabel(r.status)}</span>
     <span class="badge p-${r.priority}">${HELPERS.priorityLabel(r.priority)}</span>
@@ -946,946 +1170,1004 @@ function openRequestDrawer(reqId) {
           <div class="info-item-value" style="font-family:monospace;">${r.customer_phone}</div>
         </div>
         <div class="info-item">
-          <div class="info-item-label">نوع الخدمة</div>
-          <div class="info-item-value">${HELPERS.getServiceName(r.service_type)}</div>
+          <div class="info-item-label">${isCaseRequest(r) ? 'نوع القضية' : 'نوع الخدمة'}</div>
+          <div class="info-item-value">${getRequestDisplayName(r)}</div>
         </div>
         <div class="info-item">
           <div class="info-item-label">السعر</div>
           <div class="info-item-value">${HELPERS.formatPrice(r.price)} ر.س</div>
         </div>
         <div class="info-item">
-          <div class="info-item-label">مصدر الطلب</div>
-          <div class="info-item-value">${HELPERS.sourceLabel(r.source)}</div>
+          <div class="info-item-label">التصنيف</div>
+          <div class="info-item-value">${getRequestCategoryLabel(r)}</div>
         </div>
         <div class="info-item">
-          <div class="info-item-label">تاريخ الإنشاء</div>
-          <div class="info-item-value">${HELPERS.formatDateTime(r.created_at)}</div>
+          <div class="info-item-label">حالة الدفع</div>
+          <div class="info-item-value">${HELPERS.paymentLabel(r.payment_status)}</div>
         </div>
         <div class="info-item">
-          <div class="info-item-label">الموظف المسؤول</div>
-          <div class="info-item-value">${emp ? emp.full_name : '— غير مسند —'}</div>
+          <div class="info-item-label">تاريخ الطلب</div>
+          <div class="info-item-value">${HELPERS.formatDate(r.created_at)} ${HELPERS.formatTime(r.created_at)}</div>
         </div>
         <div class="info-item">
           <div class="info-item-label">آخر تحديث</div>
-          <div class="info-item-value">${HELPERS.timeAgo(r.updated_at)}</div>
+          <div class="info-item-value">${HELPERS.timeAgo(r.updated_at || r.created_at)}</div>
         </div>
       </div>
     </div>
 
     <div class="drawer-section">
       <h4>تفاصيل الطلب</h4>
-      <div class="details-box">${r.details}</div>
+      <div class="note-box">${r.details || 'لا توجد تفاصيل إضافية'}</div>
     </div>
 
     <div class="drawer-section">
-      <h4>المرفقات (${r.attachments?.length || 0})</h4>
+      <h4>الإسناد والمتابعة</h4>
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="info-item-label">الموظف المسؤول</div>
+          <div class="info-item-value">${emp ? emp.full_name : 'غير مسند'}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-item-label">أُسند بواسطة</div>
+          <div class="info-item-value">${assignedByEmp ? assignedByEmp.full_name : '—'}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-item-label">تاريخ الإسناد</div>
+          <div class="info-item-value">${r.assigned_at ? HELPERS.formatDate(r.assigned_at) : '—'}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-item-label">تاريخ الإغلاق</div>
+          <div class="info-item-value">${r.closed_at ? HELPERS.formatDate(r.closed_at) : '—'}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <h4>المرفقات</h4>
       ${attachmentsHTML}
-    </div>
-
-    ${r.closed_at ? `
-    <div class="drawer-section">
-      <h4>معلومات الإغلاق</h4>
-      <div style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(16,185,129,0.02));border:1px solid rgba(16,185,129,0.2);padding:16px;border-radius:12px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;color:var(--green);font-weight:700;font-size:13px;">
-          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2.2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          تم إغلاق الطلب
-        </div>
-        <div style="font-size:13px;line-height:1.9;">
-          <strong>المُغلِق:</strong> ${closedByEmp ? closedByEmp.full_name : '—'}<br>
-          <strong>الوقت:</strong> ${HELPERS.formatDateTime(r.closed_at)}<br>
-          ${r.close_note ? `<strong>الملاحظة:</strong> ${r.close_note}` : ''}
-        </div>
-      </div>
-    </div>
-    ` : ''}
-
-    <div class="drawer-section">
-      <h4>السجل الزمني</h4>
-      <div class="timeline">
-        ${renderRequestTimeline(r)}
-      </div>
     </div>
 
     <div class="drawer-section">
       <h4>الملاحظات الداخلية</h4>
       <div class="notes-list">
-        ${renderRequestNotes(r.id)}
+        ${(r.notes || []).map(note => `
+          <div class="note-item">
+            <div class="note-item-head">
+              <strong>${note.by}</strong>
+              <span>${HELPERS.timeAgo(note.at)}</span>
+            </div>
+            <p>${note.text}</p>
+          </div>
+        `).join('') || '<div style="color:var(--tm);font-size:13px;">لا توجد ملاحظات بعد</div>'}
       </div>
-      <div class="note-input-wrap">
-        <input id="newNoteInput" type="text" placeholder="أضف ملاحظة داخلية..." />
-        <button class="btn btn-primary" onclick="addNote()">إضافة</button>
+      <div class="add-note">
+        <textarea id="newNoteText" placeholder="أضف ملاحظة داخلية..."></textarea>
+        <button class="btn btn-primary btn-sm" onclick="addNote()">إضافة ملاحظة</button>
       </div>
     </div>
+
+    ${r.closing_note ? `
+      <div class="drawer-section">
+        <h4>ملاحظة الإغلاق</h4>
+        <div class="note-box">${r.closing_note}</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:8px;">
+          بواسطة: ${closedByEmp ? closedByEmp.full_name : '—'}
+        </div>
+      </div>
+    ` : ''}
   `;
 
- // أزرار الإجراءات
-const actionsElement = document.getElementById('drawerActions');
+  // أزرار الإجراءات
+  const canManage = APP.currentUser.role === 'admin' || r.assigned_to === APP.currentUser.id;
+  const isClosed = ['done', 'closed', 'cancelled'].includes(r.status);
 
-const isEmployee =
-  APP.currentUser &&
-  APP.currentUser.role !== 'admin';
+  document.getElementById('drawerActions').innerHTML = `
+    ${!r.assigned_to ? `
+      <button class="btn btn-primary" onclick="openAssignModal('${r.id}')">
+        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        إسناد الطلب
+      </button>
+    ` : ''}
 
-const isAssignedToCurrentUser =
-  isEmployee &&
-  r.assigned_to === APP.currentUser.id;
+    ${canManage ? `
+      <button class="btn btn-primary" onclick="openStatusModal('${r.id}')">
+        <svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        تغيير الحالة
+      </button>
 
-// إعادة إظهار منطقة الأزرار عند فتح أي طلب
-actionsElement.style.display = 'flex';
+      <button class="btn" onclick="openAssignModal('${r.id}')">
+        <svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+        تغيير الموظف
+      </button>
 
-// المدير: إسناد الطلب وتغيير حالته
-if (!isEmployee) {
-  actionsElement.innerHTML = `
-    <button class="btn" onclick="openAssignModal('${r.id}')">
-      <svg viewBox="0 0 24 24">
-        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-        <circle cx="8.5" cy="7" r="4"/>
-        <line x1="20" y1="8" x2="20" y2="14"/>
-        <line x1="23" y1="11" x2="17" y2="11"/>
-      </svg>
-
-      ${emp ? 'إعادة الإسناد' : 'إسناد لموظف'}
-    </button>
-
-    <button class="btn btn-primary" onclick="openStatusModal('${r.id}')">
-      <svg viewBox="0 0 24 24">
-        <path d="M21.5 2v6h-6"/>
-        <path d="M2.5 22v-6h6"/>
-        <path d="M2 11.5a10 10 0 0 1 18.8-4.3"/>
-        <path d="M22 12.5a10 10 0 0 1-18.8 4.2"/>
-      </svg>
-
-      تغيير الحالة
-    </button>
+      ${!isClosed ? `
+        <button class="btn btn-success" onclick="openCloseModal('${r.id}')">
+          <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          إغلاق الطلب
+        </button>
+      ` : ''}
+    ` : ''}
   `;
 
-// الموظف المسند إليه الطلب: تغيير الحالة فقط
-} else if (isAssignedToCurrentUser) {
-  actionsElement.innerHTML = `
-    <button
-      class="btn btn-primary"
-      onclick="openStatusModal('${r.id}')"
-      style="width:100%;"
-    >
-      <svg viewBox="0 0 24 24">
-        <path d="M21.5 2v6h-6"/>
-        <path d="M2.5 22v-6h6"/>
-        <path d="M2 11.5a10 10 0 0 1 18.8-4.3"/>
-        <path d="M22 12.5a10 10 0 0 1-18.8 4.2"/>
-      </svg>
-
-      تغيير الحالة
-    </button>
-  `;
-
-// بقية الموظفين: لا تظهر لهم إجراءات
-} else {
-  actionsElement.innerHTML = '';
-  actionsElement.style.display = 'none';
-}
-
-  // افتح الـ drawer
-  document.getElementById('drawer').classList.add('open');
   document.getElementById('drawerOverlay').classList.add('open');
+  document.getElementById('drawer').classList.add('open');
 }
 
 function closeDrawer() {
-  document.getElementById('drawer').classList.remove('open');
   document.getElementById('drawerOverlay').classList.remove('open');
+  document.getElementById('drawer').classList.remove('open');
   APP.selectedRequestId = null;
 }
 
-// السجل الزمني للطلب
-function renderRequestTimeline(r) {
-  const events = [];
-
-  events.push({
-    type: 'created',
-    text: `تم استلام الطلب من <strong>${r.customer_name}</strong>`,
-    time: r.created_at
-  });
-
-  if (r.assigned_at) {
-    const emp = HELPERS.getEmployee(r.assigned_to);
-    const by = HELPERS.getEmployee(r.assigned_by);
-    events.push({
-      type: 'assigned',
-      text: `أسند ${by ? by.full_name : ''} الطلب إلى <strong>${emp ? emp.full_name : ''}</strong>`,
-      time: r.assigned_at
-    });
-  }
-
-  if (r.contacted_at) {
-    events.push({
-      type: 'contact',
-      text: 'تم التواصل مع العميل',
-      time: r.contacted_at
-    });
-  }
-
-  // ملاحظات
-  const notes = MOCK_DATA.request_notes.filter(n => n.request_id === r.id);
-  notes.forEach(n => {
-    const emp = HELPERS.getEmployee(n.employee_id);
-    events.push({
-      type: 'note',
-      text: `أضاف <strong>${emp ? emp.full_name : ''}</strong> ملاحظة`,
-      time: n.created_at
-    });
-  });
-
-// تغييرات حالة الطلب والتعليقات المرتبطة بها
-const statusActivities = (APP.activityLog || []).filter(function(activity) {
-  return (
-    activity.request_id === r.id &&
-    activity.action_type === 'status_changed'
-  );
-});
-
-statusActivities.forEach(function(activity) {
-  const actor = HELPERS.getEmployee(activity.actor_id);
-
-  events.push({
-    type: 'status',
-    text: `
-      ${actor ? `<strong>${actor.full_name}</strong>: ` : ''}
-      ${activity.description || 'تم تغيير حالة الطلب'}
-    `,
-    time: activity.created_at
-  });
-});
-   
-  if (r.closed_at) {
-    const emp = HELPERS.getEmployee(r.closed_by);
-    events.push({
-      type: 'closed',
-      text: `أغلق <strong>${emp ? emp.full_name : ''}</strong> الطلب`,
-      time: r.closed_at
-    });
-  }
-
-  events.sort((a, b) => new Date(b.time) - new Date(a.time));
-
-  const icons = {
-    created:  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>',
-    assigned: '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
-    status:   '<svg viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6"/></svg>',
-    note:     '<svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
-    contact:  '<svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
-    closed:   '<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
-  };
-
-  return events.map(e => `
-    <div class="timeline-item">
-      <div class="timeline-icon t-${e.type}">${icons[e.type] || icons.status}</div>
-      <div class="timeline-content">
-        <div class="timeline-text">${e.text}</div>
-        <div class="timeline-time">${HELPERS.formatDateTime(e.time)} · ${HELPERS.timeAgo(e.time)}</div>
-      </div>
-    </div>
-  `).join('');
-}
-
-function renderRequestNotes(reqId) {
-  const notes = MOCK_DATA.request_notes.filter(n => n.request_id === reqId);
-  if (notes.length === 0) {
-    return '<div style="color:var(--tm);font-size:13px;padding:8px;text-align:center;">لا توجد ملاحظات بعد</div>';
-  }
-  return notes.map(n => {
-    const emp = HELPERS.getEmployee(n.employee_id);
-    return `
-      <div class="note-item">
-        <div class="note-header">
-          <span class="note-author">${emp ? emp.full_name : '—'}</span>
-          <span class="note-time">${HELPERS.timeAgo(n.created_at)}</span>
-        </div>
-        <div class="note-body">${n.note}</div>
-      </div>
-    `;
-  }).join('');
-}
-
-// إضافة ملاحظة
-function addNote() {
-  const input = document.getElementById('newNoteInput');
-  const text = input.value.trim();
-  if (!text) {
-    showToast('الرجاء كتابة ملاحظة', 'warn');
-    return;
-  }
-
-  // TODO Supabase: insert into request_notes
-  MOCK_DATA.request_notes.push({
-    id: 'N-' + Date.now(),
-    request_id: APP.selectedRequestId,
-    employee_id: APP.currentUser.id,
-    note: text,
-    created_at: new Date().toISOString()
-  });
-
-  MOCK_DATA.activity_log.unshift({
-    id: 'A-' + Date.now(),
-    request_id: APP.selectedRequestId,
-    actor_id: APP.currentUser.id,
-    action_type: 'note_added',
-    description: 'أضاف ملاحظة على الطلب',
-    created_at: new Date().toISOString()
-  });
-
-  showToast('تمت إضافة الملاحظة', 'success');
-  openRequestDrawer(APP.selectedRequestId);
-}
-
-// إجراء سريع (تواصل / انتظار مستندات)
-function quickAction(reqId, action) {
-  const r = MOCK_DATA.service_requests.find(x => x.id === reqId);
-  if (!r) return;
-
-  if (action === 'contacted') {
-    r.contacted_at = new Date().toISOString();
-    r.status = 'contacted';
-    MOCK_DATA.activity_log.unshift({
-      id: 'A-' + Date.now(),
-      request_id: reqId,
-      actor_id: APP.currentUser.id,
-      action_type: 'contacted',
-      description: 'سجّل التواصل مع العميل',
-      created_at: new Date().toISOString()
-    });
-    showToast('تم تسجيل التواصل مع العميل', 'success');
-  }
-
-  if (action === 'waiting') {
-    r.status = 'waiting';
-    MOCK_DATA.activity_log.unshift({
-      id: 'A-' + Date.now(),
-      request_id: reqId,
-      actor_id: APP.currentUser.id,
-      action_type: 'status_changed',
-      description: 'غيّر الحالة إلى "بانتظار مستندات"',
-      created_at: new Date().toISOString()
-    });
-    showToast('تم تحديث الحالة إلى "بانتظار مستندات"', 'success');
-  }
-
-  r.updated_at = new Date().toISOString();
-  openRequestDrawer(reqId);
-  if (APP.currentPage === 'requests') renderRequestsTable();
-  if (APP.currentPage === 'dashboard') renderDashboard();
-}
-
 // =============================================================
-// Modals
+// الإسناد
 // =============================================================
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-
-// ===== Modal الإسناد =====
 function openAssignModal(reqId) {
   APP.selectedRequestId = reqId;
   APP.pendingAssignEmpId = null;
 
   const employees = MOCK_DATA.employees
     .filter(e => e.role === 'employee' && e.status === 'active')
-    .map(e => ({ ...e, openCount: HELPERS.openRequestsByEmployee(e.id) }))
+    .map(e => ({
+      ...e,
+      openCount: HELPERS.openRequestsByEmployee(e.id)
+    }))
     .sort((a, b) => a.openCount - b.openCount);
 
-  const minLoad = employees[0]?.openCount;
-
-  const html = employees.map(e => {
-    const load = e.openCount;
-    let loadClass = 'low';
-    if (load >= 4) loadClass = 'high';
-    else if (load >= 2) loadClass = 'medium';
-
-    const isLightest = load === minLoad;
-
-    return `
-      <div class="assign-employee" data-emp-id="${e.id}" onclick="selectAssignEmployee('${e.id}')">
-        <div class="cell-customer-avatar" style="width:38px;height:38px;font-size:13px;background:linear-gradient(135deg,var(--tl),var(--nvl));">${HELPERS.initials(e.full_name)}</div>
-        <div class="assign-info">
-          <div class="assign-name">${e.full_name} ${isLightest ? '<span style="color:var(--green);font-size:11px;margin-right:6px;">★ الأقل ضغطاً</span>' : ''}</div>
-          <div class="assign-load">${load} طلب مفتوح حالياً</div>
-        </div>
-        <span class="assign-badge ${loadClass}">${load}</span>
+  document.getElementById('assignList').innerHTML = employees.map(e => `
+    <div class="assign-card" data-emp-id="${e.id}" onclick="selectAssignEmp('${e.id}')">
+      <div class="assign-avatar">${HELPERS.initials(e.full_name)}</div>
+      <div class="assign-info">
+        <h4>${e.full_name}</h4>
+        <div class="assign-meta">${e.email}</div>
       </div>
-    `;
-  }).join('');
+      <div class="assign-stats">
+        <div class="num">${e.openCount}</div>
+        <div class="label">طلب مفتوح</div>
+      </div>
+    </div>
+  `).join('');
 
-  document.getElementById('assignList').innerHTML = html;
   openModal('assignModal');
-}
-
-function selectAssignEmployee(empId) {
+}   
+function selectAssignEmp(empId) {
   APP.pendingAssignEmpId = empId;
-  document.querySelectorAll('.assign-employee').forEach(el => {
-    el.classList.toggle('selected', el.dataset.empId === empId);
+
+  document.querySelectorAll('.assign-card').forEach(function(card) {
+    card.classList.toggle('selected', card.dataset.empId === empId);
   });
 }
 
 function autoAssign() {
   const employees = MOCK_DATA.employees
-    .filter(e => e.role === 'employee' && e.status === 'active')
-    .map(e => ({ ...e, openCount: HELPERS.openRequestsByEmployee(e.id) }))
-    .sort((a, b) => a.openCount - b.openCount);
+    .filter(function(employee) {
+      return employee.role === 'employee' && employee.status === 'active';
+    })
+    .map(function(employee) {
+      return {
+        ...employee,
+        openCount: HELPERS.openRequestsByEmployee(employee.id)
+      };
+    })
+    .sort(function(a, b) {
+      return a.openCount - b.openCount;
+    });
 
-  if (employees.length === 0) {
-    showToast('لا يوجد موظفون نشطون', 'error');
+  if (!employees.length) {
+    showToast('لا يوجد موظفون متاحون للإسناد', 'warn');
     return;
   }
 
-  APP.pendingAssignEmpId = employees[0].id;
-  selectAssignEmployee(employees[0].id);
-  showToast(`اقتراح: ${employees[0].full_name} (الأقل ضغطاً)`, 'success');
+  selectAssignEmp(employees[0].id);
+  showToast(`تم اختيار ${employees[0].full_name} تلقائيًا`, 'success');
 }
 
 async function confirmAssign() {
-  if (!APP.pendingAssignEmpId) {
-    showToast('الرجاء اختيار موظف', 'warn');
+  if (!APP.selectedRequestId) {
+    showToast('لم يتم تحديد الطلب', 'error');
     return;
   }
 
-  const r = MOCK_DATA.service_requests.find(x => x.id === APP.selectedRequestId);
-  const emp = HELPERS.getEmployee(APP.pendingAssignEmpId);
+  if (!APP.pendingAssignEmpId) {
+    showToast('اختر الموظف أولًا', 'warn');
+    return;
+  }
 
-  const now = new Date().toISOString();
+  const request = MOCK_DATA.service_requests.find(function(item) {
+    return item.id === APP.selectedRequestId;
+  });
 
-  try{
-    const { error } = await window.sb
-      .from('service_requests')
-      .update({
-        assigned_to: APP.pendingAssignEmpId,
-        assigned_by: APP.currentUser.id,
-        assigned_at: now,
-        status: 'assigned',
-        updated_at: now
-      })
-      .eq('id', r.id);
+  const employee = HELPERS.getEmployee(APP.pendingAssignEmpId);
 
-    if(error) throw error;
+  if (!request || !employee) {
+    showToast('تعذر العثور على الطلب أو الموظف', 'error');
+    return;
+  }
 
-    await window.sb.from('request_activity_log').insert({
-      request_id: r.id,
-      actor_id: APP.currentUser.id,
-      action_type: 'assigned',
-      description: `أسند الطلب إلى ${emp.full_name}`
+  const updates = {
+    assigned_to: employee.id,
+    assigned_by: APP.currentUser.id,
+    assigned_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  if (request.status === 'new' || request.status === 'pending') {
+    updates.status = 'assigned';
+  }
+
+  try {
+    await updateRequestInStore(request.id, updates);
+
+    await addActivityLog({
+      request_id: request.id,
+      action: 'assign',
+      title: 'إسناد طلب',
+      description: `تم إسناد الطلب إلى ${employee.full_name}`,
+      created_by: APP.currentUser.id,
+      created_by_name: APP.currentUser.full_name || APP.currentUser.name || 'مستخدم'
     });
 
-    r.assigned_to = APP.pendingAssignEmpId;
-    r.assigned_by = APP.currentUser.id;
-    r.assigned_at = now;
-    r.status = 'assigned';
-    r.updated_at = now;
-
-    showToast(`تم إسناد الطلب إلى ${emp.full_name}`, 'success');
-
     closeModal('assignModal');
+    closeDrawer();
 
-    await loadSupabaseRequests();
-    await loadSupabaseActivity();
+    renderDashboard();
+    renderActiveRequestsPage();
+    updateSidebarCounts();
 
-    if (APP.currentPage === 'requests') renderRequestsTable();
-    if (APP.currentPage === 'dashboard') renderDashboard();
+    showToast('تم إسناد الطلب بنجاح', 'success');
 
-    openRequestDrawer(r.id);
-
-  }catch(err){
-    console.error(err);
-    showToast('تعذر حفظ الإسناد في قاعدة البيانات', 'error');
+  } catch (error) {
+    console.error('Assign error:', error);
+    showToast('تعذر إسناد الطلب', 'error');
   }
 }
 
-// ===== Modal تغيير الحالة =====
+// =============================================================
+// تغيير الحالة
+// =============================================================
 function openStatusModal(reqId) {
   APP.selectedRequestId = reqId;
 
-  const r = MOCK_DATA.service_requests.find(
-    x => x.id === reqId
-  );
+  const request = MOCK_DATA.service_requests.find(function(item) {
+    return item.id === reqId;
+  });
 
-  document.getElementById('newStatusSelect').value = r.status;
+  if (!request) {
+    showToast('تعذر العثور على الطلب', 'error');
+    return;
+  }
 
+  document.getElementById('newStatusSelect').value = request.status || 'new';
   document.getElementById('statusCommentInput').value = '';
 
   openModal('statusModal');
 }
 
 async function confirmStatusChange() {
+  if (!APP.selectedRequestId) {
+    showToast('لم يتم تحديد الطلب', 'error');
+    return;
+  }
+
+  const request = MOCK_DATA.service_requests.find(function(item) {
+    return item.id === APP.selectedRequestId;
+  });
+
+  if (!request) {
+    showToast('تعذر العثور على الطلب', 'error');
+    return;
+  }
+
   const newStatus = document.getElementById('newStatusSelect').value;
-    const statusComment =
-    document.getElementById('statusCommentInput').value.trim(); 
-  const r = MOCK_DATA.service_requests.find(x => x.id === APP.selectedRequestId);
-  const oldStatus = r.status;
-  const now = new Date().toISOString();
-const isFinalStatus =
-  newStatus === 'done' ||
-  newStatus === 'cancelled';
+  const comment = document.getElementById('statusCommentInput').value.trim();
 
-const updateData = {
-  status: newStatus,
-  updated_at: now
-};
+  const updates = {
+    status: newStatus,
+    updated_at: new Date().toISOString()
+  };
 
-if (isFinalStatus) {
-  updateData.closed_by = APP.currentUser.id;
-  updateData.closed_at = now;
-  updateData.close_note = statusComment || null;
-} else {
-  updateData.closed_by = null;
-  updateData.closed_at = null;
-  updateData.close_note = null;
-}
-  try{
-    const { error } = await window.sb
-      .from('service_requests')
-      .update(updateData)
-      .eq('id', r.id);
+  if (newStatus === 'done' || newStatus === 'closed' || newStatus === 'cancelled') {
+    updates.closed_at = new Date().toISOString();
+    updates.closed_by = APP.currentUser.id;
+  }
 
-    if(error) throw error;
+  try {
+    await updateRequestInStore(request.id, updates);
 
-    await window.sb.from('request_activity_log').insert({
-      request_id: r.id,
-      actor_id: APP.currentUser.id,
-      action_type: 'status_changed',
-      description: statusComment
-  ? `غيّر الحالة من "${HELPERS.statusLabel(oldStatus)}" إلى "${HELPERS.statusLabel(newStatus)}" — التعليق: ${statusComment}`
-  : `غيّر الحالة من "${HELPERS.statusLabel(oldStatus)}" إلى "${HELPERS.statusLabel(newStatus)}"`
+    if (comment) {
+      await appendRequestNote(request.id, {
+        by: APP.currentUser.full_name || APP.currentUser.name || 'مستخدم',
+        by_id: APP.currentUser.id,
+        at: new Date().toISOString(),
+        text: comment
+      });
+    }
+
+    await addActivityLog({
+      request_id: request.id,
+      action: 'status_change',
+      title: 'تغيير حالة الطلب',
+      description: `تم تغيير الحالة إلى: ${HELPERS.statusLabel(newStatus)}${comment ? ' — ' + comment : ''}`,
+      created_by: APP.currentUser.id,
+      created_by_name: APP.currentUser.full_name || APP.currentUser.name || 'مستخدم'
     });
 
-   Object.assign(r, updateData);
-
-    showToast(`تم تغيير الحالة إلى "${HELPERS.statusLabel(newStatus)}"`, 'success');
-
     closeModal('statusModal');
+    closeDrawer();
 
-    await loadSupabaseRequests();
-    await loadSupabaseActivity();
+    renderDashboard();
+    renderActiveRequestsPage();
+    updateSidebarCounts();
 
-    if (APP.currentPage === 'requests') renderRequestsTable();
-    if (APP.currentPage === 'dashboard') renderDashboard();
+    showToast('تم تحديث حالة الطلب', 'success');
 
-    openRequestDrawer(r.id);
-
-  }catch(err){
-    console.error(err);
-    showToast('تعذر حفظ تغيير الحالة في قاعدة البيانات', 'error');
+  } catch (error) {
+    console.error('Status update error:', error);
+    showToast('تعذر تحديث حالة الطلب', 'error');
   }
 }
 
-// ===== Modal إغلاق الطلب =====
+// =============================================================
+// إغلاق الطلب
+// =============================================================
 function openCloseModal(reqId) {
   APP.selectedRequestId = reqId;
-  document.getElementById('closeNoteInput').value = '';
+
   document.getElementById('closeResultSelect').value = 'success';
+  document.getElementById('closeNoteInput').value = '';
+
   openModal('closeModal');
 }
 
 async function confirmClose() {
-  const note = document.getElementById('closeNoteInput').value.trim();
-  const result = document.getElementById('closeResultSelect').value;
-
-  if (!note) {
-    showToast('الرجاء كتابة ملاحظة الإغلاق', 'warn');
+  if (!APP.selectedRequestId) {
+    showToast('لم يتم تحديد الطلب', 'error');
     return;
   }
 
-  const r = MOCK_DATA.service_requests.find(x => x.id === APP.selectedRequestId);
-  const now = new Date().toISOString();
-  const newStatus = result === 'cancelled' ? 'cancelled' : 'closed';
+  const request = MOCK_DATA.service_requests.find(function(item) {
+    return item.id === APP.selectedRequestId;
+  });
 
-  try{
-    const { error } = await window.sb
-      .from('service_requests')
-      .update({
-        status: newStatus,
-        closed_by: APP.currentUser.id,
-        closed_at: now,
-        close_note: note,
-        updated_at: now
-      })
-      .eq('id', r.id);
+  if (!request) {
+    showToast('تعذر العثور على الطلب', 'error');
+    return;
+  }
 
-    if(error) throw error;
+  const result = document.getElementById('closeResultSelect').value;
+  const note = document.getElementById('closeNoteInput').value.trim();
 
-    await window.sb.from('request_activity_log').insert({
-      request_id: r.id,
-      actor_id: APP.currentUser.id,
-      action_type: 'closed',
-      description: 'أغلق الطلب'
+  if (!note) {
+    showToast('اكتب ملاحظة الإغلاق أولًا', 'warn');
+    return;
+  }
+
+  let status = 'done';
+
+  if (result === 'partial') {
+    status = 'closed';
+  }
+
+  if (result === 'cancelled') {
+    status = 'cancelled';
+  }
+
+  const updates = {
+    status,
+    closing_note: note,
+    closed_at: new Date().toISOString(),
+    closed_by: APP.currentUser.id,
+    updated_at: new Date().toISOString()
+  };
+
+  try {
+    await updateRequestInStore(request.id, updates);
+
+    await addActivityLog({
+      request_id: request.id,
+      action: 'close',
+      title: 'إغلاق الطلب',
+      description: `تم إغلاق الطلب بنتيجة: ${HELPERS.statusLabel(status)} — ${note}`,
+      created_by: APP.currentUser.id,
+      created_by_name: APP.currentUser.full_name || APP.currentUser.name || 'مستخدم'
     });
 
-    r.status = newStatus;
-    r.closed_by = APP.currentUser.id;
-    r.closed_at = now;
-    r.close_note = note;
-    r.updated_at = now;
+    closeModal('closeModal');
+    closeDrawer();
+
+    renderDashboard();
+    renderActiveRequestsPage();
+    updateSidebarCounts();
 
     showToast('تم إغلاق الطلب بنجاح', 'success');
 
-    closeModal('closeModal');
-
-    await loadSupabaseRequests();
-    await loadSupabaseActivity();
-
-    if (APP.currentPage === 'requests') renderRequestsTable();
-    if (APP.currentPage === 'dashboard') renderDashboard();
-
-    openRequestDrawer(r.id);
-
-  }catch(err){
-    console.error(err);
-    showToast('تعذر حفظ إغلاق الطلب في قاعدة البيانات', 'error');
+  } catch (error) {
+    console.error('Close request error:', error);
+    showToast('تعذر إغلاق الطلب', 'error');
   }
+}
+
+// =============================================================
+// الملاحظات
+// =============================================================
+async function addNote() {
+  if (!APP.selectedRequestId) {
+    showToast('لم يتم تحديد الطلب', 'error');
+    return;
+  }
+
+  const textarea = document.getElementById('newNoteText');
+  const text = textarea ? textarea.value.trim() : '';
+
+  if (!text) {
+    showToast('اكتب الملاحظة أولًا', 'warn');
+    return;
+  }
+
+  const note = {
+    by: APP.currentUser.full_name || APP.currentUser.name || 'مستخدم',
+    by_id: APP.currentUser.id,
+    at: new Date().toISOString(),
+    text
+  };
+
+  try {
+    await appendRequestNote(APP.selectedRequestId, note);
+
+    await addActivityLog({
+      request_id: APP.selectedRequestId,
+      action: 'note',
+      title: 'إضافة ملاحظة',
+      description: text,
+      created_by: APP.currentUser.id,
+      created_by_name: APP.currentUser.full_name || APP.currentUser.name || 'مستخدم'
+    });
+
+    openRequestDrawer(APP.selectedRequestId);
+    renderActiveRequestsPage();
+
+    showToast('تمت إضافة الملاحظة', 'success');
+
+  } catch (error) {
+    console.error('Add note error:', error);
+    showToast('تعذر إضافة الملاحظة', 'error');
+  }
+}
+
+// =============================================================
+// تحديث الطلب محليًا وفي Supabase
+// =============================================================
+async function updateRequestInStore(requestId, updates) {
+  const localIndex = MOCK_DATA.service_requests.findIndex(function(item) {
+    return item.id === requestId;
+  });
+
+  if (localIndex === -1) {
+    throw new Error('الطلب غير موجود');
+  }
+
+  if (window.sb) {
+    const { error } = await window.sb
+      .from('service_requests')
+      .update(updates)
+      .eq('id', requestId);
+
+    if (error) {
+      throw error;
+    }
+  }
+
+  MOCK_DATA.service_requests[localIndex] = {
+    ...MOCK_DATA.service_requests[localIndex],
+    ...updates
+  };
+
+  return MOCK_DATA.service_requests[localIndex];
+}
+
+async function appendRequestNote(requestId, note) {
+  const request = MOCK_DATA.service_requests.find(function(item) {
+    return item.id === requestId;
+  });
+
+  if (!request) {
+    throw new Error('الطلب غير موجود');
+  }
+
+  const notes = Array.isArray(request.notes) ? [...request.notes] : [];
+  notes.push(note);
+
+  await updateRequestInStore(requestId, {
+    notes,
+    updated_at: new Date().toISOString()
+  });
 }
 
 // =============================================================
 // صفحة الموظفين
 // =============================================================
 function renderEmployeesPage() {
-  const html = MOCK_DATA.employees.map(e => {
-    const open = HELPERS.openRequestsByEmployee(e.id);
-    const closed = HELPERS.closedRequestsByEmployee(e.id);
-    const isAdmin = e.role === 'admin';
+  const grid = document.getElementById('employeesGrid');
+
+  if (!grid) {
+    return;
+  }
+
+  const employees = MOCK_DATA.employees || [];
+
+  if (!employees.length) {
+    grid.innerHTML = `
+      <div class="empty-state" style="background:#fff;border-radius:16px;border:var(--border);">
+        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <h3>لا يوجد موظفون بعد</h3>
+        <p>ابدأ بإضافة موظف جديد</p>
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = employees.map(function(employee) {
+    const openCount = HELPERS.openRequestsByEmployee(employee.id);
+    const completedCount = MOCK_DATA.service_requests.filter(function(request) {
+      return request.assigned_to === employee.id && ['done', 'closed'].includes(request.status);
+    }).length;
+
+    const assignedDirect = MOCK_DATA.service_requests.filter(function(request) {
+      return request.assigned_to === employee.id && !isCaseRequest(request);
+    }).length;
+
+    const assignedCases = MOCK_DATA.service_requests.filter(function(request) {
+      return request.assigned_to === employee.id && isCaseRequest(request);
+    }).length;
 
     return `
       <div class="employee-card">
-        <div class="emp-header">
-          <div class="emp-avatar">${HELPERS.initials(e.full_name)}</div>
-          <div class="emp-info">
-            <div class="emp-name">${e.full_name}</div>
-            <div class="emp-role">${isAdmin ? 'مدير النظام' : 'موظف'} · ${e.email}</div>
-          </div>
-          <div class="emp-status ${e.status === 'inactive' ? 'inactive' : ''}" title="${e.status === 'active' ? 'فعّال' : 'غير فعّال'}"></div>
-        </div>
-
-        <div class="emp-meta">
-          <div class="emp-meta-item">
-            <div class="emp-meta-label">الجوال</div>
-            <div class="emp-meta-value" style="font-family:monospace;font-size:13px;">${e.phone}</div>
-          </div>
-          <div class="emp-meta-item">
-            <div class="emp-meta-label">آخر دخول</div>
-            <div class="emp-meta-value" style="font-size:13px;">${HELPERS.timeAgo(e.last_login_at)}</div>
+        <div class="employee-card-head">
+          <div class="employee-avatar">${HELPERS.initials(employee.full_name)}</div>
+          <div>
+            <h3>${employee.full_name}</h3>
+            <p>${employee.email || '—'}</p>
           </div>
         </div>
 
-        <div class="emp-stats">
-          <div class="emp-stat c-orange">
-            <div class="emp-stat-label">مفتوحة</div>
-            <div class="emp-stat-value">${open}</div>
-          </div>
-          <div class="emp-stat c-green">
-            <div class="emp-stat-label">مغلقة</div>
-            <div class="emp-stat-value">${closed}</div>
-          </div>
-          <div class="emp-stat">
-            <div class="emp-stat-label">الإجمالي</div>
-            <div class="emp-stat-value">${open + closed}</div>
-          </div>
+        <div class="employee-meta">
+          <span class="badge ${employee.role === 'admin' ? 's-done' : 's-assigned'}">${employee.role === 'admin' ? 'مدير' : 'موظف'}</span>
+          <span class="badge ${employee.status === 'active' ? 's-done' : 's-cancelled'}">${employee.status === 'active' ? 'نشط' : 'غير نشط'}</span>
         </div>
 
-        <div class="emp-actions">
-  <button class="btn btn-sm ${e.status === 'active' ? 'btn-danger' : ''}" onclick="toggleEmployeeStatus('${e.id}')">
-    ${e.status === 'active' ? 'تعطيل' : 'تفعيل'}
-  </button>
-</div>
+        <div class="employee-stats">
+          <div>
+            <strong>${openCount}</strong>
+            <span>مفتوح</span>
+          </div>
+          <div>
+            <strong>${completedCount}</strong>
+            <span>مكتمل</span>
+          </div>
+          <div>
+            <strong>${assignedDirect}</strong>
+            <span>خدمات</span>
+          </div>
+          <div>
+            <strong>${assignedCases}</strong>
+            <span>قضايا</span>
+          </div>
+        </div>
       </div>
     `;
   }).join('');
-
-  document.getElementById('employeesGrid').innerHTML = html;
 }
 
-function toggleEmployeeStatus(empId) {
-  const emp = MOCK_DATA.employees.find(e => e.id === empId);
-  emp.status = emp.status === 'active' ? 'inactive' : 'active';
-  // TODO Supabase: update employees
-  showToast(`تم ${emp.status === 'active' ? 'تفعيل' : 'تعطيل'} الموظف`, 'success');
-  renderEmployeesPage();
-}
-
-// نموذج إضافة موظف
 function openAddEmployeeModal() {
   document.getElementById('newEmpName').value = '';
   document.getElementById('newEmpEmail').value = '';
   document.getElementById('newEmpPhone').value = '';
   document.getElementById('newEmpRole').value = 'employee';
+
   openModal('addEmpModal');
 }
 
-function confirmAddEmployee() {
-  const name = document.getElementById('newEmpName').value.trim();
+async function confirmAddEmployee() {
+  const fullName = document.getElementById('newEmpName').value.trim();
   const email = document.getElementById('newEmpEmail').value.trim();
   const phone = document.getElementById('newEmpPhone').value.trim();
   const role = document.getElementById('newEmpRole').value;
 
-  if (!name || !email) {
-    showToast('الاسم والبريد مطلوبان', 'warn');
+  if (!fullName || !email || !phone) {
+    showToast('أدخل اسم الموظف والبريد ورقم الجوال', 'warn');
     return;
   }
 
-  // TODO Supabase: insert into employees + signup user
-  MOCK_DATA.employees.push({
-    id: 'EMP-' + String(MOCK_DATA.employees.length + 1).padStart(3, '0'),
-    full_name: name,
-    email: email,
-    phone: phone,
-    password: 'temp123',
-    role: role,
+  const employee = {
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    full_name: fullName,
+    name: fullName,
+    email,
+    phone,
+    role,
     status: 'active',
-    created_at: new Date().toISOString(),
-    last_login_at: null
-  });
+    created_at: new Date().toISOString()
+  };
 
-  showToast('تمت إضافة الموظف بنجاح', 'success');
-  closeModal('addEmpModal');
-  renderEmployeesPage();
+  try {
+    if (window.sb) {
+      const { data, error } = await window.sb
+        .from('employees')
+        .insert(employee)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      if (data) {
+        Object.assign(employee, data);
+      }
+    }
+
+    MOCK_DATA.employees.push(employee);
+
+    await addActivityLog({
+      action: 'employee_create',
+      title: 'إضافة موظف',
+      description: `تمت إضافة الموظف ${fullName}`,
+      created_by: APP.currentUser.id,
+      created_by_name: APP.currentUser.full_name || APP.currentUser.name || 'مستخدم'
+    });
+
+    closeModal('addEmpModal');
+    renderEmployeesPage();
+    renderActiveRequestsPage();
+
+    showToast('تمت إضافة الموظف بنجاح', 'success');
+
+  } catch (error) {
+    console.error('Add employee error:', error);
+    showToast('تعذر إضافة الموظف', 'error');
+  }
 }
-
 // =============================================================
 // صفحة سجل النشاط
 // =============================================================
 function renderActivityPage() {
-  const sorted = [...MOCK_DATA.activity_log].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const logSource = APP.activityLog && APP.activityLog.length
+    ? APP.activityLog
+    : (MOCK_DATA.activity_log || []);
+
+  const sorted = [...logSource].sort(function(a, b) {
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
 
   const icons = {
-    created:  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>',
+    created: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>',
+    assign: '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
     assigned: '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+    status_change: '<svg viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6"/></svg>',
     status_changed: '<svg viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6"/></svg>',
+    note: '<svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
     note_added: '<svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
-    contacted: '<svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2"/></svg>',
-    closed: '<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+    close: '<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    closed: '<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+    employee_create: '<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>',
+    support_convert: '<svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>'
   };
 
   const typeMap = {
-    created: 'created', assigned: 'assigned', status_changed: 'status',
-    note_added: 'note', contacted: 'contact', closed: 'closed'
+    created: 'created',
+    assign: 'assigned',
+    assigned: 'assigned',
+    status_change: 'status',
+    status_changed: 'status',
+    note: 'note',
+    note_added: 'note',
+    close: 'closed',
+    closed: 'closed',
+    employee_create: 'assigned',
+    support_convert: 'contact'
   };
 
-  const html = sorted.map(a => {
-    const emp = HELPERS.getEmployee(a.actor_id);
+  if (!sorted.length) {
+    document.getElementById('activityFeed').innerHTML = `
+      <div class="empty-state" style="background:#fff;border-radius:16px;border:var(--border);">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <h3>لا يوجد نشاط مسجل بعد</h3>
+        <p>ستظهر هنا عمليات الإسناد وتغيير الحالة والملاحظات</p>
+      </div>
+    `;
+    return;
+  }
+
+  document.getElementById('activityFeed').innerHTML = sorted.map(function(activity) {
+    const action = activity.action || activity.action_type || 'status_change';
+    const requestId = activity.request_id || '';
+    const createdBy =
+      activity.created_by_name ||
+      activity.actor_name ||
+      (HELPERS.getEmployee(activity.created_by || activity.actor_id) || {}).full_name ||
+      'النظام';
+
+    const description =
+      activity.description ||
+      activity.title ||
+      'تم تسجيل نشاط على الطلب';
+
     return `
       <div class="timeline-item">
-        <div class="timeline-icon t-${typeMap[a.action_type] || 'status'}">${icons[a.action_type] || icons.status_changed}</div>
+        <div class="timeline-icon t-${typeMap[action] || 'status'}">
+          ${icons[action] || icons.status_change}
+        </div>
         <div class="timeline-content">
           <div class="timeline-text">
-            <strong>${emp ? emp.full_name : 'النظام'}</strong> ${a.description}
-            <a onclick="openRequestDrawer('${a.request_id}')" style="color:var(--tl);cursor:pointer;font-weight:600;margin-right:4px;">${a.request_id}</a>
+            <strong>${createdBy}</strong>
+            ${description}
+            ${
+              requestId
+                ? `<a onclick="openRequestDrawer('${requestId}')" style="color:var(--tl);cursor:pointer;font-weight:600;margin-right:4px;">${requestId}</a>`
+                : ''
+            }
           </div>
-          <div class="timeline-time">${HELPERS.formatDateTime(a.created_at)} · ${HELPERS.timeAgo(a.created_at)}</div>
+          <div class="timeline-time">
+            ${HELPERS.formatDateTime(activity.created_at)} · ${HELPERS.timeAgo(activity.created_at)}
+          </div>
         </div>
       </div>
     `;
   }).join('');
-
-  document.getElementById('activityFeed').innerHTML = html;
 }
 
 // =============================================================
 // لوحة الإشعارات
 // =============================================================
 function toggleNotifPanel() {
-  document.getElementById('notifPanel').classList.toggle('open');
+  const panel = document.getElementById('notifPanel');
+  if (panel) {
+    panel.classList.toggle('open');
+  }
 }
 
 function renderNotifications() {
-  var items = [];
+  const items = [];
 
-  MOCK_DATA.service_requests
-    .filter(function(r){ return r.status === 'new' || r.status === 'pending'; })
+  (MOCK_DATA.service_requests || [])
+    .filter(function(request) {
+      return request.status === 'new' || request.status === 'pending';
+    })
     .slice(0, 5)
-    .forEach(function(r){
+    .forEach(function(request) {
       items.push({
-        type:'new',
-        text:'طلب جديد: ' + (r.service_name || HELPERS.getServiceName(r.service_type)) + ' — ' + r.customer_name,
-        time: HELPERS.timeAgo(r.created_at)
+        type: 'new',
+        text: 'طلب جديد: ' + getRequestDisplayName(request) + ' — ' + request.customer_name,
+        time: HELPERS.timeAgo(request.created_at)
       });
     });
 
-  MOCK_DATA.service_requests
-    .filter(function(r){ return r.status === 'late' || r.priority === 'urgent' || r.priority === 'high'; })
+  (MOCK_DATA.service_requests || [])
+    .filter(function(request) {
+      return request.status === 'late' || request.priority === 'urgent' || request.priority === 'high';
+    })
     .slice(0, 5)
-    .forEach(function(r){
+    .forEach(function(request) {
       items.push({
-        type:'late',
-        text:'طلب يحتاج اهتمام: ' + r.customer_name,
-        time: HELPERS.timeAgo(r.updated_at || r.created_at)
+        type: 'late',
+        text: 'طلب يحتاج اهتمام: ' + request.customer_name,
+        time: HELPERS.timeAgo(request.updated_at || request.created_at)
       });
     });
 
-  APP.supportTickets
-    .filter(function(t){ return t.status === 'new'; })
+  (APP.supportTickets || [])
+    .filter(function(ticket) {
+      return ticket.status === 'new' || ticket.status === 'open';
+    })
     .slice(0, 5)
-    .forEach(function(t){
+    .forEach(function(ticket) {
       items.push({
-        type:'supp',
-        text:'رسالة دعم فني جديدة من ' + t.name,
-        time: HELPERS.timeAgo(t.created_at)
+        type: 'supp',
+        text: 'رسالة دعم فني جديدة من ' + (ticket.name || ticket.customer_name || 'عميل'),
+        time: HELPERS.timeAgo(ticket.created_at)
       });
     });
 
-  var countEl = document.querySelector('.notif-header .count');
-  if(countEl){
+  const countEl = document.querySelector('.notif-header .count');
+
+  if (countEl) {
     countEl.textContent = items.length + ' جديدة';
   }
 
-  if(items.length === 0){
-    document.getElementById('notifList').innerHTML =
+  const notifList = document.getElementById('notifList');
+  if (!notifList) return;
+
+  if (!items.length) {
+    notifList.innerHTML =
       '<div style="padding:18px;text-align:center;color:var(--tm);font-size:13px;">لا توجد إشعارات جديدة</div>';
     return;
   }
 
   const icons = {
-    new:  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>',
+    new: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>',
     late: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
     supp: '<svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>'
   };
 
-  const html = items.map(function(n){
+  notifList.innerHTML = items.map(function(item) {
     return `
       <div class="notif-item">
-        <div class="notif-icon n-${n.type}">${icons[n.type] || icons.new}</div>
+        <div class="notif-icon n-${item.type}">
+          ${icons[item.type] || icons.new}
+        </div>
         <div>
-          <div class="notif-text">${n.text}</div>
-          <div class="notif-time">${n.time}</div>
+          <div class="notif-text">${item.text}</div>
+          <div class="notif-time">${item.time}</div>
         </div>
       </div>
     `;
   }).join('');
-
-  document.getElementById('notifList').innerHTML = html;
 }
-async function loadSupabaseEmployees(){
-  if(!window.sb){
+
+// =============================================================
+// التحميل من Supabase
+// =============================================================
+async function loadSupabaseEmployees() {
+  if (!window.sb) {
     console.warn('Supabase client غير موجود، سيتم استخدام الموظفين التجريبيين');
     return;
   }
 
-  try{
+  try {
     const { data, error } = await window.sb
       .from('employees')
       .select('*')
       .eq('status', 'active')
-      .order('created_at', { ascending:false });
+      .order('created_at', { ascending: false });
 
-    if(error){
+    if (error) {
       console.error('Supabase employees load error:', error);
       showToast('تعذر تحميل الموظفين الحقيقيين', 'warn');
       return;
     }
 
-    MOCK_DATA.employees = (data || []).map(function(e){
+    MOCK_DATA.employees = (data || []).map(function(employee) {
       return {
-        id: e.id,
-        full_name: e.full_name || '',
-        email: e.email || '',
-        phone: e.phone || '',
+        id: employee.id,
+        full_name: employee.full_name || employee.name || '',
+        name: employee.full_name || employee.name || '',
+        email: employee.email || '',
+        phone: employee.phone || '',
         password: '',
-        role: e.role || 'employee',
-        status: e.status || 'active',
-        created_at: e.created_at,
-        last_login_at: e.last_login_at
+        role: employee.role || 'employee',
+        status: employee.status || 'active',
+        created_at: employee.created_at,
+        last_login_at: employee.last_login_at
       };
     });
 
-  }catch(e){
-    console.error(e);
+  } catch (error) {
+    console.error(error);
     showToast('حدث خطأ أثناء تحميل الموظفين', 'error');
   }
 }
-function normalizeServiceType(value){
-  var v = String(value || '').trim();
 
-  var map = {
+function normalizeServiceType(value) {
+  const v = String(value || '').trim();
+
+  const map = {
     'استشارة قانونية': 'consultation',
     'استشارة قانونية هاتفية': 'consultation',
-
     'طلب دراسة قضية والتوكيل فيها': 'case_study',
     'دراسة قضية والتوكيل': 'case_study',
-
     'مراجعة عقد': 'contract_review',
     'صياغة عقد': 'contract_draft',
-
     'خدمات ناجز': 'najiz',
     'خدمات منصة ناجز': 'najiz',
-
     'إعداد مذكرة قانونية': 'memo',
-
     'صياغة خطاب رسمي': 'official_letter',
     'الاعتراض على مخالفة حكومية': 'gov_violation',
     'اعتراض على مخالفة حكومية': 'gov_violation',
-
     'تجهيز صحيفة دعوى': 'lawsuit_draft',
     'رفع دعوى': 'lawsuit_draft',
-
     'حضور جلسة قضائية نيابة عن العميل': 'court_session',
     'حضور جلسة قضائية': 'court_session',
-
     'تقديم طلب تنفيذ عبر ناجز': 'execution_request',
     'طلب تنفيذ عبر ناجز': 'execution_request',
-
-    'المساعد القانوني AI': 'ai_assistant'
+    'المساعد القانوني AI': 'ai_assistant',
+    'التوكيل في القضايا': 'case_representation',
+    'case_representation': 'case_representation'
   };
 
   return map[v] || v;
 }
-async function loadSupabaseRequests(){
-  if(!window.sb){
+
+async function loadSupabaseRequests() {
+  if (!window.sb) {
     console.warn('Supabase client غير موجود، سيتم استخدام البيانات التجريبية');
     return;
   }
 
-  try{
+  try {
     let query = window.sb
-  .from('service_requests')
-  .select('*')
-  .order('created_at', { ascending:false });
+      .from('service_requests')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-if(APP.currentUser && APP.currentUser.role !== 'admin'){
-  query = query.eq('assigned_to', APP.currentUser.id);
-}
+    if (APP.currentUser && APP.currentUser.role !== 'admin') {
+      query = query.eq('assigned_to', APP.currentUser.id);
+    }
 
-const { data, error } = await query;
+    const { data, error } = await query;
 
-    if(error){
-      console.error('Supabase load error:', error);
+    if (error) {
+      console.error('Supabase requests load error:', error);
       showToast('تعذر تحميل الطلبات الحقيقية، تم عرض البيانات التجريبية', 'warn');
       return;
     }
 
-    MOCK_DATA.service_requests = (data || []).map(function(r){
+    MOCK_DATA.service_requests = (data || []).map(function(request) {
+      const rawType = request.service_type || '';
+      const rawSource = request.source || 'direct_services';
+
       return {
-        id: r.id,
-        customer_name: r.customer_name || '',
-        customer_phone: r.customer_phone || '',
-        service_type: normalizeServiceType(r.service_type || r.service_name || ''),
-        service_name: r.service_name || r.service_type || '',
-        price: Number(r.price || 0),
-        payment_status: r.payment_status || 'manual_pending',
-        source: r.source || 'direct_services',
-        details: r.details || '',
-        attachments: Array.isArray(r.attachments) ? r.attachments : [],
-        status: r.status || 'new',
-        priority: r.priority || 'normal',
-        assigned_to: r.assigned_to,
-        assigned_by: r.assigned_by,
-        assigned_at: r.assigned_at,
-        contacted_at: r.contacted_at,
-        closed_by: r.closed_by,
-        closed_at: r.closed_at,
-        close_note: r.close_note,
-        created_at: r.created_at,
-        updated_at: r.updated_at || r.created_at
+        id: request.id,
+        customer_name: request.customer_name || '',
+        customer_phone: request.customer_phone || '',
+        raw_service_type: rawType,
+        service_type: normalizeServiceType(rawType || request.service_name || ''),
+        service_category: request.service_category || '',
+        service_name: request.service_name || rawType || '',
+        price: Number(request.price || 0),
+        payment_status: request.payment_status || 'manual_pending',
+        source: rawSource,
+        details: request.details || '',
+        attachments: Array.isArray(request.attachments) ? request.attachments : [],
+        status: request.status || 'new',
+        priority: request.priority || 'normal',
+        assigned_to: request.assigned_to,
+        assigned_by: request.assigned_by,
+        assigned_at: request.assigned_at,
+        closed_at: request.closed_at,
+        closed_by: request.closed_by,
+        closing_note: request.closing_note || '',
+        notes: Array.isArray(request.notes) ? request.notes : [],
+        created_at: request.created_at,
+        updated_at: request.updated_at || request.created_at
       };
     });
 
-  }catch(e){
-    console.error(e);
-    showToast('حدث خطأ أثناء الاتصال بقاعدة البيانات', 'error');
+  } catch (error) {
+    console.error(error);
+    showToast('حدث خطأ أثناء تحميل الطلبات', 'error');
+  }
+}
+
+async function loadSupabaseActivity() {
+  if (!window.sb) {
+    return;
+  }
+
+  try {
+    const { data, error } = await window.sb
+      .from('request_activity_log')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(150);
+
+    if (error) {
+      console.warn('Activity load error:', error);
+      return;
+    }
+
+    APP.activityLog = data || [];
+
+  } catch (error) {
+    console.warn('Activity load exception:', error);
   }
 }
 
 async function loadDeleteRequests() {
-  if (!window.sb) return;
+  if (!window.sb) {
+    APP.deleteRequests = [];
+    return;
+  }
 
   try {
     const { data, error } = await window.sb
@@ -1895,7 +2177,7 @@ async function loadDeleteRequests() {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Delete requests load error:', error);
+      console.warn('Delete requests load error:', error);
       APP.deleteRequests = [];
       return;
     }
@@ -1903,66 +2185,139 @@ async function loadDeleteRequests() {
     APP.deleteRequests = data || [];
 
   } catch (error) {
-    console.error(error);
+    console.warn('Delete requests exception:', error);
     APP.deleteRequests = [];
   }
 }
 
-function updateSidebarCounts(){
-  var openCount = MOCK_DATA.service_requests.filter(function(r){
-    return !['done','closed','cancelled'].includes(r.status);
-  }).length;
-
-  var badge = document.querySelector('.nav-item[data-page="requests"] .nav-badge');
-  if(badge){
-    badge.textContent = openCount;
+async function loadSupabaseSupportTickets() {
+  if (!window.sb) {
+    return;
   }
 
-  var notifDot = document.querySelector('#notifBtn .dot');
-  if(notifDot){
-    notifDot.style.display = openCount > 0 ? 'block' : 'none';
-  }
-}
-async function loadSupabaseActivity(){
-  if(!window.sb) return;
-
-  try{
-    const { data, error } = await window.sb
-      .from('request_activity_log')
-      .select('*')
-      .order('created_at', { ascending:false });
-
-    if(error){
-      console.error('Activity load error:', error);
-      return;
-    }
-
-    APP.activityLog = data || [];
-    MOCK_DATA.activity_log = APP.activityLog;
-
-  }catch(e){
-    console.error(e);
-  }
-}
-async function loadSupabaseSupportTickets(){
-  if(!window.sb) return;
-
-  try{
+  try {
     const { data, error } = await window.sb
       .from('support_tickets')
       .select('*')
-      .order('created_at', { ascending:false });
+      .order('created_at', { ascending: false });
 
-    if(error){
-      console.error('Support tickets load error:', error);
+    if (error) {
+      console.warn('Support tickets load error:', error);
       return;
     }
 
-    APP.supportTickets = data || [];
+    APP.supportTickets = (data || []).map(function(ticket) {
+      return {
+        id: ticket.id,
+        name: ticket.name || ticket.customer_name || '',
+        phone: ticket.phone || ticket.customer_phone || '',
+        email: ticket.email || '',
+        problem: ticket.problem || ticket.message || ticket.details || '',
+        status: ticket.status || 'new',
+        created_at: ticket.created_at,
+        updated_at: ticket.updated_at || ticket.created_at
+      };
+    });
 
-  }catch(e){
-    console.error(e);
+  } catch (error) {
+    console.warn('Support tickets exception:', error);
   }
+}
+
+async function addActivityLog(payload) {
+  const activity = {
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    request_id: payload.request_id || null,
+    action: payload.action || 'status_change',
+    title: payload.title || '',
+    description: payload.description || '',
+    created_by: payload.created_by || (APP.currentUser && APP.currentUser.id) || null,
+    created_by_name:
+      payload.created_by_name ||
+      (APP.currentUser && (APP.currentUser.full_name || APP.currentUser.name)) ||
+      'مستخدم',
+    created_at: new Date().toISOString()
+  };
+
+  APP.activityLog.unshift(activity);
+
+  if (window.sb) {
+    try {
+      const { error } = await window.sb
+        .from('request_activity_log')
+        .insert(activity);
+
+      if (error) {
+        console.warn('Activity insert error:', error);
+      }
+    } catch (error) {
+      console.warn('Activity insert exception:', error);
+    }
+  }
+}
+
+// =============================================================
+// الدعم الفني
+// =============================================================
+function renderSupportPage() {
+  const page = document.getElementById('page-support');
+
+  if (!page) return;
+
+  const body = APP.supportTickets || [];
+
+  const content = page.querySelector('.empty-state');
+
+  if (!body.length) {
+    if (content) {
+      content.innerHTML = `
+        <svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7"/></svg>
+        <h3>لا توجد تذاكر دعم حالياً</h3>
+        <p>ستظهر هنا الرسائل القادمة من نموذج الدعم الفني</p>
+      `;
+    }
+    return;
+  }
+
+  if (content) {
+    content.outerHTML = `
+      <div class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>العميل</th>
+              <th>رقم الجوال</th>
+              <th>الرسالة</th>
+              <th>الحالة</th>
+              <th>التاريخ</th>
+              <th>الإجراء</th>
+            </tr>
+          </thead>
+          <tbody id="supportTableBody"></tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  const tableBody = document.getElementById('supportTableBody');
+  if (!tableBody) return;
+
+  tableBody.innerHTML = body.map(function(ticket) {
+    return `
+      <tr>
+        <td>${ticket.name || '—'}</td>
+        <td>${ticket.phone || '—'}</td>
+        <td style="max-width:330px;white-space:normal;line-height:1.7;">${ticket.problem || '—'}</td>
+        <td><span class="badge s-${ticket.status === 'new' ? 'new' : 'assigned'}">${ticket.status === 'new' ? 'جديد' : ticket.status}</span></td>
+        <td class="cell-date">${HELPERS.formatDate(ticket.created_at)}<small>${HELPERS.formatTime(ticket.created_at)}</small></td>
+        <td>
+          <button class="btn btn-primary btn-sm" onclick="openConvertSupportModal('${ticket.id}')">
+            تحويل إلى طلب
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
 function openConvertSupportModal(ticketId) {
@@ -1975,98 +2330,159 @@ function openConvertSupportModal(ticketId) {
     return;
   }
 
-  // منع تحويل الرسالة أكثر من مرة
-  if (ticket.status === 'converted' || ticket.converted_request_id) {
-    showToast('تم تحويل هذه الرسالة إلى طلب مسبقًا', 'warn');
-    return;
-  }
-
   APP.selectedSupportTicketId = ticketId;
 
-  document.getElementById('convertSupportCustomerName').textContent =
-    ticket.name || '—';
+  document.getElementById('convertSupportCustomerName').textContent = ticket.name || '—';
+  document.getElementById('convertSupportCustomerPhone').textContent = ticket.phone || '—';
+  document.getElementById('convertSupportProblem').textContent = ticket.problem || '—';
 
-  document.getElementById('convertSupportCustomerPhone').textContent =
-    ticket.phone || '—';
+  const serviceSelect = document.getElementById('convertSupportService');
 
-  document.getElementById('convertSupportProblem').textContent =
-    ticket.problem || '—';
+  if (serviceSelect) {
+    serviceSelect.innerHTML = `
+      <option value="">اختر الخدمة المناسبة</option>
+      ${MOCK_DATA.services.map(function(service) {
+        return `<option value="${service.key}" data-price="${service.price}">${service.name}</option>`;
+      }).join('')}
+      <option value="case_representation" data-price="0">التوكيل في القضايا</option>
+      <option value="custom_service" data-price="0">خدمة غير مدرجة</option>
+    `;
 
-  const serviceSelect =
-    document.getElementById('convertSupportService');
+    serviceSelect.onchange = function() {
+      const selected = serviceSelect.options[serviceSelect.selectedIndex];
+      const price = selected ? selected.getAttribute('data-price') : '';
+      document.getElementById('convertSupportPrice').value = price || '';
+    };
+  }
 
-  serviceSelect.innerHTML =
-    '<option value="">اختر الخدمة المناسبة</option>' +
-    MOCK_DATA.services.map(function(service) {
-      return `
-        <option value="${service.key}">
-          ${service.name}
-        </option>
-      `;
-    }).join('');
-
-  const priceInput =
-    document.getElementById('convertSupportPrice');
-
-  priceInput.value = '';
-  document.getElementById('convertSupportPaymentStatus').value = 'pending'; 
-
-  // تعبئة السعر تلقائيًا عند اختيار الخدمة
-  serviceSelect.onchange = function() {
-    const selectedService = MOCK_DATA.services.find(function(service) {
-      return service.key === serviceSelect.value;
-    });
-
-    priceInput.value = selectedService
-      ? selectedService.price
-      : '';
-  };
+  document.getElementById('convertSupportPrice').value = '';
+  document.getElementById('convertSupportPaymentStatus').value = 'pending';
 
   openModal('convertSupportModal');
 }
 
 async function confirmConvertSupportTicket() {
-  const ticketId = APP.selectedSupportTicketId;
+  const ticket = (APP.supportTickets || []).find(function(item) {
+    return item.id === APP.selectedSupportTicketId;
+  });
 
-  if (!ticketId) {
-    showToast('لم يتم تحديد رسالة الدعم', 'error');
+  if (!ticket) {
+    showToast('تعذر العثور على رسالة الدعم', 'error');
     return;
   }
 
-  const serviceKey =
-    document.getElementById('convertSupportService').value;
+  const serviceValue = document.getElementById('convertSupportService').value;
+  const price = Number(document.getElementById('convertSupportPrice').value || 0);
+  const paymentStatus = document.getElementById('convertSupportPaymentStatus').value;
 
-  const priceValue =
-    document.getElementById('convertSupportPrice').value;
-const paymentStatus =
-  document.getElementById('convertSupportPaymentStatus').value;
-  if (!serviceKey) {
+  if (!serviceValue) {
     showToast('اختر تصنيف الخدمة أولًا', 'warn');
     return;
   }
 
   const selectedService = MOCK_DATA.services.find(function(service) {
-    return service.key === serviceKey;
+    return service.key === serviceValue;
   });
 
-  if (!selectedService) {
-    showToast('تعذر العثور على تصنيف الخدمة', 'error');
+  const serviceName =
+    serviceValue === 'case_representation'
+      ? 'طلب توكيل في قضية'
+      : serviceValue === 'custom_service'
+        ? 'خدمة غير مدرجة'
+        : selectedService
+          ? selectedService.name
+          : serviceValue;
+
+  try {
+    if (window.sb) {
+      const { error } = await window.sb.rpc('convert_support_ticket_to_request', {
+        p_ticket_id: ticket.id,
+        p_service_type: serviceValue === 'case_representation' ? 'التوكيل في القضايا' : serviceValue,
+        p_service_name: serviceName,
+        p_price: price,
+        p_payment_status: paymentStatus,
+        p_converted_by: APP.currentUser.id,
+        p_converted_by_name: APP.currentUser.full_name || APP.currentUser.name || 'مستخدم'
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      await loadSupabaseRequests();
+      await loadSupabaseSupportTickets();
+
+    } else {
+      MOCK_DATA.service_requests.unshift({
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+        customer_name: ticket.name,
+        customer_phone: ticket.phone,
+        service_type: serviceValue,
+        service_name: serviceName,
+        price,
+        payment_status: paymentStatus,
+        source: serviceValue === 'case_representation' ? 'cases' : 'direct_services',
+        details: ticket.problem,
+        attachments: [],
+        status: 'new',
+        priority: 'normal',
+        notes: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      });
+    }
+
+    await addActivityLog({
+      action: 'support_convert',
+      title: 'تحويل رسالة دعم',
+      description: `تم تحويل رسالة دعم من ${ticket.name} إلى طلب`,
+      created_by: APP.currentUser.id,
+      created_by_name: APP.currentUser.full_name || APP.currentUser.name || 'مستخدم'
+    });
+
+    closeModal('convertSupportModal');
+    renderSupportPage();
+    renderDashboard();
+    renderActiveRequestsPage();
+    updateSidebarCounts();
+
+    showToast('تم تحويل رسالة الدعم إلى طلب بنجاح', 'success');
+
+  } catch (error) {
+    console.error('Convert support error:', error);
+    showToast('تعذر تحويل رسالة الدعم إلى طلب', 'error');
+  }
+}
+// =============================================================
+// تصفير الطلبات
+// =============================================================
+async function openResetRequestsModal() {
+  const statusBox = document.getElementById('resetRequestsStatus');
+  const actionsBox = document.getElementById('resetRequestsActions');
+
+  if (!statusBox || !actionsBox) {
     return;
   }
 
-  const price = Number(priceValue);
+  statusBox.innerHTML = `
+    <div style="background:var(--bg);border:var(--border);border-radius:12px;padding:14px;font-size:13px;color:var(--t2);line-height:1.8;">
+      تصفير الطلبات إجراء حساس، ويُفضّل تنفيذه فقط عند بداية مرحلة تشغيل جديدة وبعد التأكد من حفظ البيانات المطلوبة.
+    </div>
+  `;
 
-  if (
-    priceValue === '' ||
-    !Number.isFinite(price) ||
-    price < 0
-  ) {
-    showToast('أدخل سعرًا صحيحًا للخدمة', 'warn');
-    return;
-  }
+  actionsBox.innerHTML = `
+    <button class="btn" onclick="closeModal('resetRequestsModal')">إغلاق</button>
+    <button class="btn btn-danger" onclick="requestResetRequests()">
+      طلب تصفير الطلبات
+    </button>
+  `;
 
+  openModal('resetRequestsModal');
+}
+
+async function requestResetRequests() {
   const confirmed = window.confirm(
-    `هل تريد تحويل رسالة الدعم إلى طلب مصنف كـ "${selectedService.name}"؟`
+    'هل تريد إرسال طلب تصفير الطلبات؟\n\nلن يتم التصفير إلا بعد اعتماد مدير آخر.'
   );
 
   if (!confirmed) {
@@ -2074,376 +2490,354 @@ const paymentStatus =
   }
 
   try {
-    const { data, error } = await window.sb.rpc(
-      'convert_support_ticket_to_request',
-      {
-        p_ticket_id: ticketId,
-        p_service_type: selectedService.key,
-        p_service_name: selectedService.name,
-        p_price: price,
-        p_converted_by: APP.currentUser.id,
-        p_converted_by_name:
-  APP.currentUser.full_name ||
-  APP.currentUser.name ||
-  'موظف',
+    if (window.sb) {
+      const { error } = await window.sb
+        .from('ops_reset_requests')
+        .insert({
+          requested_by: APP.currentUser.id,
+          requested_by_name:
+            APP.currentUser.full_name ||
+            APP.currentUser.name ||
+            'مستخدم',
+          status: 'pending'
+        });
 
-p_payment_status: paymentStatus
+      if (error) {
+        throw error;
       }
-    );
-
-    if (error) {
-      throw error;
     }
 
-    closeModal('convertSupportModal');
-    APP.selectedSupportTicketId = null;
+    await addActivityLog({
+      action: 'reset_request',
+      title: 'طلب تصفير الطلبات',
+      description: 'تم إنشاء طلب تصفير للطلبات بانتظار الاعتماد',
+      created_by: APP.currentUser.id,
+      created_by_name:
+        APP.currentUser.full_name ||
+        APP.currentUser.name ||
+        'مستخدم'
+    });
 
-    if (typeof loadSupabaseSupportTickets === 'function') {
-      await loadSupabaseSupportTickets();
+    closeModal('resetRequestsModal');
+    showToast('تم إرسال طلب التصفير', 'success');
+
+  } catch (error) {
+    console.error('Reset request error:', error);
+    showToast('تعذر إرسال طلب التصفير', 'error');
+  }
+}
+
+// =============================================================
+// تحديث العدادات الجانبية
+// =============================================================
+function updateSidebarCounts() {
+  const directCount = getRequestsByKind('direct').filter(function(request) {
+    return !['done', 'closed', 'cancelled'].includes(request.status);
+  }).length;
+
+  const caseCount = getRequestsByKind('cases').filter(function(request) {
+    return !['done', 'closed', 'cancelled'].includes(request.status);
+  }).length;
+
+  const directBadge = document.getElementById('directRequestsBadge');
+  const caseBadge = document.getElementById('caseRequestsBadge');
+
+  if (directBadge) {
+    directBadge.textContent = directCount;
+  }
+
+  if (caseBadge) {
+    caseBadge.textContent = caseCount;
+  }
+}
+
+// =============================================================
+// إظهار وإخفاء المودالات
+// =============================================================
+function openModal(id) {
+  const modal = document.getElementById(id);
+
+  if (modal) {
+    modal.classList.add('open');
+  }
+}
+
+function closeModal(id) {
+  const modal = document.getElementById(id);
+
+  if (modal) {
+    modal.classList.remove('open');
+  }
+}
+
+// =============================================================
+// صلاحيات الواجهة حسب الدور
+// =============================================================
+function applyRoleVisibility() {
+  const isAdmin = APP.currentUser && APP.currentUser.role === 'admin';
+
+  document.querySelectorAll('[data-admin-only]').forEach(function(element) {
+    element.style.display = isAdmin ? '' : 'none';
+  });
+}
+
+// =============================================================
+// ربط الفلاتر
+// =============================================================
+function bindRequestFilters(kind) {
+  const config = getRequestPageConfig(kind);
+
+  const searchInput = document.getElementById(config.searchId);
+  const serviceSelect = document.getElementById(config.serviceId);
+  const statusSelect = document.getElementById(config.statusId);
+  const employeeSelect = document.getElementById(config.employeeId);
+  const paymentSelect = document.getElementById(config.paymentId);
+  const prioritySelect = document.getElementById(config.priorityId);
+
+  if (searchInput) {
+    searchInput.addEventListener('input', function(event) {
+      config.filters.search = event.target.value.trim();
+      renderRequestsTable(kind);
+    });
+  }
+
+  if (serviceSelect) {
+    serviceSelect.addEventListener('change', function(event) {
+      config.filters.service = event.target.value;
+      renderRequestsTable(kind);
+    });
+  }
+
+  if (statusSelect) {
+    statusSelect.addEventListener('change', function(event) {
+      config.filters.status = event.target.value;
+      renderRequestsTable(kind);
+    });
+  }
+
+  if (employeeSelect) {
+    employeeSelect.addEventListener('change', function(event) {
+      config.filters.employee = event.target.value;
+      renderRequestsTable(kind);
+    });
+  }
+
+  if (paymentSelect) {
+    paymentSelect.addEventListener('change', function(event) {
+      config.filters.payment = event.target.value;
+      renderRequestsTable(kind);
+    });
+  }
+
+  if (prioritySelect) {
+    prioritySelect.addEventListener('change', function(event) {
+      config.filters.priority = event.target.value;
+      renderRequestsTable(kind);
+    });
+  }
+}
+
+function bindTopbarSearch() {
+  const input = document.getElementById('topbarSearch');
+
+  if (!input) {
+    return;
+  }
+
+  input.addEventListener('keydown', function(event) {
+    if (event.key !== 'Enter') {
+      return;
+    }
+
+    const value = input.value.trim();
+
+    if (!value) {
+      return;
+    }
+
+    if (APP.currentPage === 'cases') {
+      APP.caseFilters.search = value;
+
+      const caseSearch = document.getElementById('caseSearchInput');
+      if (caseSearch) {
+        caseSearch.value = value;
+      }
+
+      renderRequestsTable('cases');
+      return;
+    }
+
+    APP.filters.search = value;
+
+    const directSearch = document.getElementById('searchInput');
+    if (directSearch) {
+      directSearch.value = value;
+    }
+
+    navigateTo('requests');
+    renderRequestsTable('direct');
+  });
+}
+
+function bindNavigation() {
+  document.querySelectorAll('.nav-item[data-page]').forEach(function(button) {
+    button.addEventListener('click', function() {
+      navigateTo(button.dataset.page);
+    });
+  });
+}
+
+function bindGlobalClicks() {
+  document.addEventListener('click', function(event) {
+    const notifPanel = document.getElementById('notifPanel');
+    const notifBtn = document.getElementById('notifBtn');
+
+    if (
+      notifPanel &&
+      notifBtn &&
+      notifPanel.classList.contains('open') &&
+      !notifPanel.contains(event.target) &&
+      !notifBtn.contains(event.target)
+    ) {
+      notifPanel.classList.remove('open');
+    }
+  });
+}
+
+// =============================================================
+// تجهيز بيانات المستخدم في الواجهة
+// =============================================================
+function renderCurrentUser() {
+  if (!APP.currentUser) {
+    return;
+  }
+
+  const name =
+    APP.currentUser.full_name ||
+    APP.currentUser.name ||
+    'مستخدم';
+
+  const role = APP.currentUser.role === 'admin'
+    ? 'مدير'
+    : 'موظف';
+
+  const initials = HELPERS.initials(name);
+
+  const sidebarName = document.getElementById('sidebarUserName');
+  const sidebarRole = document.getElementById('sidebarUserRole');
+  const sidebarAvatar = document.getElementById('sidebarUserAvatar');
+  const topbarName = document.getElementById('topbarUserName');
+  const topbarAvatar = document.getElementById('topbarUserAvatar');
+
+  if (sidebarName) sidebarName.textContent = name;
+  if (sidebarRole) sidebarRole.textContent = role;
+  if (sidebarAvatar) sidebarAvatar.textContent = initials;
+  if (topbarName) topbarName.textContent = name;
+  if (topbarAvatar) topbarAvatar.textContent = initials;
+}
+
+// =============================================================
+// تحسينات مساعدة للبيانات
+// =============================================================
+function ensureRequestDefaults() {
+  MOCK_DATA.service_requests = (MOCK_DATA.service_requests || []).map(function(request) {
+    return {
+      ...request,
+      service_name: request.service_name || request.service_type || '',
+      price: Number(request.price || 0),
+      payment_status: request.payment_status || 'manual_pending',
+      source: request.source || 'direct_services',
+      status: request.status || 'new',
+      priority: request.priority || 'normal',
+      notes: Array.isArray(request.notes) ? request.notes : [],
+      attachments: Array.isArray(request.attachments) ? request.attachments : [],
+      created_at: request.created_at || new Date().toISOString(),
+      updated_at: request.updated_at || request.created_at || new Date().toISOString()
+    };
+  });
+}
+
+// =============================================================
+// شاشة التحميل
+// =============================================================
+function hideAppLoader() {
+  const loader = document.getElementById('appLoader');
+
+  if (!loader) {
+    return;
+  }
+
+  setTimeout(function() {
+    loader.classList.add('hide');
+
+    setTimeout(function() {
+      loader.style.display = 'none';
+    }, 350);
+  }, 350);
+}
+
+// =============================================================
+// التشغيل الأولي
+// =============================================================
+async function initApp() {
+  if (!checkSession()) {
+    return;
+  }
+
+  renderCurrentUser();
+  applyRoleVisibility();
+
+  bindNavigation();
+  bindRequestFilters('direct');
+  bindRequestFilters('cases');
+  bindTopbarSearch();
+  bindGlobalClicks();
+
+  try {
+    if (typeof loadSupabaseEmployees === 'function') {
+      await loadSupabaseEmployees();
     }
 
     if (typeof loadSupabaseRequests === 'function') {
       await loadSupabaseRequests();
     }
 
-    if (typeof updateSidebarCounts === 'function') {
-      updateSidebarCounts();
+    if (typeof loadSupabaseActivity === 'function') {
+      await loadSupabaseActivity();
     }
 
-    renderSupportPage();
+    if (typeof loadDeleteRequests === 'function') {
+      await loadDeleteRequests();
+    }
 
-    showToast(
-      'تم تحويل رسالة الدعم إلى طلب بنجاح',
-      'success'
-    );
+    if (typeof loadSupabaseSupportTickets === 'function') {
+      await loadSupabaseSupportTickets();
+    }
 
   } catch (error) {
-    console.error('Support conversion error:', error);
-
-    showToast(
-      error && error.message
-        ? error.message
-        : 'تعذر تحويل رسالة الدعم إلى طلب',
-      'error'
-    );
-  }
-}
-
-function renderSupportPage(){
-  var page = document.getElementById('page-support');
-  if(!page) return;
-
-  var tickets = APP.supportTickets || [];
-
-  var body = '';
-
-  if(tickets.length === 0){
-    body = `
-      <div class="empty-state" style="background:#fff;border-radius:16px;border:var(--border);">
-        <svg viewBox="0 0 24 24"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
-        <h3>لا توجد رسائل دعم حالياً</h3>
-        <p>ستظهر هنا رسائل الدعم الفني القادمة من منصة أعراف.</p>
-      </div>
-    `;
-  }else{
-    body = `
-      <div class="table-wrap">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>الاسم</th>
-              <th>الجوال</th>
-              <th>المشكلة</th>
-              <th>الحالة</th>
-              <th>التاريخ</th>
-            </tr>
-          </thead>
-          <tbody>
-           ${tickets.map(function(t){
-  const isConverted =
-    t.status === 'converted' ||
-    t.converted_request_id;
-
-  return `
-    <tr
-      onclick="openConvertSupportModal('${t.id}')"
-      style="cursor:pointer;${isConverted ? 'opacity:.75;' : ''}"
-      title="${isConverted
-        ? 'تم تحويل هذه الرسالة إلى طلب'
-        : 'اضغط لعرض الرسالة وتحويلها إلى طلب'
-      }"
-    >
-      <td>${t.name || '—'}</td>
-
-      <td>${t.phone || '—'}</td>
-
-      <td>${t.problem || '—'}</td>
-
-      <td>
-        <span class="badge ${isConverted ? 's-done' : 's-new'}">
-          ${isConverted ? 'محوّلة إلى طلب' : 'جديدة'}
-        </span>
-      </td>
-
-      <td class="cell-date">
-        ${HELPERS.formatDate(t.created_at)}
-        <small>${HELPERS.formatTime(t.created_at)}</small>
-      </td>
-    </tr>
-  `;
-}).join('')}
-          </tbody>
-        </table>
-      </div>
-    `;
+    console.error('Initial load error:', error);
+    showToast('حدث خطأ أثناء تحميل البيانات', 'warn');
   }
 
-  page.innerHTML = `
-    <div class="page-header">
-      <div>
-        <h1 class="page-title">الدعم الفني</h1>
-        <p class="page-subtitle">رسائل وشكاوى المستخدمين الواردة من منصة أعراف</p>
-      </div>
-    </div>
-    ${body}
-  `;
-}
-// =============================================================
-// التهيئة
-// =============================================================
-document.addEventListener('DOMContentLoaded', async () => {
-  if (!checkSession()) return;
+  ensureRequestDefaults();
 
-  // ملء معلومات المستخدم
-  document.getElementById('sidebarUserName').textContent = APP.currentUser.name;
-  document.getElementById('sidebarUserRole').textContent = APP.currentUser.role === 'admin' ? 'مدير النظام' : 'موظف';
-  document.getElementById('sidebarUserAvatar').textContent = HELPERS.initials(APP.currentUser.name);
-  document.getElementById('topbarUserName').textContent = APP.currentUser.name.split(' ')[0];
-  document.getElementById('topbarUserAvatar').textContent = HELPERS.initials(APP.currentUser.name);
-
-  // إخفاء الأقسام التي تخص المدير فقط
-  if (APP.currentUser.role !== 'admin') {
-    document.querySelectorAll('[data-admin-only]').forEach(el => el.style.display = 'none');
-  }
-if (APP.currentUser.role !== 'admin') {
-  document.querySelectorAll('.nav-item[data-page="employees"], .nav-item[data-page="activity"]').forEach(function(el){
-    el.style.display = 'none';
-  });
-}
-  // عناصر التنقل
-  document.querySelectorAll('.nav-item[data-page]').forEach(el => {
-    el.addEventListener('click', () => navigateTo(el.dataset.page));
-  });
-
-  // الفلاتر
-  const searchInput = document.getElementById('searchInput');
-  searchInput?.addEventListener('input', e => {
-    APP.filters.search = e.target.value;
-    renderRequestsTable();
-  });
-  document.getElementById('filterService')?.addEventListener('change', e => { APP.filters.service = e.target.value; renderRequestsTable(); });
-  document.getElementById('filterStatus')?.addEventListener('change', e => { APP.filters.status = e.target.value; renderRequestsTable(); });
-  document.getElementById('filterEmployee')?.addEventListener('change', e => { APP.filters.employee = e.target.value; renderRequestsTable(); });
-  document.getElementById('filterPayment')?.addEventListener('change', e => { APP.filters.payment = e.target.value; renderRequestsTable(); });
-  document.getElementById('filterPriority')?.addEventListener('change', e => { APP.filters.priority = e.target.value; renderRequestsTable(); });
-
-  // إشعارات
+  updateSidebarCounts();
   renderNotifications();
+  renderDashboard();
+  renderRequestsPage();
+  renderCaseRequestsPage();
 
-  // إغلاق لوحة الإشعارات عند الضغط خارجها
-  document.addEventListener('click', e => {
-    const panel = document.getElementById('notifPanel');
-    const btn = document.getElementById('notifBtn');
-    if (!panel.contains(e.target) && !btn.contains(e.target)) {
-      panel.classList.remove('open');
-    }
-  });
+  if (APP.currentUser && APP.currentUser.role === 'admin') {
+    renderEmployeesPage();
+  }
 
-  // البحث العلوي يفلتر الطلبات
-  document.getElementById('topbarSearch')?.addEventListener('input', e => {
-    APP.filters.search = e.target.value;
-    if (APP.currentPage !== 'requests') {
-      navigateTo('requests');
-      document.getElementById('searchInput').value = e.target.value;
-    }
-    renderRequestsTable();
-  });
-await loadSupabaseEmployees();
-await loadSupabaseRequests();
-await loadDeleteRequests();
-await loadSupabaseActivity();
-await loadSupabaseSupportTickets();
-updateSidebarCounts();
-renderNotifications();
+  renderActivityPage();
+  renderSupportPage();
 
-navigateTo('dashboard');
-var loader = document.getElementById('appLoader');
-if(loader){
-  loader.classList.add('hide');
-}   
-});
-async function openResetRequestsModal() {
-  openModal('resetRequestsModal');
-  await renderResetRequestsModal();
+  hideAppLoader();
 }
 
-async function getPendingResetRequest() {
-  const { data, error } = await window.sb
-    .from('ops_reset_requests')
-    .select('*')
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    console.error(error);
-    return null;
-  }
-
-  return data;
-}
-
-async function renderResetRequestsModal() {
-  const box = document.getElementById('resetRequestsStatus');
-  const actions = document.getElementById('resetRequestsActions');
-
-  const pending = await getPendingResetRequest();
-
-  if (!pending) {
-    box.innerHTML = `
-      <div class="empty-state" style="padding:18px;">
-        لا يوجد طلب تصفير قائم حاليًا.
-      </div>
-    `;
-
-    actions.innerHTML = `
-      <button class="btn" onclick="closeModal('resetRequestsModal')">إلغاء</button>
-      <button class="btn btn-danger" onclick="requestResetRequestsCounter()">طلب تصفير الطلبات</button>
-    `;
-    return;
-  }
-
-  const isRequester = pending.requested_by === APP.currentUser.id;
-
-  box.innerHTML = `
-    <div style="background:#fff;border:var(--border);border-radius:12px;padding:16px;line-height:1.9;">
-      <strong>يوجد طلب تصفير بانتظار الاعتماد</strong><br>
-      طالب التصفير: ${pending.requested_by_name || pending.requested_by}<br>
-      تاريخ الطلب: ${HELPERS.formatDateTime(pending.created_at)}
-    </div>
-  `;
-
-  if (isRequester) {
-    actions.innerHTML = `
-      <button class="btn" onclick="closeModal('resetRequestsModal')">إغلاق</button>
-      <button class="btn btn-danger" onclick="cancelResetRequestsCounter('${pending.id}')">إلغاء طلب التصفير</button>
-    `;
-  } else {
-    actions.innerHTML = `
-      <button class="btn" onclick="closeModal('resetRequestsModal')">إلغاء</button>
-      <button class="btn btn-danger" onclick="approveResetRequestsCounter('${pending.id}')">اعتماد التصفير</button>
-    `;
-  }
-}
-
-async function requestResetRequestsCounter() {
-  const pending = await getPendingResetRequest();
-
-  if (pending) {
-    showToast('يوجد طلب تصفير قائم بالفعل', 'warn');
-    await renderResetRequestsModal();
-    return;
-  }
-
-  const { error } = await window.sb
-    .from('ops_reset_requests')
-    .insert({
-      requested_by: APP.currentUser.id,
-      requested_by_name: APP.currentUser.full_name || APP.currentUser.name || 'مدير',
-      status: 'pending'
-    });
-
-  if (error) {
-    console.error(error);
-    showToast('تعذر إنشاء طلب التصفير', 'error');
-    return;
-  }
-
-  showToast('تم إرسال طلب التصفير بانتظار موافقة مدير آخر', 'success');
-  await renderResetRequestsModal();
-}
-
-async function approveResetRequestsCounter(resetId) {
-  const { data: pending, error: readError } = await window.sb
-    .from('ops_reset_requests')
-    .select('*')
-    .eq('id', resetId)
-    .eq('status', 'pending')
-    .maybeSingle();
-
-  if (readError || !pending) {
-    showToast('طلب التصفير غير موجود أو تم التعامل معه', 'error');
-    return;
-  }
-
-  if (pending.requested_by === APP.currentUser.id) {
-    showToast('لا يمكن لطالب التصفير اعتماد طلبه بنفسه', 'warn');
-    return;
-  }
-
-  const now = new Date().toISOString();
-
-  const { error: settingError } = await window.sb
-    .from('ops_settings')
-    .upsert({
-      key: 'requests_reset_at',
-      value: now,
-      updated_at: now
-    });
-
-  if (settingError) {
-    console.error(settingError);
-    showToast('تعذر حفظ وقت التصفير', 'error');
-    return;
-  }
-
-  const { error: approveError } = await window.sb
-    .from('ops_reset_requests')
-    .update({
-      status: 'approved',
-      approved_by: APP.currentUser.id,
-      approved_by_name: APP.currentUser.full_name || APP.currentUser.name || 'مدير',
-      approved_at: now
-    })
-    .eq('id', resetId);
-
-  if (approveError) {
-    console.error(approveError);
-    showToast('تعذر اعتماد التصفير', 'error');
-    return;
-  }
-
-  showToast('تم اعتماد التصفير وبدأ العداد من جديد', 'success');
-  closeModal('resetRequestsModal');
-
-  if (typeof refreshDashboardData === 'function') {
-    await refreshDashboardData();
-  }
-}
-
-async function cancelResetRequestsCounter(resetId) {
-  const { error } = await window.sb
-    .from('ops_reset_requests')
-    .update({ status: 'cancelled' })
-    .eq('id', resetId);
-
-  if (error) {
-    console.error(error);
-    showToast('تعذر إلغاء طلب التصفير', 'error');
-    return;
-  }
-
-  showToast('تم إلغاء طلب التصفير', 'success');
-  await renderResetRequestsModal();
-}
+// =============================================================
+// تشغيل التطبيق بعد تحميل الصفحة
+// =============================================================
+document.addEventListener('DOMContentLoaded', initApp);
