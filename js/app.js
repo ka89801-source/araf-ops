@@ -2457,6 +2457,64 @@ function renderSupportPage() {
   }).join('');
 }
 
+async function deleteSupportTicket(event, ticketId) {
+  if (event) {
+    event.stopPropagation();
+  }
+
+  const ticket = (APP.supportTickets || []).find(function(item) {
+    return item.id === ticketId;
+  });
+
+  if (!ticket) {
+    showToast('تعذر العثور على رسالة الدعم', 'error');
+    return;
+  }
+
+  const confirmed = window.confirm(
+    `هل تريد حذف رسالة الدعم الخاصة بـ "${ticket.name || 'العميل'}"؟\n\nلا يمكن التراجع عن الحذف بعد تنفيذه.`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  const oldTickets = [...(APP.supportTickets || [])];
+
+  APP.supportTickets = APP.supportTickets.filter(function(item) {
+    return item.id !== ticketId;
+  });
+
+  renderSupportPage();
+  updateSidebarCounts();
+  renderNotifications();
+
+  try {
+    if (window.sb) {
+      const { error } = await window.sb
+        .from('support_tickets')
+        .delete()
+        .eq('id', ticketId);
+
+      if (error) {
+        throw error;
+      }
+    }
+
+    showToast('تم حذف رسالة الدعم', 'success');
+
+  } catch (error) {
+    console.error('Delete support ticket error:', error);
+
+    APP.supportTickets = oldTickets;
+    renderSupportPage();
+    updateSidebarCounts();
+    renderNotifications();
+
+    showToast('تعذر حذف رسالة الدعم', 'error');
+  }
+}
+
 function openConvertSupportModal(ticketId) {
   const ticket = (APP.supportTickets || []).find(function(item) {
     return item.id === ticketId;
