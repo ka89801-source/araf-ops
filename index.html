@@ -48,15 +48,24 @@
           <div class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></div>
           لوحة التحكم
         </button>
+
         <button class="nav-item" data-page="requests">
           <div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
-          الطلبات
-          <span class="nav-badge">15</span>
+          الخدمات المباشرة
+          <span class="nav-badge" id="directRequestsBadge">0</span>
         </button>
+
+        <button class="nav-item" data-page="cases">
+          <div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 6h6L5 7z"/><path d="M19 7l-3 6h6l-3-6z"/><path d="M8 21h8"/></svg></div>
+          طلبات توكيل القضايا
+          <span class="nav-badge nav-badge-gold" id="caseRequestsBadge">0</span>
+        </button>
+
         <button class="nav-item" data-page="employees" data-admin-only>
           <div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
           الموظفون
         </button>
+
         <button class="nav-item" data-page="activity">
           <div class="nav-icon"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
           سجل النشاط
@@ -133,25 +142,32 @@
               <h1 class="page-title">مرحباً بك في منصة أعراف 👋</h1>
               <p class="page-subtitle">نظرة شاملة على أداء فريق إدارة الطلبات اليوم</p>
             </div>
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <button class="btn btn-danger" id="resetRequestsBtn" onclick="openResetRequestsModal()" data-admin-only>
-  تصفير الطلبات
-</button>
-  <button class="btn" id="refreshDashboardBtn" onclick="refreshDashboardData()">
-    <svg viewBox="0 0 24 24">
-      <polyline points="23 4 23 10 17 10"/>
-      <polyline points="1 20 1 14 7 14"/>
-      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/>
-      <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>
-    </svg>
-    تحديث البيانات
-  </button>
 
-  <button class="btn btn-primary" onclick="navigateTo('requests')">
-    <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-    عرض كل الطلبات
-  </button>
-</div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <button class="btn btn-danger" id="resetRequestsBtn" onclick="openResetRequestsModal()" data-admin-only>
+                تصفير الطلبات
+              </button>
+
+              <button class="btn" id="refreshDashboardBtn" onclick="refreshDashboardData()">
+                <svg viewBox="0 0 24 24">
+                  <polyline points="23 4 23 10 17 10"/>
+                  <polyline points="1 20 1 14 7 14"/>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/>
+                  <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>
+                </svg>
+                تحديث البيانات
+              </button>
+
+              <button class="btn btn-primary" onclick="navigateTo('requests')">
+                <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                الخدمات المباشرة
+              </button>
+
+              <button class="btn btn-gold" onclick="navigateTo('cases')">
+                <svg viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 6h6L5 7z"/><path d="M19 7l-3 6h6l-3-6z"/><path d="M8 21h8"/></svg>
+                طلبات التوكيل
+              </button>
+            </div>
           </div>
 
           <!-- البطاقات الإحصائية -->
@@ -173,7 +189,7 @@
             <div class="panel">
               <div class="panel-header">
                 <div>
-                  <div class="panel-title">الخدمات الأكثر طلباً</div>
+                  <div class="panel-title">الخدمات والقضايا الأكثر طلباً</div>
                   <div style="font-size:12px;color:var(--t2);margin-top:2px;">حسب عدد الطلبات</div>
                 </div>
               </div>
@@ -186,7 +202,10 @@
             <div class="panel">
               <div class="panel-header">
                 <div class="panel-title">آخر الطلبات</div>
-                <button class="panel-action" onclick="navigateTo('requests')">عرض الكل ←</button>
+                <div class="panel-header-actions">
+                  <button class="panel-action" onclick="navigateTo('requests')">الخدمات</button>
+                  <button class="panel-action" onclick="navigateTo('cases')">التوكيل</button>
+                </div>
               </div>
               <div class="recent-list" id="recentList"></div>
             </div>
@@ -204,8 +223,8 @@
         <div class="page" id="page-requests">
           <div class="page-header">
             <div>
-              <h1 class="page-title">الطلبات</h1>
-              <p class="page-subtitle">إدارة وتوزيع طلبات منصة أعراف · <span id="requestsCount">0 طلب</span></p>
+              <h1 class="page-title">الخدمات المباشرة</h1>
+              <p class="page-subtitle">إدارة طلبات الخدمات المباشرة كما هي · <span id="requestsCount">0 طلب</span></p>
             </div>
           </div>
 
@@ -254,7 +273,7 @@
               <option value="high">عالي الخطورة</option>
             </select>
 
-            <button class="btn" onclick="resetFilters()">
+            <button class="btn" onclick="resetFilters('direct')">
               <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
               إعادة الضبط
             </button>
@@ -278,6 +297,88 @@
                 </tr>
               </thead>
               <tbody id="requestsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ===== صفحة طلبات توكيل القضايا ===== -->
+        <div class="page" id="page-cases">
+          <div class="page-header">
+            <div>
+              <h1 class="page-title">طلبات توكيل القضايا</h1>
+              <p class="page-subtitle">تظهر الطلبات بمسمى القضية الصحيح، مثل: قضية عمالية · <span id="caseRequestsCount">0 طلب</span></p>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <div class="toolbar-search">
+              <input id="caseSearchInput" type="text" placeholder="ابحث برقم الطلب أو العميل أو نوع القضية..." />
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </div>
+
+            <select class="filter-select" id="caseFilterService">
+              <option value="all">كل أنواع القضايا</option>
+            </select>
+
+            <select class="filter-select" id="caseFilterStatus">
+              <option value="all">كل الحالات</option>
+              <option value="new">جديد</option>
+              <option value="pending">بانتظار التوزيع</option>
+              <option value="assigned">مسند لموظف</option>
+              <option value="review">قيد المراجعة</option>
+              <option value="contacted">تم التواصل</option>
+              <option value="waiting">بانتظار مستندات</option>
+              <option value="progress">قيد التنفيذ</option>
+              <option value="done">مكتمل</option>
+              <option value="closed">مغلق</option>
+              <option value="cancelled">ملغي</option>
+              <option value="late">متأخر</option>
+            </select>
+
+            <select class="filter-select" id="caseFilterEmployee">
+              <option value="all">كل الموظفين</option>
+            </select>
+
+            <select class="filter-select" id="caseFilterPayment">
+              <option value="all">كل حالات الدفع</option>
+              <option value="paid">مدفوع</option>
+              <option value="manual_pending">بانتظار الدفع</option>
+              <option value="pending_quote">بانتظار التسعير</option>
+              <option value="unpaid">غير مدفوع</option>
+              <option value="pending">بانتظار التحقق</option>
+            </select>
+
+            <select class="filter-select" id="caseFilterPriority">
+              <option value="all">كل الأولويات</option>
+              <option value="normal">عادي</option>
+              <option value="imp">مهم</option>
+              <option value="urgent">عاجل</option>
+              <option value="high">عالي الخطورة</option>
+            </select>
+
+            <button class="btn" onclick="resetFilters('cases')">
+              <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+              إعادة الضبط
+            </button>
+          </div>
+
+          <div class="table-wrap case-table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>رقم الطلب</th>
+                  <th>العميل</th>
+                  <th>نوع القضية</th>
+                  <th>السعر</th>
+                  <th>الدفع</th>
+                  <th>الحالة</th>
+                  <th>الأولوية</th>
+                  <th>الموظف</th>
+                  <th>التاريخ</th>
+                  <th>الإجراء</th>
+                </tr>
+              </thead>
+              <tbody id="caseRequestsTableBody"></tbody>
             </table>
           </div>
         </div>
@@ -400,13 +501,13 @@
           </select>
         </div>
         <div class="field">
-  <label>تعليق على تغيير الحالة</label>
-  <textarea
-    id="statusCommentInput"
-    rows="4"
-    placeholder="اكتب تعليقًا مختصرًا يوضح سبب تغيير الحالة أو آخر مستجدات الطلب..."
-  ></textarea>
-</div>
+          <label>تعليق على تغيير الحالة</label>
+          <textarea
+            id="statusCommentInput"
+            rows="4"
+            placeholder="اكتب تعليقًا مختصرًا يوضح سبب تغيير الحالة أو آخر مستجدات الطلب..."
+          ></textarea>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn" onclick="closeModal('statusModal')">إلغاء</button>
@@ -492,150 +593,154 @@
     </div>
   </div>
 
-<div class="modal-overlay" id="resetRequestsModal" onclick="if(event.target===this)closeModal('resetRequestsModal')">
-  <div class="modal">
-    <div class="modal-header">
-      <h3>تصفير الطلبات</h3>
-      <button class="drawer-close" onclick="closeModal('resetRequestsModal')">
-        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-
-    <div class="modal-body">
-      <p style="font-size:14px;color:var(--t2);line-height:1.9;">
-        هذا الإجراء يحتاج موافقة مدير آخر. بعد الاعتماد سيتم تصفير عداد الطلبات وبدء العد من جديد.
-      </p>
-
-      <div id="resetRequestsStatus" style="margin-top:14px;"></div>
-    </div>
-
-    <div class="modal-footer" id="resetRequestsActions"></div>
-  </div>
-</div>
-
-<!-- =========================
-     Modal تحويل رسالة دعم إلى طلب
-     ========================= -->
-<div
-  class="modal-overlay"
-  id="convertSupportModal"
-  onclick="if(event.target===this)closeModal('convertSupportModal')"
->
-  <div class="modal">
-    <div class="modal-header">
-      <h3>تحويل رسالة الدعم إلى طلب</h3>
-
-      <button
-        class="drawer-close"
-        onclick="closeModal('convertSupportModal')"
-      >
-        <svg viewBox="0 0 24 24">
-          <line x1="18" y1="6" x2="6" y2="18"/>
-          <line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-      </button>
-    </div>
-
-    <div class="modal-body">
-
-      <div
-        style="
-          background:var(--bg);
-          border:var(--border);
-          border-radius:12px;
-          padding:14px;
-          margin-bottom:18px;
-        "
-      >
-        <div style="font-size:13px;margin-bottom:7px;">
-          <strong>العميل:</strong>
-          <span id="convertSupportCustomerName">—</span>
-        </div>
-
-        <div style="font-size:13px;margin-bottom:7px;">
-          <strong>رقم الجوال:</strong>
-          <span id="convertSupportCustomerPhone">—</span>
-        </div>
-
-        <div style="font-size:13px;">
-          <strong>الرسالة:</strong>
-          <div
-            id="convertSupportProblem"
-            style="
-              color:var(--t2);
-              line-height:1.8;
-              margin-top:5px;
-              white-space:pre-wrap;
-            "
-          >—</div>
-        </div>
+  <!-- =========================
+       Modal تصفير الطلبات
+       ========================= -->
+  <div class="modal-overlay" id="resetRequestsModal" onclick="if(event.target===this)closeModal('resetRequestsModal')">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>تصفير الطلبات</h3>
+        <button class="drawer-close" onclick="closeModal('resetRequestsModal')">
+          <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
 
-      <div class="field">
-        <label>تصنيف الخدمة</label>
+      <div class="modal-body">
+        <p style="font-size:14px;color:var(--t2);line-height:1.9;">
+          هذا الإجراء يحتاج موافقة مدير آخر. بعد الاعتماد سيتم تصفير عداد الطلبات وبدء العد من جديد.
+        </p>
 
-        <select id="convertSupportService">
-          <option value="">اختر الخدمة المناسبة</option>
-        </select>
+        <div id="resetRequestsStatus" style="margin-top:14px;"></div>
       </div>
 
-      <div class="field">
-        <label>سعر الخدمة</label>
-
-        <input
-          id="convertSupportPrice"
-          type="number"
-          min="0"
-          step="1"
-          placeholder="أدخل سعر الخدمة"
-        />
-      </div>
-<div class="field">
-  <label>حالة الدفع</label>
-
-  <select id="convertSupportPaymentStatus">
-    <option value="pending">بانتظار التحقق</option>
-    <option value="unpaid">غير مدفوع</option>
-    <option value="paid">مدفوع</option>
-  </select>
-</div>
-    </div>
-
-    <div class="modal-footer">
-      <button
-        class="btn"
-        onclick="closeModal('convertSupportModal')"
-      >
-        إلغاء
-      </button>
-
-      <button
-        class="btn btn-primary"
-        onclick="confirmConvertSupportTicket()"
-      >
-        تحويل إلى طلب
-      </button>
+      <div class="modal-footer" id="resetRequestsActions"></div>
     </div>
   </div>
-</div>
+
+  <!-- =========================
+       Modal تحويل رسالة دعم إلى طلب
+       ========================= -->
+  <div
+    class="modal-overlay"
+    id="convertSupportModal"
+    onclick="if(event.target===this)closeModal('convertSupportModal')"
+  >
+    <div class="modal">
+      <div class="modal-header">
+        <h3>تحويل رسالة الدعم إلى طلب</h3>
+
+        <button
+          class="drawer-close"
+          onclick="closeModal('convertSupportModal')"
+        >
+          <svg viewBox="0 0 24 24">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+
+        <div
+          style="
+            background:var(--bg);
+            border:var(--border);
+            border-radius:12px;
+            padding:14px;
+            margin-bottom:18px;
+          "
+        >
+          <div style="font-size:13px;margin-bottom:7px;">
+            <strong>العميل:</strong>
+            <span id="convertSupportCustomerName">—</span>
+          </div>
+
+          <div style="font-size:13px;margin-bottom:7px;">
+            <strong>رقم الجوال:</strong>
+            <span id="convertSupportCustomerPhone">—</span>
+          </div>
+
+          <div style="font-size:13px;">
+            <strong>الرسالة:</strong>
+            <div
+              id="convertSupportProblem"
+              style="
+                color:var(--t2);
+                line-height:1.8;
+                margin-top:5px;
+                white-space:pre-wrap;
+              "
+            >—</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>تصنيف الخدمة</label>
+
+          <select id="convertSupportService">
+            <option value="">اختر الخدمة المناسبة</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>سعر الخدمة</label>
+
+          <input
+            id="convertSupportPrice"
+            type="number"
+            min="0"
+            step="1"
+            placeholder="أدخل سعر الخدمة"
+          />
+        </div>
+
+        <div class="field">
+          <label>حالة الدفع</label>
+
+          <select id="convertSupportPaymentStatus">
+            <option value="pending">بانتظار التحقق</option>
+            <option value="unpaid">غير مدفوع</option>
+            <option value="paid">مدفوع</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button
+          class="btn"
+          onclick="closeModal('convertSupportModal')"
+        >
+          إلغاء
+        </button>
+
+        <button
+          class="btn btn-primary"
+          onclick="confirmConvertSupportTicket()"
+        >
+          تحويل إلى طلب
+        </button>
+      </div>
+    </div>
+  </div>
   
   <!-- =========================
-     Toast Notifications
-     ========================= -->
-<div class="toast-wrap" id="toastWrap"></div>
+       Toast Notifications
+       ========================= -->
+  <div class="toast-wrap" id="toastWrap"></div>
 
-<div id="appLoader" class="app-loader">
-  <div class="loader-card">
-    <img src="logo.png" alt="أعراف" onerror="this.style.display='none'">
-    <div class="loader-title">جاري تجهيز لوحة التحكم</div>
-    <div class="loader-sub">يتم تحميل الطلبات والموظفين...</div>
-    <div class="loader-line"></div>
+  <div id="appLoader" class="app-loader">
+    <div class="loader-card">
+      <img src="logo.png" alt="أعراف" onerror="this.style.display='none'">
+      <div class="loader-title">جاري تجهيز لوحة التحكم</div>
+      <div class="loader-sub">يتم تحميل الطلبات والموظفين...</div>
+      <div class="loader-line"></div>
+    </div>
   </div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/supabase.js"></script>
-<script src="js/data.js"></script>
-<script src="js/app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>
