@@ -63,7 +63,83 @@ function getRequestDisplayName(request) {
 function getRequestCategoryLabel(request) {
   return isCaseRequest(request) ? 'توكيل في قضية' : 'خدمة مباشرة';
 }
+function getCaseStageLabel(request) {
+  const status = typeof request === 'string' ? request : (request && request.status);
 
+  const labels = {
+    new: 'قضية جديدة',
+    pending: 'بانتظار الإحالة',
+    assigned: 'أحيلت للمسؤول',
+    review: 'قيد دراسة القضية',
+    contacted: 'تم التواصل مع العميل',
+    waiting: 'بانتظار مستندات القضية',
+    progress: 'قيد العمل القانوني',
+    done: 'اكتملت المعالجة',
+    closed: 'مغلقة',
+    cancelled: 'ملغاة',
+    late: 'متأخرة'
+  };
+
+  return labels[status] || HELPERS.statusLabel(status);
+}
+
+function renderCaseResponsibleCell(request, employee) {
+  if (!employee) {
+    return `
+      <div class="case-responsible-cell">
+        <strong>لم تُحل بعد</strong>
+        <span>بانتظار الإسناد لمحامٍ أو مسؤول</span>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="case-responsible-cell">
+      <strong>${employee.full_name}</strong>
+      <span>أُحيلت إليه ${request.assigned_at ? HELPERS.timeAgo(request.assigned_at) : ''}</span>
+    </div>
+  `;
+}
+
+function renderCaseFollowupSection(request, employee) {
+  return `
+    <div class="drawer-section">
+      <h4>متابعة القضية</h4>
+
+      <div class="case-followup-grid">
+        <div class="case-followup-item">
+          <div class="case-followup-label">مرحلة القضية</div>
+          <div class="case-followup-value">${getCaseStageLabel(request)}</div>
+        </div>
+
+        <div class="case-followup-item">
+          <div class="case-followup-label">المحامي / المسؤول</div>
+          <div class="case-followup-value">${employee ? employee.full_name : 'لم تُحل بعد'}</div>
+        </div>
+
+        <div class="case-followup-item">
+          <div class="case-followup-label">تاريخ الإحالة</div>
+          <div class="case-followup-value">${request.assigned_at ? HELPERS.formatDateTime(request.assigned_at) : 'لم تُحل بعد'}</div>
+        </div>
+
+        <div class="case-followup-item">
+          <div class="case-followup-label">آخر تحديث</div>
+          <div class="case-followup-value">${HELPERS.formatDateTime(request.updated_at || request.created_at)}</div>
+        </div>
+
+        <div class="case-followup-item">
+          <div class="case-followup-label">نوع القضية</div>
+          <div class="case-followup-value">${getRequestDisplayName(request)}</div>
+        </div>
+
+        <div class="case-followup-item">
+          <div class="case-followup-label">الأهمية</div>
+          <div class="case-followup-value">${HELPERS.priorityLabel(request.priority)}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
 function getRequestKindForPage(page) {
   return page === 'cases' ? 'cases' : 'direct';
 }
