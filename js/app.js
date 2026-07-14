@@ -1805,6 +1805,68 @@ async function confirmClose() {
 // =============================================================
 // الملاحظات
 // =============================================================
+async function saveCaseFollowup(requestId) {
+  const request = MOCK_DATA.service_requests.find(function(item) {
+    return item.id === requestId;
+  });
+
+  if (!request) {
+    showToast('تعذر العثور على القضية', 'error');
+    return;
+  }
+
+  const stageInput = document.getElementById('caseStageInput');
+  const sessionsInput = document.getElementById('caseSessionsCountInput');
+  const lastSessionInput = document.getElementById('caseLastSessionInput');
+  const nextActionInput = document.getElementById('caseNextActionInput');
+  const nextSessionInput = document.getElementById('caseNextSessionInput');
+
+  const updates = {
+    case_current_stage: stageInput ? stageInput.value.trim() : '',
+    case_sessions_count: sessionsInput ? Number(sessionsInput.value || 0) : 0,
+    case_last_session_summary: lastSessionInput ? lastSessionInput.value.trim() : '',
+    case_next_action: nextActionInput ? nextActionInput.value.trim() : '',
+    case_next_session_at: nextSessionInput && nextSessionInput.value ? nextSessionInput.value : null,
+    case_followup_updated_at: new Date().toISOString(),
+    case_followup_updated_by: APP.currentUser.id,
+    case_followup_updated_by_name:
+      APP.currentUser.full_name ||
+      APP.currentUser.name ||
+      'مستخدم',
+    updated_at: new Date().toISOString()
+  };
+
+  if (updates.case_sessions_count < 0) {
+    showToast('عدد الجلسات لا يمكن أن يكون أقل من صفر', 'warn');
+    return;
+  }
+
+  try {
+    await updateRequestInStore(requestId, updates);
+
+    await addActivityLog({
+      request_id: requestId,
+      action: 'case_followup',
+      title: 'تحديث متابعة قضية',
+      description: `تم تحديث متابعة القضية: ${updates.case_current_stage || 'بدون مرحلة محددة'}`,
+      created_by: APP.currentUser.id,
+      created_by_name:
+        APP.currentUser.full_name ||
+        APP.currentUser.name ||
+        'مستخدم'
+    });
+
+    openRequestDrawer(requestId);
+    renderCaseRequestsPage();
+    renderDashboard();
+
+    showToast('تم حفظ متابعة القضية بنجاح', 'success');
+
+  } catch (error) {
+    console.error('Case followup save error:', error);
+    showToast('تعذر حفظ متابعة القضية', 'error');
+  }
+}
 async function addNote() {
   if (!APP.selectedRequestId) {
     showToast('لم يتم تحديد الطلب', 'error');
