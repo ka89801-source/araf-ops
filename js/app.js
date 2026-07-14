@@ -3183,42 +3183,46 @@ function hideAppLoader() {
 // =============================================================
 // التشغيل الأولي
 // =============================================================
-function withTimeout(promise, ms, label) {
-  return Promise.race([
-    promise,
-    new Promise(function(resolve) {
-      setTimeout(function() {
-        console.warn('تجاوز وقت تحميل: ' + label);
-        resolve(null);
-      }, ms);
-    })
-  ]);
-}
-
-async function loadInitialDataFast() {
-  const tasks = [];
+async function loadInitialDataReliable() {
+  const requiredTasks = [];
 
   if (typeof loadSupabaseEmployees === 'function') {
-    tasks.push(withTimeout(loadSupabaseEmployees(), 5000, 'الموظفون'));
+    requiredTasks.push(loadSupabaseEmployees());
   }
 
   if (typeof loadSupabaseRequests === 'function') {
-    tasks.push(withTimeout(loadSupabaseRequests(), 6000, 'الطلبات'));
-  }
-
-  if (typeof loadSupabaseActivity === 'function') {
-    tasks.push(withTimeout(loadSupabaseActivity(), 4000, 'سجل النشاط'));
+    requiredTasks.push(loadSupabaseRequests());
   }
 
   if (typeof loadDeleteRequests === 'function') {
-    tasks.push(withTimeout(loadDeleteRequests(), 4000, 'طلبات الحذف'));
+    requiredTasks.push(loadDeleteRequests());
   }
 
   if (typeof loadSupabaseSupportTickets === 'function') {
-    tasks.push(withTimeout(loadSupabaseSupportTickets(), 4000, 'الدعم الفني'));
+    requiredTasks.push(loadSupabaseSupportTickets());
   }
 
-  await Promise.allSettled(tasks);
+  const results = await Promise.allSettled(requiredTasks);
+
+  const hasCriticalError = results.some(function(result) {
+    return result.status === 'rejected';
+  });
+
+  if (hasCriticalError) {
+    throw new Error('تعذر تحميل البيانات الأساسية');
+  }
+
+  if (typeof loadSupabaseActivity === 'function') {
+    loadSupabaseActivity()
+      .then(function() {
+        if (APP.currentPage === 'activity') {
+          renderActivityPage();
+        }
+      })
+      .catch(function(error) {
+        console.warn('تعذر تحميل سجل النشاط:', error);
+      });
+  }
 }
 async function initApp() {
   if (!checkSession()) {
@@ -3235,10 +3239,12 @@ async function initApp() {
   bindGlobalClicks();
 
   try {
-    await loadInitialDataFast();
+    await loadInitialDataReliable();
   } catch (error) {
     console.error('Initial load error:', error);
-    showToast('حدث خطأ أثناء تحميل بعض البيانات', 'warn');
+    showToast('تعذر تحميل البيانات الأساسية، حدّث الصفحة مرة أخرى', 'error');
+    hideAppLoader();
+    return;
   }
 
   try {
@@ -3264,7 +3270,6 @@ async function initApp() {
     hideAppLoader();
   }
 }
-
 // =============================================================
 // تشغيل التطبيق بعد تحميل الصفحة
 // =============================================================
