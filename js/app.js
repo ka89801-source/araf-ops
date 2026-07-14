@@ -948,15 +948,30 @@ function renderRequestsTable(kind = 'direct') {
           <div class="request-kind-cell">${getRequestCategoryLabel(request)}</div>
         </td>
         <td><span class="cell-price">${HELPERS.formatPrice(request.price)}<small>ر.س</small></span></td>
-        <td>${renderPaymentStatus(request)}</td>
-        <td><span class="badge s-${request.status}">${HELPERS.statusLabel(request.status)}</span></td>
-        <td><span class="badge p-${request.priority}">${HELPERS.priorityLabel(request.priority)}</span></td>
-        <td>
-          ${employee
-            ? `<span class="cell-employee"><span class="cell-employee-avatar">${HELPERS.initials(employee.full_name)}</span>${employee.full_name.split(' ')[0]}</span>`
-            : '<span class="cell-unassigned">— غير مسند —</span>'
-          }
-        </td>
+       <td>${renderPaymentStatus(request)}</td>
+
+<td>
+  <span class="badge ${kind === 'cases' ? 'case-stage' : 's-' + request.status}">
+    ${kind === 'cases' ? getCaseStageLabel(request) : HELPERS.statusLabel(request.status)}
+  </span>
+</td>
+
+<td><span class="badge p-${request.priority}">${HELPERS.priorityLabel(request.priority)}</span></td>
+
+<td>
+  ${
+    kind === 'cases'
+      ? renderCaseResponsibleCell(request, employee)
+      : employee
+        ? `<span class="cell-employee"><span class="cell-employee-avatar">${HELPERS.initials(employee.full_name)}</span>${employee.full_name.split(' ')[0]}</span>`
+        : '<span class="cell-unassigned">— غير مسند —</span>'
+  }
+</td>
+
+<td class="cell-date">
+  ${HELPERS.formatDate(kind === 'cases' ? (request.updated_at || request.created_at) : request.created_at)}
+  <small>${HELPERS.formatTime(kind === 'cases' ? (request.updated_at || request.created_at) : request.created_at)}</small>
+</td>
         <td class="cell-date">
           ${HELPERS.formatDate(request.created_at)}
           <small>${HELPERS.formatTime(request.created_at)}</small>
