@@ -2442,9 +2442,15 @@ function renderSupportPage() {
         <td><span class="badge s-${ticket.status === 'new' ? 'new' : 'assigned'}">${ticket.status === 'new' ? 'جديد' : ticket.status}</span></td>
         <td class="cell-date">${HELPERS.formatDate(ticket.created_at)}<small>${HELPERS.formatTime(ticket.created_at)}</small></td>
         <td>
-          <button class="btn btn-primary btn-sm" onclick="openConvertSupportModal('${ticket.id}')">
-            تحويل إلى طلب
-          </button>
+          <div class="support-actions">
+  <button class="btn btn-primary btn-sm" onclick="openConvertSupportModal('${ticket.id}')">
+    تحويل إلى طلب
+  </button>
+
+  <button class="btn btn-danger btn-sm" onclick="deleteSupportTicket(event, '${ticket.id}')">
+    حذف
+  </button>
+</div>
         </td>
       </tr>
     `;
