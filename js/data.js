@@ -541,6 +541,9 @@ const HELPERS = {
   sourceLabel(s) {
   return {
     direct_services: 'الخدمات المباشرة',
+    cases: 'طلبات توكيل القضايا',
+    custom_case: 'قضية غير مدرجة',
+    custom_service: 'خدمة غير مدرجة',
     support: 'الدعم الفني',
     support_ticket: 'محوّل من الدعم الفني',
     subscription: 'الباقة الشهرية',
