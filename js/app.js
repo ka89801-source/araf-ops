@@ -3034,47 +3034,34 @@ async function initApp() {
   bindGlobalClicks();
 
   try {
-    if (typeof loadSupabaseEmployees === 'function') {
-      await loadSupabaseEmployees();
-    }
-
-    if (typeof loadSupabaseRequests === 'function') {
-      await loadSupabaseRequests();
-    }
-
-    if (typeof loadSupabaseActivity === 'function') {
-      await loadSupabaseActivity();
-    }
-
-    if (typeof loadDeleteRequests === 'function') {
-      await loadDeleteRequests();
-    }
-
-    if (typeof loadSupabaseSupportTickets === 'function') {
-      await loadSupabaseSupportTickets();
-    }
-
+    await loadInitialDataFast();
   } catch (error) {
     console.error('Initial load error:', error);
-    showToast('حدث خطأ أثناء تحميل البيانات', 'warn');
+    showToast('حدث خطأ أثناء تحميل بعض البيانات', 'warn');
   }
 
-  ensureRequestDefaults();
+  try {
+    ensureRequestDefaults();
 
-  updateSidebarCounts();
-  renderNotifications();
-  renderDashboard();
-  renderRequestsPage();
-  renderCaseRequestsPage();
+    updateSidebarCounts();
+    renderNotifications();
+    renderDashboard();
+    renderRequestsPage();
+    renderCaseRequestsPage();
 
-  if (APP.currentUser && APP.currentUser.role === 'admin') {
-    renderEmployeesPage();
+    if (APP.currentUser && APP.currentUser.role === 'admin') {
+      renderEmployeesPage();
+    }
+
+    renderActivityPage();
+    renderSupportPage();
+
+  } catch (error) {
+    console.error('Render error:', error);
+    showToast('حدث خطأ أثناء عرض لوحة التحكم', 'error');
+  } finally {
+    hideAppLoader();
   }
-
-  renderActivityPage();
-  renderSupportPage();
-
-  hideAppLoader();
 }
 
 // =============================================================
