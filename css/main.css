@@ -2329,3 +2329,8 @@ a { color: inherit; text-decoration: none; }
     width: 100%;
   }
 }
+.sidebar .nav-badge.nav-badge-support,
+.nav-badge-support {
+  background: rgba(220, 38, 38, .16) !important;
+  color: #DC2626 !important;
+}
