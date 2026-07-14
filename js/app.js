@@ -64,6 +64,14 @@ function getRequestCategoryLabel(request) {
   return isCaseRequest(request) ? 'توكيل في قضية' : 'خدمة مباشرة';
 }
 function getCaseStageLabel(request) {
+  if (
+    request &&
+    typeof request === 'object' &&
+    String(request.case_current_stage || '').trim()
+  ) {
+    return String(request.case_current_stage).trim();
+  }
+
   const status = typeof request === 'string' ? request : (request && request.status);
 
   const labels = {
