@@ -2670,8 +2670,13 @@ function updateSidebarCounts() {
     return !['done', 'closed', 'cancelled'].includes(request.status);
   }).length;
 
+  const supportCount = (APP.supportTickets || []).filter(function(ticket) {
+    return ['new', 'open', 'pending'].includes(ticket.status);
+  }).length;
+
   const directBadge = document.getElementById('directRequestsBadge');
   const caseBadge = document.getElementById('caseRequestsBadge');
+  const supportBadge = document.getElementById('supportTicketsBadge');
 
   if (directBadge) {
     directBadge.textContent = directCount;
@@ -2680,8 +2685,11 @@ function updateSidebarCounts() {
   if (caseBadge) {
     caseBadge.textContent = caseCount;
   }
-}
 
+  if (supportBadge) {
+    supportBadge.textContent = supportCount;
+  }
+}
 // =============================================================
 // إظهار وإخفاء المودالات
 // =============================================================
