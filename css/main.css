@@ -2092,3 +2092,240 @@ a { color: inherit; text-decoration: none; }
     gap: 6px;
   }
 }
+/* =============================================================
+   تحسين صفحة الموظفين + الدعم + تفاصيل القضايا + الملاحظات
+   ============================================================= */
+
+.nav-badge-support {
+  background: rgba(59, 130, 246, .12);
+  color: #2563EB;
+}
+
+/* صفحة الموظفين */
+.employees-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+
+.employee-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 218px;
+  padding: 22px;
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top left, rgba(201, 169, 110, .10), transparent 34%),
+    #fff;
+  border: 1px solid rgba(27, 58, 75, .08);
+  box-shadow: 0 12px 34px rgba(15, 35, 50, .07);
+  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+
+.employee-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(201, 169, 110, .28);
+  box-shadow: 0 18px 46px rgba(15, 35, 50, .10);
+}
+
+.employee-card::after {
+  content: '';
+  position: absolute;
+  left: -70px;
+  bottom: -80px;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  border: 34px solid rgba(201, 169, 110, .055);
+  pointer-events: none;
+}
+
+.employee-card-head {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.employee-avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 19px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(135deg, var(--nv), var(--tl));
+  font-size: 18px;
+  font-weight: 900;
+  box-shadow: 0 10px 24px rgba(27, 58, 75, .18);
+}
+
+.employee-card h3 {
+  margin: 0 0 4px;
+  color: var(--t1);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.employee-card p {
+  margin: 0;
+  color: var(--t2);
+  font-size: 12.5px;
+  direction: ltr;
+  text-align: right;
+}
+
+.employee-meta {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+.employee-stats {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(27, 58, 75, .07);
+}
+
+.employee-stats div {
+  padding: 10px 8px;
+  border-radius: 14px;
+  background: rgba(247, 249, 250, .9);
+  text-align: center;
+}
+
+.employee-stats strong {
+  display: block;
+  color: var(--nv);
+  font-family: 'Cairo', sans-serif;
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 900;
+}
+
+.employee-stats span {
+  display: block;
+  margin-top: 3px;
+  color: var(--t2);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+/* أزرار الدعم */
+.support-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+/* زر الحذف أثناء الإرسال */
+.btn.is-busy {
+  opacity: .75;
+  pointer-events: none;
+}
+
+/* مراحل القضايا */
+.case-stage {
+  background: rgba(201, 169, 110, .14) !important;
+  color: #8A672C !important;
+}
+
+.case-responsible-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.case-responsible-cell strong {
+  color: var(--t1);
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.case-responsible-cell span {
+  color: var(--tm);
+  font-size: 10.5px;
+}
+
+.case-followup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.case-followup-item {
+  padding: 13px 14px;
+  border-radius: 14px;
+  background: #fff;
+  border: var(--border);
+}
+
+.case-followup-label {
+  margin-bottom: 5px;
+  color: var(--t2);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.case-followup-value {
+  color: var(--t1);
+  font-size: 13.5px;
+  font-weight: 800;
+  line-height: 1.7;
+}
+
+/* إصلاح خلل الملاحظات الداخلية */
+.add-note {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.add-note textarea {
+  width: 100%;
+  min-height: 82px;
+  padding: 12px 13px;
+  border: var(--border);
+  border-radius: 12px;
+  resize: vertical;
+  font-family: 'Tajawal', sans-serif;
+  font-size: 13px;
+  line-height: 1.8;
+  background: #fff;
+}
+
+.add-note .btn {
+  height: 42px;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .employee-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .case-followup-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .add-note {
+    grid-template-columns: 1fr;
+  }
+
+  .add-note .btn {
+    width: 100%;
+  }
+}
