@@ -922,6 +922,28 @@ function renderRequestCollectionPage(kind) {
   renderRequestsTable(kind);
 }
 
+function isWaitingPaymentShown(request) {
+  if (!request) return false;
+
+  // الطلب الملغي لا تظهر له حالة دفع
+  if (request.status === 'cancelled') {
+    return false;
+  }
+
+  // الطلب المكتمل أو المغلق يظهر "حوالة" وليس "بانتظار الدفع"
+  if (request.status === 'done' || request.status === 'closed') {
+    return false;
+  }
+
+  // الطلب الذي ينتظر التسعير يظهر "بانتظار التسعير" وليس "بانتظار الدفع"
+  if (request.payment_status === 'pending_quote') {
+    return false;
+  }
+
+  // كل ما بقي هو الذي يظهر فعليًا في خانة الدفع: بانتظار الدفع
+  return true;
+}
+
 function renderPaymentStatus(request) {
   if (request.status === 'cancelled') {
     return '<span style="color:var(--tm);">—</span>';
