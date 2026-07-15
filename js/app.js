@@ -526,7 +526,7 @@ function renderDashboard() {
         <div class="kpi-icon"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>
       </div>
       <div class="kpi-value">${paymentPending}</div>
-      <div class="kpi-trend">طلبات تحتاج تحققاً من الدفع</div>
+      <div class="kpi-trend">حسب الطلبات التي تظهر بانتظار الدفع</div>
     </div>
 
     <div class="kpi-card c-gd">
