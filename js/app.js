@@ -386,8 +386,8 @@ function renderDashboard() {
   const closeRate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   const paymentPending = reqs.filter(function(request) {
-    return ['manual_pending', 'pending', 'unpaid', 'waiting_payment', 'pending_quote'].includes(request.payment_status);
-  }).length;
+  return isWaitingPaymentShown(request);
+}).length;
 
   // المبالغ المكتسبة: الطلبات ذات الحالة «مكتمل» فقط
   const completedDirectForRevenue = directReqs.filter(request => request.status === 'done');
