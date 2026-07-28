@@ -960,6 +960,32 @@ function renderPaymentStatus(request) {
   return '<span class="badge pay-pending">بانتظار الدفع</span>';
 }
 
+function renderExternalRequestBadge(request) {
+  const isExternal =
+    request.source === 'external_direct' ||
+    request.source === 'custom_case';
+
+  if (!isExternal) {
+    return '';
+  }
+
+  return `
+    <span
+      class="badge"
+      style="
+        display:inline-flex;
+        margin-top:6px;
+        background:rgba(201,169,110,.16);
+        color:#8A682D;
+        border:1px solid rgba(201,169,110,.35);
+        font-size:10px;
+        font-weight:700;
+      "
+    >
+      طلب خارجي
+    </span>
+  `;
+}
 function renderRequestsTable(kind = 'direct') {
   const config = getRequestPageConfig(kind);
   const filters = config.filters;
