@@ -2424,3 +2424,65 @@ a { color: inherit; text-decoration: none; }
     width: 100%;
   }
 }
+/* =========================
+   ضبط مقاسات نافذة إضافة طلب خارجي
+   ========================= */
+
+#externalRequestModal .modal {
+  width: min(760px, calc(100vw - 32px)) !important;
+  max-width: 760px !important;
+  max-height: 90dvh;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+#externalRequestModal .modal-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+  max-height: calc(90dvh - 145px);
+  overflow-y: auto;
+  padding-bottom: 10px;
+}
+
+/* الحقول الطويلة تكون بعرض النافذة */
+#externalRequestModal .field:has(#externalArchiveType),
+#externalRequestModal .field:has(#externalDetails) {
+  grid-column: 1 / -1;
+}
+
+#externalRequestModal textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+/* ضبط الأزرار أسفل النافذة */
+#externalRequestModal .modal-footer {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* الجوال */
+@media (max-width: 640px) {
+  #externalRequestModal .modal {
+    width: calc(100vw - 20px) !important;
+    max-height: 88dvh;
+    border-radius: 18px;
+  }
+
+  #externalRequestModal .modal-body {
+    grid-template-columns: 1fr;
+    max-height: calc(88dvh - 140px);
+    gap: 12px;
+  }
+
+  #externalRequestModal .modal-header,
+  #externalRequestModal .modal-footer {
+    padding-inline: 16px;
+  }
+
+  #externalRequestModal .modal-footer button {
+    flex: 1;
+    justify-content: center;
+  }
+}
