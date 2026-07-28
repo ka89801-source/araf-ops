@@ -3214,6 +3214,114 @@ function openExternalRequestModal() {
 
   openModal('externalRequestModal');
 }
+async function confirmExternalRequest() {
+  const archiveType = document.getElementById('externalArchiveType').value;
+  const customerName = document.getElementById('externalCustomerName').value.trim();
+  const customerPhone = document.getElementById('externalCustomerPhone').value.trim();
+  const serviceSelect = document.getElementById('externalServiceSelect');
+  const serviceKey = serviceSelect.value;
+  const serviceName = serviceSelect.options[serviceSelect.selectedIndex]
+    ? serviceSelect.options[serviceSelect.selectedIndex].textContent.trim()
+    : '';
+
+  const priceValue = document.getElementById('externalPrice').value;
+  const paymentStatus = document.getElementById('externalPaymentStatus').value;
+  const priority = document.getElementById('externalPriority').value;
+  const externalSource = document.getElementById('externalSource').value;
+  const details = document.getElementById('externalDetails').value.trim();
+
+  if (!customerName) {
+    showToast('اكتب اسم العميل أولًا', 'warn');
+    return;
+  }
+
+  if (!customerPhone) {
+    showToast('اكتب رقم الجوال أولًا', 'warn');
+    return;
+  }
+
+  if (!serviceKey) {
+    showToast('اختر تصنيف الطلب أولًا', 'warn');
+    return;
+  }
+
+  const price = Number(priceValue);
+
+  if (
+    priceValue === '' ||
+    !Number.isFinite(price) ||
+    price < 0
+  ) {
+    showToast('أدخل سعرًا صحيحًا للطلب', 'warn');
+    return;
+  }
+
+  const now = new Date().toISOString();
+
+  const requestData = {
+    customer_name: customerName,
+    customer_phone: customerPhone,
+    service_type: serviceKey,
+    service_name: serviceName,
+    price: price,
+    payment_status: paymentStatus,
+    source: archiveType === 'cases' ? 'custom_case' : 'external_direct',
+    details:
+      'طلب خارجي — المصدر: ' +
+      externalSource +
+      (details ? '\n\n' + details : ''),
+    attachments: [],
+    status: 'new',
+    priority: priority,
+    created_at: now,
+    updated_at: now
+  };
+
+  try {
+    if (window.sb) {
+      const { data, error } = await window.sb
+        .from('service_requests')
+        .insert(requestData)
+        .select('*')
+        .single();
+
+      if (error) {
+        throw error;
+      }
+    } else {
+      MOCK_DATA.service_requests.unshift({
+        id: 'EXT-' + Date.now(),
+        ...requestData
+      });
+    }
+
+    closeModal('externalRequestModal');
+
+    if (typeof loadSupabaseRequests === 'function') {
+      await loadSupabaseRequests();
+    }
+
+    if (typeof updateSidebarCounts === 'function') {
+      updateSidebarCounts();
+    }
+
+    if (APP.currentPage === 'dashboard') {
+      renderDashboard();
+    }
+
+    if (archiveType === 'cases') {
+      navigateTo('cases');
+    } else {
+      navigateTo('requests');
+    }
+
+    showToast('تم حفظ الطلب الخارجي بنجاح', 'success');
+
+  } catch (error) {
+    console.error('External request save error:', error);
+    showToast('تعذر حفظ الطلب الخارجي', 'error');
+  }
+}
 // =============================================================
 // صلاحيات الواجهة حسب الدور
 // =============================================================
