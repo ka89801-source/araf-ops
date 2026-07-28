@@ -732,7 +732,128 @@
       </div>
     </div>
   </div>
-  
+  <!-- =========================
+     Modal إضافة طلب خارجي
+     ========================= -->
+<div
+  class="modal-overlay"
+  id="externalRequestModal"
+  onclick="if(event.target===this)closeModal('externalRequestModal')"
+>
+  <div class="modal">
+    <div class="modal-header">
+      <h3>إضافة طلب خارجي</h3>
+
+      <button
+        class="drawer-close"
+        onclick="closeModal('externalRequestModal')"
+      >
+        <svg viewBox="0 0 24 24">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+
+      <div class="field">
+        <label>مكان أرشفة الطلب</label>
+        <select id="externalArchiveType">
+          <option value="direct">الخدمات المباشرة</option>
+          <option value="cases">طلبات توكيل القضايا</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>اسم العميل</label>
+        <input
+          id="externalCustomerName"
+          type="text"
+          placeholder="اكتب اسم العميل"
+        />
+      </div>
+
+      <div class="field">
+        <label>رقم الجوال</label>
+        <input
+          id="externalCustomerPhone"
+          type="text"
+          placeholder="05XXXXXXXX"
+        />
+      </div>
+
+      <div class="field">
+        <label>تصنيف الطلب</label>
+        <select id="externalServiceSelect">
+          <option value="">اختر التصنيف المناسب</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>سعر الطلب</label>
+        <input
+          id="externalPrice"
+          type="number"
+          min="0"
+          step="1"
+          placeholder="أدخل سعر الطلب"
+        />
+      </div>
+
+      <div class="field">
+        <label>حالة الدفع</label>
+        <select id="externalPaymentStatus">
+          <option value="unpaid">بانتظار الدفع</option>
+          <option value="paid">مدفوع</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>الأولوية</label>
+        <select id="externalPriority">
+          <option value="normal">عادي</option>
+          <option value="imp">مهم</option>
+          <option value="urgent">عاجل</option>
+          <option value="high">عالي الخطورة</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>مصدر الطلب الخارجي</label>
+        <select id="externalSource">
+          <option value="whatsapp">واتساب</option>
+          <option value="call">اتصال</option>
+          <option value="instagram">إنستغرام</option>
+          <option value="linkedin">لينكدإن</option>
+          <option value="referral">إحالة</option>
+          <option value="old_customer">عميل سابق</option>
+          <option value="other">أخرى</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>تفاصيل الطلب</label>
+        <textarea
+          id="externalDetails"
+          rows="4"
+          placeholder="اكتب وصفًا مختصرًا للطلب..."
+        ></textarea>
+      </div>
+
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('externalRequestModal')">
+        إلغاء
+      </button>
+
+      <button class="btn btn-primary" onclick="confirmExternalRequest()">
+        حفظ الطلب
+      </button>
+    </div>
+  </div>
+</div>
   <!-- =========================
        Toast Notifications
        ========================= -->
