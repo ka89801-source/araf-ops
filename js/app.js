@@ -3149,6 +3149,71 @@ function closeModal(id) {
   }
 }
 
+function fillExternalServiceOptions() {
+  const archiveType = document.getElementById('externalArchiveType').value;
+  const serviceSelect = document.getElementById('externalServiceSelect');
+
+  let options = [];
+
+  if (archiveType === 'direct') {
+    options = MOCK_DATA.services
+      .filter(function(service) {
+        return service.key !== 'case_study';
+      })
+      .map(function(service) {
+        return {
+          key: service.key,
+          name: service.name,
+          price: service.price
+        };
+      });
+  } else {
+    options = [
+      { key: 'case_family', name: 'قضية أحوال شخصية', price: 3000 },
+      { key: 'case_labor', name: 'قضية عمالية', price: 4000 },
+      { key: 'case_financial', name: 'مطالبة مالية', price: 5000 },
+      { key: 'case_commercial', name: 'قضية تجارية', price: 0 },
+      { key: 'case_other', name: 'قضية أخرى', price: 0 }
+    ];
+  }
+
+  serviceSelect.innerHTML =
+    '<option value="">اختر التصنيف المناسب</option>' +
+    options.map(function(item) {
+      return `
+        <option value="${item.key}" data-price="${item.price}">
+          ${item.name}
+        </option>
+      `;
+    }).join('');
+}
+
+function openExternalRequestModal() {
+  document.getElementById('externalArchiveType').value = 'direct';
+  document.getElementById('externalCustomerName').value = '';
+  document.getElementById('externalCustomerPhone').value = '';
+  document.getElementById('externalPrice').value = '';
+  document.getElementById('externalPaymentStatus').value = 'unpaid';
+  document.getElementById('externalPriority').value = 'normal';
+  document.getElementById('externalSource').value = 'whatsapp';
+  document.getElementById('externalDetails').value = '';
+
+  fillExternalServiceOptions();
+
+  document.getElementById('externalArchiveType').onchange = function() {
+    fillExternalServiceOptions();
+    document.getElementById('externalPrice').value = '';
+  };
+
+  document.getElementById('externalServiceSelect').onchange = function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const price = selectedOption.getAttribute('data-price');
+
+    document.getElementById('externalPrice').value = price || '';
+  };
+
+  openModal('externalRequestModal');
+}
 // =============================================================
 // صلاحيات الواجهة حسب الدور
 // =============================================================
