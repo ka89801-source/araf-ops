@@ -1074,10 +1074,11 @@ function renderRequestsTable(kind = 'direct') {
             </div>
           </div>
         </td>
-        <td>
-          <div class="request-name-cell">${getRequestDisplayName(request)}</div>
-          <div class="request-kind-cell">${getRequestCategoryLabel(request)}</div>
-        </td>
+       <td>
+  <div class="request-name-cell">${getRequestDisplayName(request)}</div>
+  <div class="request-kind-cell">${getRequestCategoryLabel(request)}</div>
+  ${renderExternalRequestBadge(request)}
+</td>
         <td><span class="cell-price">${HELPERS.formatPrice(request.price)}<small>ر.س</small></span></td>
        <td>${renderPaymentStatus(request)}</td>
 
