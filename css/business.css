@@ -1,0 +1,1748 @@
+/* =============================================================
+   أعراف للأعمال | صفحة إدارة المنشآت
+   جميع الأنماط محصورة داخل .biz-scope حتى لا تؤثر على بقية المنصة
+   ============================================================= */
+
+.biz-scope {
+  --biz-navy: #1b3a4b;
+  --biz-navy-2: #244d60;
+  --biz-gold: #c9a96e;
+  --biz-gold-soft: #f4ecde;
+  --biz-teal: #3d7b8a;
+  --biz-bg: #f7f8fa;
+  --biz-card: #ffffff;
+  --biz-text: #1f3440;
+  --biz-muted: #7e8e98;
+  --biz-border: #e4e8eb;
+  --biz-green: #1f9d6a;
+  --biz-orange: #d98b2b;
+  --biz-red: #d75858;
+  --biz-blue: #3f7fa0;
+  --biz-purple: #7b61a8;
+
+  direction: rtl;
+  width: 100%;
+  color: var(--biz-text);
+}
+
+
+/* =============================================================
+   رأس الصفحة
+   ============================================================= */
+
+.biz-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+
+  margin-bottom: 24px;
+}
+
+.biz-head-title {
+  margin: 0 0 6px;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--biz-navy);
+}
+
+.biz-head-sub {
+  margin: 0;
+  color: var(--biz-muted);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.biz-head-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.biz-demo-badge {
+  background: #fff5dc !important;
+  color: #9b6d18 !important;
+  border: 1px solid #ead8a7;
+}
+
+
+/* =============================================================
+   البطاقات الإحصائية
+   ============================================================= */
+
+.biz-kpis {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+
+  margin-bottom: 22px;
+}
+
+.biz-kpi {
+  position: relative;
+  overflow: hidden;
+
+  background: var(--biz-card);
+  border: 1px solid var(--biz-border);
+  border-radius: 18px;
+
+  padding: 19px 18px;
+
+  min-height: 126px;
+
+  box-shadow:
+    0 2px 8px rgba(27, 58, 75, 0.035);
+
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.biz-kpi:hover {
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 8px 24px rgba(27, 58, 75, 0.08);
+
+  border-color: rgba(201, 169, 110, 0.45);
+}
+
+.biz-kpi::before {
+  content: "";
+  position: absolute;
+
+  top: 0;
+  right: 0;
+
+  width: 5px;
+  height: 100%;
+
+  background: var(--biz-gold);
+}
+
+.biz-kpi:nth-child(1)::before {
+  background: var(--biz-blue);
+}
+
+.biz-kpi:nth-child(2)::before {
+  background: var(--biz-purple);
+}
+
+.biz-kpi:nth-child(3)::before {
+  background: var(--biz-teal);
+}
+
+.biz-kpi:nth-child(4)::before {
+  background: var(--biz-orange);
+}
+
+.biz-kpi:nth-child(5)::before {
+  background: var(--biz-green);
+}
+
+.biz-kpi-label {
+  font-size: 12.5px;
+  font-weight: 700;
+
+  color: var(--biz-muted);
+
+  margin-bottom: 9px;
+}
+
+.biz-kpi-value {
+  font-size: 31px;
+  font-weight: 800;
+
+  line-height: 1;
+
+  color: var(--biz-navy);
+
+  margin-bottom: 10px;
+}
+
+.biz-kpi-meta {
+  font-size: 11.5px;
+  color: var(--biz-muted);
+}
+
+
+/* =============================================================
+   Panels
+   ============================================================= */
+
+.biz-panel {
+  background: var(--biz-card);
+
+  border: 1px solid var(--biz-border);
+  border-radius: 20px;
+
+  margin-bottom: 22px;
+
+  overflow: hidden;
+
+  box-shadow:
+    0 2px 10px rgba(27, 58, 75, 0.035);
+}
+
+.biz-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+
+  padding: 20px 22px;
+
+  border-bottom: 1px solid var(--biz-border);
+}
+
+.biz-panel-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--biz-navy);
+}
+
+.biz-panel-hint {
+  margin-top: 4px;
+
+  font-size: 12px;
+  color: var(--biz-muted);
+}
+
+
+/* =============================================================
+   أحدث الطلبات
+   ============================================================= */
+
+.biz-recent {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+
+  gap: 0;
+}
+
+.biz-recent-item {
+  appearance: none;
+  border: 0;
+  border-left: 1px solid var(--biz-border);
+
+  background: #fff;
+
+  padding: 18px;
+
+  text-align: right;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+
+  gap: 15px;
+
+  min-height: 145px;
+
+  cursor: pointer;
+
+  font-family: inherit;
+
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+.biz-recent-item:last-child {
+  border-left: 0;
+}
+
+.biz-recent-item:hover {
+  background: #faf9f6;
+}
+
+.biz-recent-main {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+
+  min-width: 0;
+}
+
+.biz-recent-main strong {
+  color: var(--biz-navy);
+
+  font-size: 13px;
+  line-height: 1.7;
+
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+
+  overflow: hidden;
+}
+
+.biz-recent-main span {
+  color: var(--biz-muted);
+  font-size: 11.5px;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.biz-recent-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+
+  gap: 7px;
+}
+
+.biz-recent-side small {
+  color: var(--biz-muted);
+  font-size: 10.5px;
+}
+
+
+/* =============================================================
+   بطاقات المنشآت
+   ============================================================= */
+
+.biz-cards {
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  gap: 16px;
+
+  padding: 18px;
+}
+
+.biz-entity-card {
+  position: relative;
+
+  border: 1px solid var(--biz-border);
+
+  border-radius: 18px;
+
+  padding: 19px;
+
+  background:
+    linear-gradient(
+      180deg,
+      #fff 0%,
+      #fdfdfd 100%
+    );
+
+  min-width: 0;
+
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.biz-entity-card:hover {
+  transform: translateY(-3px);
+
+  border-color:
+    rgba(201, 169, 110, 0.55);
+
+  box-shadow:
+    0 12px 26px rgba(27, 58, 75, 0.08);
+}
+
+.biz-entity-card-head {
+  display: flex;
+
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 12px;
+
+  padding-bottom: 14px;
+
+  border-bottom:
+    1px solid var(--biz-border);
+}
+
+.biz-entity-card-head h3 {
+  margin: 5px 0 3px;
+
+  color: var(--biz-navy);
+
+  font-size: 16px;
+  font-weight: 800;
+
+  line-height: 1.6;
+}
+
+.biz-entity-card-head p {
+  margin: 0;
+
+  color: var(--biz-muted);
+  font-size: 11.5px;
+}
+
+.biz-entity-code {
+  display: inline-flex;
+
+  align-items: center;
+
+  font-size: 10.5px;
+
+  font-weight: 700;
+
+  color: var(--biz-teal);
+
+  background:
+    rgba(61, 123, 138, 0.08);
+
+  border-radius: 999px;
+
+  padding: 4px 8px;
+}
+
+
+/* =============================================================
+   الباقات
+   ============================================================= */
+
+.biz-plan-badge {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  white-space: nowrap;
+
+  border-radius: 999px;
+
+  padding: 6px 10px;
+
+  font-size: 10.5px;
+  font-weight: 800;
+
+  border: 1px solid transparent;
+}
+
+.biz-plan-sanad {
+  background: #f4f6f7;
+  color: #536874;
+  border-color: #dde3e6;
+}
+
+.biz-plan-imad {
+  background: #f6efe2;
+  color: #8d692d;
+  border-color: #ead8b5;
+}
+
+.biz-plan-diwan {
+  background: #edf2f5;
+  color: var(--biz-navy);
+  border-color: #cbd6dc;
+}
+
+
+/* =============================================================
+   مدير الحساب
+   ============================================================= */
+
+.biz-entity-manager {
+  display: grid;
+
+  grid-template-columns:
+    auto 1fr;
+
+  gap: 3px 10px;
+
+  padding: 13px 0;
+}
+
+.biz-entity-manager span {
+  color: var(--biz-muted);
+  font-size: 10.5px;
+
+  grid-row: 1 / span 2;
+}
+
+.biz-entity-manager strong {
+  font-size: 12px;
+  color: var(--biz-text);
+}
+
+.biz-entity-manager small {
+  font-size: 10.5px;
+  color: var(--biz-muted);
+}
+
+
+/* =============================================================
+   الرصيد داخل البطاقة
+   ============================================================= */
+
+.biz-mini-quotas {
+  display: flex;
+  flex-direction: column;
+
+  gap: 7px;
+
+  padding: 12px;
+
+  border-radius: 13px;
+
+  background: var(--biz-bg);
+}
+
+.biz-mini-quota {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+}
+
+.biz-mini-quota span {
+  color: var(--biz-muted);
+  font-size: 10.5px;
+}
+
+.biz-mini-quota strong {
+  color: var(--biz-navy);
+  font-size: 10.5px;
+}
+
+
+/* =============================================================
+   آخر طلب
+   ============================================================= */
+
+.biz-last-request {
+  margin-top: 13px;
+
+  padding: 12px;
+
+  border:
+    1px solid var(--biz-border);
+
+  border-radius: 13px;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 5px;
+
+  min-height: 77px;
+}
+
+.biz-last-request > span {
+  font-size: 10px;
+  color: var(--biz-muted);
+}
+
+.biz-last-request > strong {
+  font-size: 11.5px;
+  color: var(--biz-navy);
+
+  line-height: 1.6;
+
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+
+  overflow: hidden;
+}
+
+.biz-last-request > small {
+  color: var(--biz-muted);
+  font-size: 10px;
+}
+
+
+/* =============================================================
+   الأزرار
+   ============================================================= */
+
+.biz-btn {
+  border:
+    1px solid var(--biz-border);
+
+  background: #fff;
+
+  color: var(--biz-text);
+
+  border-radius: 11px;
+
+  min-height: 37px;
+
+  padding: 8px 13px;
+
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 6px;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.biz-btn:hover {
+  background: var(--biz-bg);
+  border-color: #ccd5da;
+}
+
+.biz-btn-primary {
+  background: var(--biz-navy);
+  color: #fff;
+
+  border-color: var(--biz-navy);
+}
+
+.biz-btn-primary:hover {
+  background: var(--biz-navy-2);
+  color: #fff;
+
+  border-color: var(--biz-navy-2);
+}
+
+.biz-open-entity {
+  width: 100%;
+
+  margin-top: 13px;
+}
+
+
+/* =============================================================
+   Badges
+   ============================================================= */
+
+.biz-badge {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 999px;
+
+  padding: 5px 9px;
+
+  font-size: 10.5px;
+  font-weight: 700;
+
+  white-space: nowrap;
+}
+
+.biz-status-new {
+  background: #e9f3f8;
+  color: #347394;
+}
+
+.biz-status-under_review {
+  background: #f0ebf8;
+  color: #71519e;
+}
+
+.biz-status-in_progress {
+  background: #e6f5f2;
+  color: #267b6b;
+}
+
+.biz-status-awaiting_client {
+  background: #fff3df;
+  color: #a56b17;
+}
+
+.biz-status-completed {
+  background: #e8f7ef;
+  color: #24805a;
+}
+
+.biz-status-cancelled {
+  background: #f6ebeb;
+  color: #a44c4c;
+}
+
+.biz-priority-normal {
+  background: #f1f4f5;
+  color: #647680;
+}
+
+.biz-priority-urgent {
+  background: #fff0ec;
+  color: #bd5740;
+}
+
+
+/* =============================================================
+   الفلاتر
+   ============================================================= */
+
+.biz-filters {
+  display: grid;
+
+  grid-template-columns:
+    minmax(220px, 1.5fr)
+    repeat(5, minmax(130px, 1fr))
+    minmax(135px, 1fr)
+    minmax(135px, 1fr)
+    auto;
+
+  gap: 10px;
+
+  padding: 16px 18px;
+
+  background: #fafbfb;
+
+  border-bottom:
+    1px solid var(--biz-border);
+}
+
+.biz-search {
+  min-width: 0;
+}
+
+.biz-search input,
+.biz-select {
+  width: 100%;
+
+  height: 39px;
+
+  border:
+    1px solid var(--biz-border);
+
+  border-radius: 10px;
+
+  background: #fff;
+
+  color: var(--biz-text);
+
+  padding:
+    0 11px;
+
+  font-family: inherit;
+  font-size: 11.5px;
+
+  outline: none;
+
+  box-sizing: border-box;
+
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.biz-search input:focus,
+.biz-select:focus {
+  border-color:
+    rgba(61, 123, 138, 0.65);
+
+  box-shadow:
+    0 0 0 3px rgba(61, 123, 138, 0.08);
+}
+
+
+/* =============================================================
+   الجدول
+   ============================================================= */
+
+.biz-table-wrap {
+  width: 100%;
+}
+
+.biz-table-scroll {
+  width: 100%;
+
+  overflow-x: auto;
+
+  -webkit-overflow-scrolling: touch;
+}
+
+.biz-table {
+  width: 100%;
+
+  min-width: 1180px;
+
+  border-collapse: collapse;
+
+  table-layout: auto;
+}
+
+.biz-table thead th {
+  text-align: right;
+
+  background: #fafbfb;
+
+  color: #71838d;
+
+  font-size: 10.5px;
+  font-weight: 700;
+
+  padding: 12px 13px;
+
+  border-bottom:
+    1px solid var(--biz-border);
+
+  white-space: nowrap;
+}
+
+.biz-table tbody td {
+  padding: 13px;
+
+  border-bottom:
+    1px solid #edf0f2;
+
+  font-size: 11.5px;
+
+  vertical-align: middle;
+
+  color: var(--biz-text);
+}
+
+.biz-table tbody tr {
+  cursor: pointer;
+
+  transition:
+    background 0.13s ease;
+}
+
+.biz-table tbody tr:hover {
+  background: #fbfaf7;
+}
+
+.biz-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.biz-request-number {
+  direction: ltr;
+
+  display: inline-block;
+
+  font-size: 10.5px;
+  font-weight: 800;
+
+  color: var(--biz-teal);
+
+  background:
+    rgba(61, 123, 138, 0.07);
+
+  padding: 5px 8px;
+
+  border-radius: 8px;
+}
+
+
+/* =============================================================
+   Empty state
+   ============================================================= */
+
+.biz-empty {
+  padding: 28px 20px;
+
+  text-align: center;
+
+  color: var(--biz-muted);
+
+  font-size: 12px;
+}
+
+
+/* =============================================================
+   صفحة المنشأة
+   ============================================================= */
+
+.biz-entity-page {
+  width: 100%;
+}
+
+.biz-entity-detail {
+  display: flex;
+  flex-direction: column;
+
+  gap: 18px;
+}
+
+.biz-entity-detail-head {
+  background:
+    linear-gradient(
+      135deg,
+      #1b3a4b 0%,
+      #244d60 100%
+    );
+
+  color: #fff;
+
+  border-radius: 20px;
+
+  padding: 25px;
+
+  display: flex;
+
+  justify-content: space-between;
+  align-items: flex-start;
+
+  gap: 20px;
+
+  position: relative;
+
+  overflow: hidden;
+}
+
+.biz-entity-detail-head::after {
+  content: "";
+
+  position: absolute;
+
+  width: 210px;
+  height: 210px;
+
+  border-radius: 50%;
+
+  background:
+    rgba(201, 169, 110, 0.08);
+
+  left: -55px;
+  top: -75px;
+}
+
+.biz-entity-detail-head h2 {
+  color: #fff;
+
+  margin: 8px 0 3px;
+
+  font-size: 24px;
+}
+
+.biz-entity-detail-head p {
+  margin: 0;
+
+  color:
+    rgba(255, 255, 255, 0.68);
+
+  font-size: 12px;
+}
+
+.biz-entity-detail-head .biz-entity-code {
+  background:
+    rgba(255, 255, 255, 0.11);
+
+  color: #f1d9ad;
+}
+
+.biz-entity-info-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+
+  gap: 13px;
+}
+
+.biz-info-box {
+  background: #fff;
+
+  border:
+    1px solid var(--biz-border);
+
+  border-radius: 15px;
+
+  padding: 16px;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 5px;
+}
+
+.biz-info-box span {
+  color: var(--biz-muted);
+  font-size: 10.5px;
+}
+
+.biz-info-box strong {
+  color: var(--biz-navy);
+  font-size: 12.5px;
+}
+
+.biz-info-box small {
+  color: var(--biz-muted);
+  font-size: 10px;
+}
+
+
+/* =============================================================
+   رصيد الباقة في صفحة المنشأة
+   ============================================================= */
+
+.biz-quota-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(5, minmax(0, 1fr));
+
+  gap: 12px;
+
+  padding: 18px;
+}
+
+.biz-quota-card {
+  border:
+    1px solid var(--biz-border);
+
+  border-radius: 14px;
+
+  padding: 13px;
+
+  background: #fff;
+}
+
+.biz-quota-head {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+
+  margin-bottom: 11px;
+}
+
+.biz-quota-head span {
+  color: var(--biz-muted);
+  font-size: 10.5px;
+}
+
+.biz-quota-head strong {
+  color: var(--biz-navy);
+  font-size: 10.5px;
+}
+
+.biz-quota-track {
+  height: 6px;
+
+  overflow: hidden;
+
+  border-radius: 999px;
+
+  background: #edf0f1;
+}
+
+.biz-quota-fill {
+  height: 100%;
+
+  border-radius: inherit;
+
+  background:
+    linear-gradient(
+      90deg,
+      var(--biz-gold),
+      #d9bf8e
+    );
+}
+
+
+/* =============================================================
+   آخر نشاط
+   ============================================================= */
+
+.biz-last-activity {
+  padding: 18px 20px;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 6px;
+}
+
+.biz-last-activity strong {
+  color: var(--biz-navy);
+  font-size: 13px;
+}
+
+.biz-last-activity span {
+  color: var(--biz-muted);
+  font-size: 11px;
+}
+
+
+/* =============================================================
+   طلبات المنشأة
+   ============================================================= */
+
+.biz-entity-requests {
+  padding: 10px 18px 18px;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 8px;
+}
+
+.biz-entity-request {
+  border:
+    1px solid var(--biz-border);
+
+  background: #fff;
+
+  border-radius: 12px;
+
+  width: 100%;
+
+  padding: 12px 14px;
+
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 15px;
+
+  text-align: right;
+
+  font-family: inherit;
+
+  cursor: pointer;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.biz-entity-request:hover {
+  background: #faf9f6;
+
+  border-color:
+    rgba(201, 169, 110, 0.45);
+}
+
+.biz-entity-request > div {
+  display: flex;
+  flex-direction: column;
+
+  gap: 4px;
+
+  min-width: 0;
+}
+
+.biz-entity-request strong {
+  color: var(--biz-navy);
+
+  font-size: 12px;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  white-space: nowrap;
+}
+
+.biz-entity-request span:not(.biz-badge) {
+  color: var(--biz-muted);
+  font-size: 10.5px;
+}
+
+
+/* =============================================================
+   Drawer تفاصيل الطلب
+   ============================================================= */
+
+.biz-request-overlay {
+  position: fixed;
+
+  inset: 0;
+
+  background:
+    rgba(19, 36, 45, 0.42);
+
+  z-index: 9999;
+
+  display: flex;
+  justify-content: flex-start;
+
+  opacity: 0;
+  visibility: hidden;
+
+  transition:
+    opacity 0.2s ease,
+    visibility 0.2s ease;
+}
+
+.biz-request-overlay.biz-open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.biz-request-drawer {
+  width: min(620px, 94vw);
+
+  height: 100%;
+
+  background: #fff;
+
+  overflow-y: auto;
+
+  transform:
+    translateX(-100%);
+
+  transition:
+    transform 0.25s ease;
+
+  box-shadow:
+    10px 0 35px rgba(0, 0, 0, 0.14);
+}
+
+.biz-request-overlay.biz-open
+.biz-request-drawer {
+  transform:
+    translateX(0);
+}
+
+.biz-request-head {
+  position: sticky;
+
+  top: 0;
+
+  z-index: 4;
+
+  background: #fff;
+
+  border-bottom:
+    1px solid var(--biz-border);
+
+  padding: 20px 22px;
+
+  display: flex;
+
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 15px;
+}
+
+.biz-request-head h2 {
+  margin: 8px 0;
+
+  color: var(--biz-navy);
+
+  font-size: 18px;
+
+  line-height: 1.6;
+}
+
+.biz-request-head-badges {
+  display: flex;
+
+  align-items: center;
+
+  gap: 7px;
+
+  flex-wrap: wrap;
+}
+
+.biz-request-close {
+  appearance: none;
+
+  border: 0;
+
+  width: 36px;
+  height: 36px;
+
+  border-radius: 50%;
+
+  background: var(--biz-bg);
+
+  color: var(--biz-navy);
+
+  font-size: 25px;
+
+  line-height: 1;
+
+  cursor: pointer;
+
+  flex: 0 0 auto;
+}
+
+.biz-request-close:hover {
+  background: #eef1f2;
+}
+
+.biz-request-body {
+  padding: 19px;
+}
+
+.biz-request-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 11px;
+}
+
+.biz-request-grid > div {
+  border:
+    1px solid var(--biz-border);
+
+  border-radius: 12px;
+
+  padding: 12px;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 5px;
+
+  min-width: 0;
+}
+
+.biz-request-grid span {
+  color: var(--biz-muted);
+  font-size: 10px;
+}
+
+.biz-request-grid strong {
+  color: var(--biz-text);
+  font-size: 11.5px;
+
+  line-height: 1.6;
+}
+
+.biz-request-grid small {
+  color: var(--biz-muted);
+  font-size: 9.5px;
+}
+
+.biz-request-section {
+  margin-top: 20px;
+}
+
+.biz-request-section h3 {
+  margin:
+    0 0 9px;
+
+  color: var(--biz-navy);
+
+  font-size: 13px;
+}
+
+.biz-request-note {
+  padding: 13px 14px;
+
+  border-radius: 12px;
+
+  background: var(--biz-bg);
+
+  color: #52646e;
+
+  font-size: 11.5px;
+
+  line-height: 1.9;
+
+  white-space: pre-wrap;
+}
+
+.biz-request-note.biz-internal {
+  background: #fff9eb;
+
+  border:
+    1px solid #eee0bb;
+
+  color: #806429;
+}
+
+
+/* =============================================================
+   سجل الطلب
+   ============================================================= */
+
+.biz-history {
+  display: flex;
+  flex-direction: column;
+
+  gap: 9px;
+}
+
+.biz-history-item {
+  position: relative;
+
+  padding:
+    12px 16px 12px 12px;
+
+  border:
+    1px solid var(--biz-border);
+
+  border-radius: 12px;
+
+  background: #fff;
+}
+
+.biz-history-item::before {
+  content: "";
+
+  position: absolute;
+
+  right: 0;
+  top: 11px;
+  bottom: 11px;
+
+  width: 3px;
+
+  border-radius: 3px;
+
+  background: var(--biz-gold);
+}
+
+.biz-history-item span {
+  color: var(--biz-muted);
+  font-size: 9.5px;
+}
+
+.biz-history-item strong {
+  display: block;
+
+  margin: 4px 0;
+
+  color: var(--biz-navy);
+
+  font-size: 11px;
+}
+
+.biz-history-item p {
+  margin:
+    4px 0;
+
+  color: #65767f;
+
+  font-size: 10.5px;
+
+  line-height: 1.7;
+}
+
+.biz-history-item small {
+  color: var(--biz-muted);
+
+  font-size: 9.5px;
+}
+
+
+/* =============================================================
+   اللابتوب والشاشات المتوسطة
+   ============================================================= */
+
+@media (max-width: 1400px) {
+
+  .biz-kpis {
+    grid-template-columns:
+      repeat(5, minmax(145px, 1fr));
+  }
+
+  .biz-recent {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+  }
+
+  .biz-recent-item:nth-child(3) {
+    border-left: 0;
+  }
+
+  .biz-recent-item:nth-child(n + 4) {
+    border-top:
+      1px solid var(--biz-border);
+  }
+
+  .biz-cards {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .biz-filters {
+    grid-template-columns:
+      repeat(4, minmax(150px, 1fr));
+  }
+
+  .biz-search {
+    grid-column:
+      span 2;
+  }
+
+  .biz-quota-grid {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+  }
+}
+
+
+/* =============================================================
+   التابلت
+   ============================================================= */
+
+@media (max-width: 980px) {
+
+  .biz-head {
+    flex-direction: column;
+  }
+
+  .biz-kpis {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .biz-kpi:last-child {
+    grid-column:
+      1 / -1;
+  }
+
+  .biz-recent {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .biz-recent-item {
+    border-bottom:
+      1px solid var(--biz-border);
+  }
+
+  .biz-cards {
+    grid-template-columns:
+      1fr;
+  }
+
+  .biz-filters {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .biz-search {
+    grid-column:
+      1 / -1;
+  }
+
+  .biz-entity-info-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .biz-quota-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+/* =============================================================
+   الهاتف
+   ============================================================= */
+
+@media (max-width: 640px) {
+
+  .biz-scope {
+    width: 100%;
+  }
+
+  .biz-head {
+    margin-bottom: 17px;
+  }
+
+  .biz-head-title {
+    font-size: 22px;
+  }
+
+  .biz-head-sub {
+    font-size: 12px;
+  }
+
+  .biz-head-tools {
+    width: 100%;
+  }
+
+  .biz-kpis {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+
+    gap: 9px;
+  }
+
+  .biz-kpi {
+    min-height: 105px;
+
+    padding: 14px;
+  }
+
+  .biz-kpi:last-child {
+    grid-column:
+      1 / -1;
+  }
+
+  .biz-kpi-value {
+    font-size: 26px;
+  }
+
+  .biz-panel {
+    border-radius: 15px;
+  }
+
+  .biz-panel-head {
+    padding: 15px;
+  }
+
+  .biz-recent {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .biz-recent-item {
+    min-height: auto;
+
+    border-left: 0 !important;
+
+    border-bottom:
+      1px solid var(--biz-border);
+
+    flex-direction: row;
+
+    align-items: center;
+  }
+
+  .biz-recent-item:last-child {
+    border-bottom: 0;
+  }
+
+  .biz-recent-main {
+    flex: 1;
+  }
+
+  .biz-recent-side {
+    align-items: flex-end;
+
+    flex-shrink: 0;
+  }
+
+  .biz-cards {
+    padding: 12px;
+
+    gap: 12px;
+  }
+
+  .biz-entity-card {
+    padding: 15px;
+  }
+
+  .biz-entity-card-head {
+    flex-direction: column;
+  }
+
+  .biz-filters {
+    grid-template-columns:
+      1fr;
+
+    padding: 12px;
+  }
+
+  .biz-search {
+    grid-column:
+      auto;
+  }
+
+  .biz-filters .biz-btn {
+    width: 100%;
+  }
+
+  .biz-table {
+    min-width: 1000px;
+  }
+
+  .biz-entity-detail-head {
+    padding: 19px;
+
+    flex-direction: column;
+
+    border-radius: 16px;
+  }
+
+  .biz-entity-detail-head h2 {
+    font-size: 20px;
+  }
+
+  .biz-entity-info-grid {
+    grid-template-columns:
+      1fr 1fr;
+
+    gap: 8px;
+  }
+
+  .biz-info-box {
+    padding: 12px;
+  }
+
+  .biz-quota-grid {
+    grid-template-columns:
+      1fr;
+
+    padding: 13px;
+  }
+
+  .biz-entity-request {
+    align-items: flex-start;
+
+    flex-direction: column;
+  }
+
+  .biz-request-drawer {
+    width: 100vw;
+  }
+
+  .biz-request-head {
+    padding: 16px;
+  }
+
+  .biz-request-head h2 {
+    font-size: 16px;
+  }
+
+  .biz-request-body {
+    padding: 14px;
+  }
+
+  .biz-request-grid {
+    grid-template-columns:
+      1fr;
+  }
+}
+
+
+/* =============================================================
+   الهواتف الصغيرة جدًا
+   ============================================================= */
+
+@media (max-width: 410px) {
+
+  .biz-kpis {
+    grid-template-columns:
+      1fr 1fr;
+  }
+
+  .biz-kpi {
+    padding: 12px;
+  }
+
+  .biz-kpi-label {
+    font-size: 11px;
+  }
+
+  .biz-kpi-value {
+    font-size: 23px;
+  }
+
+  .biz-entity-info-grid {
+    grid-template-columns:
+      1fr;
+  }
+}
