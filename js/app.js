@@ -334,6 +334,7 @@ if(APP.currentUser && APP.currentUser.role !== 'admin'){
   if (page === 'dashboard') renderDashboard();
 if (page === 'requests') renderRequestsPage();
 if (page === 'cases') renderCaseRequestsPage();
+if (page === 'business') renderBusinessPage();   
 if (page === 'employees') renderEmployeesPage();
 if (page === 'activity') renderActivityPage();
 if (page === 'support') renderSupportPage();
