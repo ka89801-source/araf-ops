@@ -320,6 +320,7 @@ if(APP.currentUser && APP.currentUser.role !== 'admin'){
     dashboard: 'لوحة التحكم',
     requests: 'الخدمات المباشرة',
     cases: 'طلبات توكيل القضايا',
+    business: 'طلبات المنشآت', 
     employees: 'الموظفون',
     activity: 'سجل النشاط',
     support: 'الدعم الفني'
