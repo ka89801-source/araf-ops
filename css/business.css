@@ -1746,3 +1746,24 @@
       1fr;
   }
 }
+/* =============================================================
+   ألوان الباقات الفعلية لأعراف للأعمال
+   ============================================================= */
+
+.biz-plan-asas {
+  background: #f4f6f7;
+  color: #536874;
+  border-color: #dde3e6;
+}
+
+.biz-plan-numu {
+  background: #f6efe2;
+  color: #8d692d;
+  border-color: #ead8b5;
+}
+
+.biz-plan-plus {
+  background: #edf2f5;
+  color: #1b3a4b;
+  border-color: #cbd6dc;
+}
