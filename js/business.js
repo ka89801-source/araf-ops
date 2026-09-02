@@ -3313,22 +3313,23 @@
 
 
   window.ArafBusiness = {
-    render: renderBusinessPage,
+  render: renderBusinessPage,
 
-    openEntity:
-      openBusinessEntity,
+  openEntity:
+    openBusinessEntity,
 
-    openRequest:
-      openBusinessRequest,
+  openRequest:
+    openBusinessRequest,
 
-    data:
-      BUSINESS_DATA,
+  data:
+    BUSINESS_DATA,
 
-    plans:
-      BUSINESS_PLANS,
+  plans:
+    BUSINESS_PLANS,
 
-    services:
-      BUSINESS_SERVICES
-  };
+  services:
+    BUSINESS_SERVICES,
 
-})();
+  employees:
+    BUSINESS_EMPLOYEES
+};
