@@ -1,0 +1,418 @@
+/* طلبات تفعيل المنشآت — امتداد للتصميم الحالي دون تغيير الهوية */
+
+.ops-business-switcher {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 6px;
+  width: max-content;
+  max-width: 100%;
+  background: #fff;
+  border: 1px solid #e6ebee;
+  border-radius: 14px;
+}
+
+.ops-business-tab {
+  border: 0;
+  background: transparent;
+  color: #647985;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-family: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ops-business-tab span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 23px;
+  height: 23px;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 100px;
+  background: #eef2f4;
+  font-size: 11px;
+}
+
+.ops-business-tab.active {
+  background: #173847;
+  color: #fff;
+}
+
+.ops-business-tab.active span {
+  color: #173847;
+  background: #d8bd86;
+}
+
+.ops-activation-panel {
+  background: #fff;
+  border: 1px solid #e4eaed;
+  border-radius: 18px;
+  box-shadow: 0 12px 34px rgba(23, 56, 71, .06);
+  overflow: hidden;
+}
+
+.ops-activation-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px 22px;
+  border-bottom: 1px solid #edf1f3;
+}
+
+.ops-activation-heading h2 {
+  margin: 0 0 4px;
+  color: #173847;
+  font-size: 18px;
+}
+
+.ops-activation-heading p {
+  margin: 0;
+  color: #778b95;
+  font-size: 12px;
+}
+
+.ops-activation-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ops-activation-tools select,
+.ops-activation-dialog select,
+.ops-activation-dialog input {
+  border: 1px solid #dce4e8;
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px 12px;
+  color: #173847;
+  font-family: inherit;
+}
+
+.ops-refresh-btn {
+  border: 1px solid #dce4e8;
+  border-radius: 10px;
+  background: #f8fafb;
+  color: #173847;
+  padding: 10px 14px;
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ops-activation-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.ops-activation-table {
+  width: 100%;
+  min-width: 930px;
+  border-collapse: collapse;
+}
+
+.ops-activation-table th,
+.ops-activation-table td {
+  text-align: right;
+  padding: 15px 14px;
+  border-bottom: 1px solid #edf1f3;
+  vertical-align: middle;
+}
+
+.ops-activation-table th {
+  background: #f8fafb;
+  color: #687e89;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.ops-activation-table td {
+  color: #263f4b;
+  font-size: 12px;
+}
+
+.ops-activation-table td strong,
+.ops-activation-table td small {
+  display: block;
+}
+
+.ops-activation-table td small {
+  margin-top: 4px;
+  color: #84959d;
+}
+
+.ops-activation-code {
+  display: inline-block;
+  margin-top: 5px;
+  padding: 3px 7px;
+  border-radius: 6px;
+  background: #eef4f6;
+  direction: ltr;
+  font-family: monospace;
+  color: #173847;
+}
+
+.ops-kind-badge,
+.ops-status-badge {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  border-radius: 100px;
+  padding: 5px 9px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.ops-kind-badge {
+  color: #775b26;
+  background: #f8f0df;
+}
+
+.ops-status-badge.status-new {
+  color: #1c6590;
+  background: #e8f4fb;
+}
+
+.ops-status-badge.status-contacted {
+  color: #7a5b1b;
+  background: #fff5d9;
+}
+
+.ops-status-badge.status-activated {
+  color: #26704e;
+  background: #e6f6ed;
+}
+
+.ops-status-badge.status-closed {
+  color: #8a4750;
+  background: #fbecee;
+}
+
+.ops-activation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ops-activation-btn {
+  border: 0;
+  border-radius: 9px;
+  padding: 8px 11px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ops-activation-btn.primary {
+  color: #fff;
+  background: #173847;
+}
+
+.ops-activation-btn.secondary {
+  color: #173847;
+  background: #e9f0f3;
+}
+
+.ops-activation-btn.danger {
+  color: #913c49;
+  background: #fbecee;
+}
+
+.ops-activation-btn.full {
+  width: 100%;
+  margin-top: 12px;
+  padding: 11px;
+}
+
+.ops-activation-btn:disabled {
+  cursor: wait;
+  opacity: .65;
+}
+
+.ops-activation-empty,
+.ops-activation-error {
+  min-height: 230px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  padding: 30px;
+  color: #71858f;
+  text-align: center;
+}
+
+.ops-activation-error strong {
+  color: #8a3e48;
+}
+
+.ops-activation-error button {
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: #173847;
+  color: #fff;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.ops-activation-modal[hidden],
+.ops-activation-panel[hidden],
+#opsBusinessServices[hidden] {
+  display: none !important;
+}
+
+.ops-activation-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10020;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(9, 25, 33, .58);
+}
+
+.ops-activation-dialog {
+  position: relative;
+  width: min(470px, 100%);
+  padding: 26px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 28px 80px rgba(8, 27, 36, .3);
+}
+
+.ops-activation-dialog h3 {
+  margin: 0 0 8px;
+  padding-left: 30px;
+  color: #173847;
+  font-size: 19px;
+}
+
+.ops-activation-dialog > p {
+  margin: 0 0 18px;
+  color: #71858f;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.ops-activation-dialog label {
+  display: grid;
+  gap: 6px;
+  margin-top: 13px;
+  color: #36525f;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ops-modal-close {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: #eef2f4;
+  color: #173847;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+.ops-activation-dialog-note {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  color: #765c2a;
+  background: #faf3e5;
+  font-size: 11px;
+}
+
+.ops-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.ops-success-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  color: #fff;
+  background: #2f8a62;
+  font-size: 25px;
+  font-weight: 900;
+}
+
+.ops-activation-dialog.credentials h3,
+.ops-activation-dialog.credentials > p {
+  padding: 0;
+  text-align: center;
+}
+
+.ops-credential-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 11px 12px;
+  border: 1px solid #e1e8eb;
+  border-radius: 10px;
+}
+
+.ops-credential-row span {
+  color: #71858f;
+  font-size: 11px;
+}
+
+.ops-credential-row strong {
+  direction: ltr;
+  color: #173847;
+  font-family: monospace;
+  font-size: 15px;
+}
+
+.ops-credential-row button {
+  border: 0;
+  border-radius: 7px;
+  padding: 6px 9px;
+  color: #173847;
+  background: #e9f0f3;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@media (max-width: 760px) {
+  .ops-business-switcher {
+    width: 100%;
+  }
+
+  .ops-business-tab {
+    flex: 1;
+  }
+
+  .ops-activation-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .ops-activation-tools {
+    width: 100%;
+  }
+
+  .ops-activation-tools select {
+    flex: 1;
+  }
+}
