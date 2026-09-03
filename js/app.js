@@ -275,9 +275,13 @@ function checkSession() {
   return true;
 }
 
-function logout() {
-  // TODO Supabase: supabase.auth.signOut()
+async function logout() {
   localStorage.removeItem('araf_session');
+  try {
+    if (window.sb && window.sb.auth) await window.sb.auth.signOut();
+  } catch (error) {
+    console.error('ops-signout', error);
+  }
   window.location.href = 'login.html';
 }
 
