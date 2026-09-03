@@ -287,13 +287,13 @@
 
       <form id="loginForm" novalidate>
   <div class="field">
-    <label for="fullName">الاسم</label>
-    <input type="text" id="fullName" name="fullName" placeholder="اكتب اسمك كما هو مضاف في النظام" required autocomplete="name" />
+    <label for="email">البريد الإلكتروني</label>
+    <input type="email" id="email" name="email" placeholder="name@example.com" required autocomplete="username" dir="ltr" />
   </div>
 
   <div class="field">
-    <label for="phone">رقم الجوال</label>
-    <input type="tel" id="phone" name="phone" placeholder="05xxxxxxxx" required autocomplete="tel" />
+    <label for="password">كلمة المرور</label>
+    <input type="password" id="password" name="password" placeholder="••••••••" required autocomplete="current-password" dir="ltr" />
   </div>
 
   <button type="submit" class="btn-login">تسجيل الدخول</button>
@@ -305,78 +305,92 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
 <script>
-    // ===== منطق تسجيل الدخول (Mock) =====
-    // TODO Supabase: استبدال هذا بـ supabase.auth.signInWithPassword({ email, password })
-    document.getElementById('loginForm').addEventListener('submit', async function (e) {
+const API_BASE = window.ARAF_OPS_API_BASE || 'https://araf.company/api';
+const loginForm = document.getElementById('loginForm');
+const loginButton = loginForm.querySelector('button[type="submit"]');
+const errorMsg = document.getElementById('errorMsg');
+
+function showError(message) {
+  errorMsg.textContent = message;
+  errorMsg.classList.add('show');
+}
+
+async function loadAdminProfile(accessToken) {
+  const response = await fetch(API_BASE + '/ops-business-session', {
+    method: 'GET',
+    headers: { Authorization: 'Bearer ' + accessToken }
+  });
+  const data = await response.json().catch(function () { return {}; });
+  if (!response.ok) throw new Error(data.error || 'تعذر التحقق من صلاحية الحساب.');
+  return data;
+}
+
+function saveOpsSession(profile) {
+  const admin = profile.admin || {};
+  const user = profile.user || {};
+  localStorage.setItem('araf_session', JSON.stringify({
+    id: admin.employee_id || user.id,
+    auth_user_id: user.id,
+    name: admin.display_name || user.email,
+    email: user.email || '',
+    phone: admin.phone || '',
+    role: admin.role || 'employee',
+    loginAt: new Date().toISOString()
+  }));
+}
+
+loginForm.addEventListener('submit', async function (e) {
   e.preventDefault();
 
-  const fullName = document.getElementById('fullName').value.trim();
-  const phone = document.getElementById('phone').value.trim();
-  const errorMsg = document.getElementById('errorMsg');
+  const email = document.getElementById('email').value.trim().toLowerCase();
+  const password = document.getElementById('password').value;
 
   errorMsg.classList.remove('show');
   errorMsg.textContent = '';
 
-  if (!fullName || !phone) {
-    errorMsg.textContent = 'يرجى إدخال الاسم ورقم الجوال.';
-    errorMsg.classList.add('show');
+  if (!email || !password) {
+    showError('يرجى إدخال البريد الإلكتروني وكلمة المرور.');
     return;
   }
 
-  if (!/^0\d{9}$/.test(phone)) {
-    errorMsg.textContent = 'يرجى إدخال رقم جوال صحيح يبدأ بـ 0 ويتكون من 10 أرقام.';
-    errorMsg.classList.add('show');
-    return;
-  }
+  loginButton.disabled = true;
+  loginButton.textContent = 'جارٍ التحقق...';
 
   try {
-    const { data, error } = await window.sb
-      .from('employees')
-      .select('*')
-      .eq('phone', phone)
-      .eq('status', 'active')
-      .maybeSingle();
+    const auth = await window.sb.auth.signInWithPassword({ email, password });
+    if (auth.error || !auth.data.session) throw new Error('بيانات الدخول غير صحيحة.');
 
-    if (error) {
-      throw error;
-    }
-
-    if (!data) {
-      errorMsg.textContent = 'لا يوجد موظف فعّال بهذا الرقم.';
-      errorMsg.classList.add('show');
-      return;
-    }
-
-    const normalizedInputName = fullName.replace(/\s+/g, ' ').trim();
-    const normalizedDbName = String(data.full_name || '').replace(/\s+/g, ' ').trim();
-
-    if (normalizedInputName !== normalizedDbName) {
-      errorMsg.textContent = 'الاسم ورقم الجوال غير متطابقين مع بيانات الموظف.';
-      errorMsg.classList.add('show');
-      return;
-    }
-
-    localStorage.setItem('araf_session', JSON.stringify({
-      id: data.id,
-      name: data.full_name,
-      email: data.email || '',
-      phone: data.phone || '',
-      role: data.role || 'employee',
-      loginAt: new Date().toISOString()
-    }));
-
+    const profile = await loadAdminProfile(auth.data.session.access_token);
+    saveOpsSession(profile);
     window.location.href = 'index.html';
-
   } catch (err) {
     console.error(err);
-    errorMsg.textContent = 'حدث خطأ أثناء تسجيل الدخول. تأكد من الاتصال أو صلاحيات Supabase.';
-    errorMsg.classList.add('show');
+    await window.sb.auth.signOut();
+    localStorage.removeItem('araf_session');
+    showError(err && err.message ? err.message : 'تعذر تسجيل الدخول الآن.');
+  } finally {
+    loginButton.disabled = false;
+    loginButton.textContent = 'تسجيل الدخول';
   }
 });
-    // إذا كان مسجلاً دخول مسبقاً، انقله مباشرة
-    if (localStorage.getItem('araf_session')) {
-      // window.location.href = 'index.html';
+
+(async function restoreSession() {
+  try {
+    const result = await window.sb.auth.getSession();
+    const session = result.data && result.data.session;
+    if (!session) {
+      localStorage.removeItem('araf_session');
+      return;
     }
+    const profile = await loadAdminProfile(session.access_token);
+    saveOpsSession(profile);
+    window.location.replace('index.html');
+  } catch (error) {
+    console.error('ops-session-restore', error);
+    await window.sb.auth.signOut();
+    localStorage.removeItem('araf_session');
+  }
+})();
   </script>
 </body>
 </html>
