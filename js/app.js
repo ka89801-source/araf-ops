@@ -278,7 +278,7 @@ function checkSession() {
 async function logout() {
   localStorage.removeItem('araf_session');
   try {
-    if (window.sb && window.sb.auth) await window.sb.auth.signOut();
+    if (window.opsAuth && window.opsAuth.auth) await window.opsAuth.auth.signOut();
   } catch (error) {
     console.error('ops-signout', error);
   }
