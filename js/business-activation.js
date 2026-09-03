@@ -58,8 +58,8 @@
   }
 
   async function accessToken() {
-    if (!window.sb || !window.sb.auth) throw new Error('Supabase غير متصل.');
-    const result = await window.sb.auth.getSession();
+    if (!window.opsAuth || !window.opsAuth.auth) throw new Error('Supabase غير متصل.');
+    const result = await window.opsAuth.auth.getSession();
     const session = result.data && result.data.session;
     if (!session) {
       const error = new Error('انتهت جلسة الإدارة. يرجى تسجيل الدخول مجددًا.');
@@ -224,20 +224,18 @@
     const page = document.getElementById('page-business');
     if (!page) return;
 
-    const existing = Array.from(page.childNodes);
-    const serviceWorkspace = document.createElement('div');
-    serviceWorkspace.id = 'opsBusinessServices';
-    serviceWorkspace.hidden = state.tab !== 'services';
-    existing.forEach(function (node) {
-      serviceWorkspace.appendChild(node);
+    const previousShell = page.querySelector(':scope > #opsBusinessActivationShell');
+    if (previousShell) previousShell.remove();
+    const serviceNodes = Array.from(page.children).map(function (node) {
+      return { node: node, wasHidden: node.hidden };
     });
 
     const shell = document.createElement('div');
     shell.id = 'opsBusinessActivationShell';
     shell.innerHTML = shellHtml();
-    page.appendChild(shell);
-    page.appendChild(serviceWorkspace);
-    bindEvents(shell, serviceWorkspace);
+    page.prepend(shell);
+    setServiceVisibility(serviceNodes, state.tab === 'services');
+    bindEvents(shell, serviceNodes);
     updateSidebarCount();
   }
 
@@ -370,7 +368,13 @@
     }
   }
 
-  function bindEvents(shell, serviceWorkspace) {
+  function setServiceVisibility(serviceNodes, visible) {
+    serviceNodes.forEach(function (entry) {
+      entry.node.hidden = visible ? entry.wasHidden : true;
+    });
+  }
+
+  function bindEvents(shell, serviceNodes) {
     shell.addEventListener('click', function (event) {
       const tab = event.target.closest('[data-tab]');
       if (tab) {
@@ -380,7 +384,7 @@
         });
         const panel = document.getElementById('opsActivationPanel');
         if (panel) panel.hidden = state.tab !== 'activation';
-        serviceWorkspace.hidden = state.tab !== 'services';
+        setServiceVisibility(serviceNodes, state.tab === 'services');
         return;
       }
 
@@ -423,15 +427,14 @@
   }
 
   async function renderBusinessWithActivation() {
+    const activationLoad = loadRequests();
     if (typeof previousRender === 'function') await previousRender();
-    await loadRequests();
     mount();
+    activationLoad.then(rerenderActivationContent);
   }
 
   window.renderBusinessPage = renderBusinessWithActivation;
   if (window.ArafBusiness) {
-    window.ArafBusiness.render = renderBusinessWithActivation;
-    window.ArafBusiness.reload = renderBusinessWithActivation;
     window.ArafBusiness.reloadActivations = async function () {
       await loadRequests();
       rerenderActivationContent();
