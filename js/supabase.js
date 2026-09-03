@@ -6,6 +6,20 @@ window.sb = supabase.createClient(
   SUPABASE_ANON_KEY,
   {
     auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false
+    }
+  }
+);
+
+// عميل مستقل لجلسة إدارة تفعيل المنشآت. إبقاؤه منفصلًا يمنع
+// جلسة Auth الجديدة من تغيير صلاحيات ووظائف المنصة الأصلية.
+window.opsAuth = supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
+  {
+    auth: {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: false,
