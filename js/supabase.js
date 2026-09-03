@@ -3,5 +3,16 @@ const SUPABASE_ANON_KEY = 'sb_publishable_tyyiEKXaSDaUKN_HCLkBGg_vZTYMwki';
 
 window.sb = supabase.createClient(
   SUPABASE_URL,
-  SUPABASE_ANON_KEY
+  SUPABASE_ANON_KEY,
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+      storageKey: 'araf-ops-auth'
+    }
+  }
 );
+
+// عنوان عام فقط لواجهات الخادم؛ لا يحتوي أي مفتاح سري.
+window.ARAF_OPS_API_BASE = 'https://araf.company/api';
