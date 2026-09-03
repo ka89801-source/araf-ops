@@ -357,7 +357,7 @@ loginForm.addEventListener('submit', async function (e) {
   loginButton.textContent = 'جارٍ التحقق...';
 
   try {
-    const auth = await window.sb.auth.signInWithPassword({ email, password });
+    const auth = await window.opsAuth.auth.signInWithPassword({ email, password });
     if (auth.error || !auth.data.session) throw new Error('بيانات الدخول غير صحيحة.');
 
     const profile = await loadAdminProfile(auth.data.session.access_token);
@@ -365,7 +365,7 @@ loginForm.addEventListener('submit', async function (e) {
     window.location.href = 'index.html';
   } catch (err) {
     console.error(err);
-    await window.sb.auth.signOut();
+    await window.opsAuth.auth.signOut();
     localStorage.removeItem('araf_session');
     showError(err && err.message ? err.message : 'تعذر تسجيل الدخول الآن.');
   } finally {
@@ -376,7 +376,7 @@ loginForm.addEventListener('submit', async function (e) {
 
 (async function restoreSession() {
   try {
-    const result = await window.sb.auth.getSession();
+    const result = await window.opsAuth.auth.getSession();
     const session = result.data && result.data.session;
     if (!session) {
       localStorage.removeItem('araf_session');
@@ -387,7 +387,7 @@ loginForm.addEventListener('submit', async function (e) {
     window.location.replace('index.html');
   } catch (error) {
     console.error('ops-session-restore', error);
-    await window.sb.auth.signOut();
+    await window.opsAuth.auth.signOut();
     localStorage.removeItem('araf_session');
   }
 })();
