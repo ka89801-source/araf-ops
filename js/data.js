@@ -95,6 +95,41 @@ const MOCK_DATA = {
     { key: 'lawsuit_draft',      name: 'تجهيز صحيفة دعوى',             price: 200, color: 'green' },
     { key: 'court_session',      name: 'حضور جلسة قضائية',             price: 300, color: 'gd' },
     { key: 'execution_request',  name: 'تقديم طلب تنفيذ عبر ناجز',      price: 300, color: 'orange' }
+
+   { 
+  key: 'tahaqaq_answer',
+  name: 'أعراف تحقّق — إجابة قانونية',
+  price: 49,
+  color: 'gd'
+},
+
+{ 
+  key: 'tahaqaq_document',
+  name: 'أعراف تحقّق — صحيفة أو مذكرة',
+  price: 99,
+  color: 'tl'
+},
+
+{ 
+  key: 'tahaqaq_path',
+  name: 'أعراف تحقّق — مسار القضية',
+  price: 99,
+  color: 'nv'
+},
+
+{ 
+  key: 'tahaqaq_contract',
+  name: 'أعراف تحقّق — عقد أو اتفاقية',
+  price: 99,
+  color: 'purple'
+},
+
+{ 
+  key: 'tahaqaq_full',
+  name: 'أعراف تحقّق — ملف القضية كاملًا',
+  price: 299,
+  color: 'green'
+} 
   ],
 
   // ===== الطلبات =====
