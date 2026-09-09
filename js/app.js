@@ -2447,6 +2447,17 @@ async function loadSupabaseRequests() {
     MOCK_DATA.service_requests = (data || []).map(function(request) {
       const rawType = request.service_type || '';
       const rawSource = request.source || 'direct_services';
+      const normalizedServiceType =
+  rawType === 'أعراف تحقّق'
+    ? normalizeServiceType(
+        request.service_name ||
+        rawType
+      )
+    : normalizeServiceType(
+        rawType ||
+        request.service_name ||
+        ''
+      ); 
 
       return {
         id: request.id,
