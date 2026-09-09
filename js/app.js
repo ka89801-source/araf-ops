@@ -2403,7 +2403,7 @@ function normalizeServiceType(value) {
     'طلب تنفيذ عبر ناجز': 'execution_request',
     'المساعد القانوني AI': 'ai_assistant',
     'التوكيل في القضايا': 'case_representation',
-    'case_representation': 'case_representation'
+    'case_representation': 'case_representation',
     'أعراف تحقّق — إجابة قانونية': 'tahaqaq_answer',
 'أعراف تحقّق — صحيفة أو مذكرة': 'tahaqaq_document',
 'أعراف تحقّق — مسار القضية': 'tahaqaq_path',
