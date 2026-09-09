@@ -2404,6 +2404,17 @@ function normalizeServiceType(value) {
     'المساعد القانوني AI': 'ai_assistant',
     'التوكيل في القضايا': 'case_representation',
     'case_representation': 'case_representation'
+    'أعراف تحقّق — إجابة قانونية': 'tahaqaq_answer',
+'أعراف تحقّق — صحيفة أو مذكرة': 'tahaqaq_document',
+'أعراف تحقّق — مسار القضية': 'tahaqaq_path',
+'أعراف تحقّق — عقد أو اتفاقية': 'tahaqaq_contract',
+'أعراف تحقّق — ملف القضية كاملًا': 'tahaqaq_full',
+
+'tahaqaq_answer': 'tahaqaq_answer',
+'tahaqaq_document': 'tahaqaq_document',
+'tahaqaq_path': 'tahaqaq_path',
+'tahaqaq_contract': 'tahaqaq_contract',
+'tahaqaq_full': 'tahaqaq_full', 
   };
 
   return map[v] || v;
