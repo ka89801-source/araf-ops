@@ -2464,7 +2464,7 @@ async function loadSupabaseRequests() {
         customer_name: request.customer_name || '',
         customer_phone: request.customer_phone || '',
         raw_service_type: rawType,
-        service_type: normalizeServiceType(rawType || request.service_name || ''),
+        service_type: normalizedServiceType,
         service_category: request.service_category || '',
         service_name: request.service_name || rawType || '',
         case_current_stage: request.case_current_stage || '',
