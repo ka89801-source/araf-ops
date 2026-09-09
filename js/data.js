@@ -94,7 +94,7 @@ const MOCK_DATA = {
     { key: 'gov_violation',      name: 'اعتراض على مخالفة حكومية',      price: 250, color: 'purple' },
     { key: 'lawsuit_draft',      name: 'تجهيز صحيفة دعوى',             price: 200, color: 'green' },
     { key: 'court_session',      name: 'حضور جلسة قضائية',             price: 300, color: 'gd' },
-    { key: 'execution_request',  name: 'تقديم طلب تنفيذ عبر ناجز',      price: 300, color: 'orange' }
+    { key: 'execution_request',  name: 'تقديم طلب تنفيذ عبر ناجز',      price: 300, color: 'orange' },
 
    { 
   key: 'tahaqaq_answer',
