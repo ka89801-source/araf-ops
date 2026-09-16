@@ -13,8 +13,9 @@
 
   const BIZ = window.ArafBusiness;
   const API_BASE = window.ARAF_OPS_API_BASE || 'https://araf.company/api';
-  const CACHE_KEY = 'araf-business-snapshot-v2';
+  const CACHE_KEY = 'araf-business-snapshot-v3';
   const CACHE_TTL = 30000;
+  const REQUEST_TIMEOUT = 12000;
 
   let loadPromise = null;
   let hasLiveData = false;
@@ -35,66 +36,31 @@
 
   const LIVE_PLANS = {
     asas: {
-      key: 'asas',
-      name: 'أعراف أساس',
-      price: 500,
+      key: 'asas', name: 'أعراف أساس', price: 500,
       quota: {
-        consult: 3,
-        contracts: 2,
-        letters: 2,
-        najiz: 2,
-        violations: 1,
-        governance: 0,
-        memos: 0,
-        risk_review: 0,
-        negotiation: 0,
-        general: 0
+        consult: 3, contracts: 2, letters: 2, najiz: 2, violations: 1,
+        governance: 0, memos: 0, risk_review: 0, negotiation: 0, general: 0
       }
     },
     numu: {
-      key: 'numu',
-      name: 'أعراف نمو',
-      price: 2500,
+      key: 'numu', name: 'أعراف نمو', price: 2500,
       quota: {
-        consult: 10,
-        contracts: 5,
-        letters: 5,
-        najiz: 5,
-        violations: 3,
-        governance: 3,
-        memos: 0,
-        risk_review: 0,
-        negotiation: 0,
-        general: 0
+        consult: 10, contracts: 5, letters: 5, najiz: 5, violations: 3,
+        governance: 3, memos: 0, risk_review: 0, negotiation: 0, general: 0
       }
     },
     plus: {
-      key: 'plus',
-      name: 'أعراف بلس',
-      price: 5000,
+      key: 'plus', name: 'أعراف بلس', price: 5000,
       quota: {
-        consult: -1,
-        contracts: 10,
-        letters: 10,
-        najiz: 10,
-        violations: 6,
-        governance: 6,
-        memos: 3,
-        risk_review: 1,
-        negotiation: 1,
-        general: 0
+        consult: -1, contracts: 10, letters: 10, najiz: 10, violations: 6,
+        governance: 6, memos: 3, risk_review: 1, negotiation: 1, general: 0
       }
     }
   };
 
-  Object.keys(BIZ.services).forEach(function (key) {
-    delete BIZ.services[key];
-  });
+  Object.keys(BIZ.services).forEach(function (key) { delete BIZ.services[key]; });
   Object.assign(BIZ.services, LIVE_SERVICES);
-
-  Object.keys(BIZ.plans).forEach(function (key) {
-    delete BIZ.plans[key];
-  });
+  Object.keys(BIZ.plans).forEach(function (key) { delete BIZ.plans[key]; });
   Object.assign(BIZ.plans, LIVE_PLANS);
 
   function simpleDate(value) {
@@ -121,13 +87,11 @@
       const entityEnd = simpleDate(entity.current_cycle_end);
       const usageStart = simpleDate(row.cycle_start);
       const usageEnd = simpleDate(row.cycle_end);
-
       if (entityStart && usageStart && entityStart !== usageStart) return;
       if (entityEnd && usageEnd && entityEnd !== usageEnd) return;
 
       const serviceKey = String(row.service_key || '');
       if (!serviceKey) return;
-
       result[entityId][serviceKey] =
         Number(result[entityId][serviceKey] || 0) + Number(row.units || 0);
     });
@@ -135,7 +99,7 @@
     return result;
   }
 
-  function applySnapshot(snapshot) {
+  function applySnapshot(snapshot, loadedAt) {
     const entities = Array.isArray(snapshot && snapshot.entities) ? snapshot.entities : [];
     const requests = Array.isArray(snapshot && snapshot.requests) ? snapshot.requests : [];
     const usageRows = Array.isArray(snapshot && snapshot.usage) ? snapshot.usage : [];
@@ -180,25 +144,20 @@
         0,
         BIZ.employees.length,
         ...employees.map(function (employee) {
-          return {
-            id: employee.id,
-            name: employee.full_name || ''
-          };
+          return { id: employee.id, name: employee.full_name || '' };
         })
       );
     }
 
     hasLiveData = true;
-    lastLoadedAt = Date.now();
+    lastLoadedAt = Number(loadedAt) || Date.now();
   }
 
   function clearBusinessData() {
     BIZ.data.entities = [];
     BIZ.data.requests = [];
     BIZ.data.history = [];
-    if (Array.isArray(BIZ.employees)) {
-      BIZ.employees.splice(0, BIZ.employees.length);
-    }
+    if (Array.isArray(BIZ.employees)) BIZ.employees.splice(0, BIZ.employees.length);
   }
 
   function readCache() {
@@ -206,9 +165,10 @@
       const raw = sessionStorage.getItem(CACHE_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw);
-      if (!parsed || !parsed.snapshot || !parsed.saved_at) return null;
-      if (Date.now() - Number(parsed.saved_at) > CACHE_TTL) return null;
-      return parsed.snapshot;
+      const savedAt = Number(parsed && parsed.saved_at);
+      if (!parsed || !parsed.snapshot || !savedAt) return null;
+      if (Date.now() - savedAt > CACHE_TTL) return null;
+      return { snapshot: parsed.snapshot, savedAt: savedAt };
     } catch (_) {
       return null;
     }
@@ -227,17 +187,41 @@
 
   async function getAccessToken() {
     if (!window.opsAuth || !window.opsAuth.auth) {
-      throw new Error('جلسة إدارة أعراف غير متاحة');
+      const error = new Error('جلسة إدارة أعراف غير متاحة');
+      error.status = 401;
+      throw error;
     }
 
     const result = await window.opsAuth.auth.getSession();
     const session = result && result.data && result.data.session;
-
     if (!session || !session.access_token) {
-      throw new Error('انتهت جلسة الإدارة. سجّل الدخول مجددًا.');
+      const error = new Error('انتهت جلسة الإدارة. سجّل الدخول مجددًا.');
+      error.status = 401;
+      throw error;
     }
-
     return session.access_token;
+  }
+
+  async function fetchWithTimeout(url, options) {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = controller
+      ? setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT)
+      : null;
+    const config = Object.assign({}, options || {});
+    if (controller) config.signal = controller.signal;
+
+    try {
+      return await fetch(url, config);
+    } catch (error) {
+      if (error && error.name === 'AbortError') {
+        const timeoutError = new Error('استغرق تحميل بيانات المنشآت وقتًا أطول من المتوقع. حاول التحديث مرة أخرى.');
+        timeoutError.status = 408;
+        throw timeoutError;
+      }
+      throw error;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
   }
 
   async function fetchSnapshot() {
@@ -245,7 +229,7 @@
 
     loadPromise = (async function () {
       const token = await getAccessToken();
-      const response = await fetch(API_BASE + '/ops-business-snapshot', {
+      const response = await fetchWithTimeout(API_BASE + '/ops-business-snapshot', {
         method: 'GET',
         headers: {
           Authorization: 'Bearer ' + token,
@@ -253,15 +237,12 @@
         },
         cache: 'no-store'
       });
-
       const payload = await response.json().catch(function () { return {}; });
-
       if (!response.ok) {
         const error = new Error(payload.error || 'تعذر تحميل بيانات المنشآت');
         error.status = response.status;
         throw error;
       }
-
       saveCache(payload);
       return payload;
     })();
@@ -307,9 +288,7 @@
   const originalRender = window.renderBusinessPage;
 
   function renderCurrentBusinessData(state) {
-    if (typeof originalRender === 'function') {
-      originalRender();
-    }
+    if (typeof originalRender === 'function') originalRender();
     updateLiveInterface(state || 'ready');
   }
 
@@ -317,23 +296,19 @@
     if (!hasLiveData) {
       const cached = readCache();
       if (cached) {
-        applySnapshot(cached);
+        applySnapshot(cached.snapshot, cached.savedAt);
       } else {
         clearBusinessData();
       }
     }
 
-    renderCurrentBusinessData(
-      hasLiveData && !force ? 'ready' : 'loading'
-    );
+    renderCurrentBusinessData(hasLiveData && !force ? 'ready' : 'loading');
 
-    if (!force && hasLiveData && Date.now() - lastLoadedAt < CACHE_TTL) {
-      return;
-    }
+    if (!force && hasLiveData && Date.now() - lastLoadedAt < CACHE_TTL) return;
 
     try {
       const snapshot = await fetchSnapshot();
-      applySnapshot(snapshot);
+      applySnapshot(snapshot, Date.now());
       renderCurrentBusinessData('ready');
     } catch (error) {
       console.error('تعذر تحميل بيانات المنشآت:', error);
@@ -341,6 +316,8 @@
       if (!hasLiveData) {
         clearBusinessData();
         renderCurrentBusinessData('ready');
+      } else {
+        updateLiveInterface('ready');
       }
 
       if (error && error.status === 401) {
@@ -358,8 +335,6 @@
 
   window.renderBusinessPage = renderLiveBusinessPage;
   BIZ.render = renderLiveBusinessPage;
-  BIZ.reload = function () {
-    return renderLiveBusinessPage(true);
-  };
+  BIZ.reload = function () { return renderLiveBusinessPage(true); };
   BIZ.loadLive = fetchSnapshot;
 })();
