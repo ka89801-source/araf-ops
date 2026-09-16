@@ -7,6 +7,12 @@
 
   const previousRender = window.renderBusinessPage;
   const API_BASE = window.ARAF_OPS_API_BASE || 'https://araf.company/api';
+  const REQUEST_TIMEOUT = 12000;
+  const REQUESTS_TTL = 30000;
+
+  let requestsLoadPromise = null;
+  let lastRequestsLoadedAt = 0;
+
   const state = {
     requests: [],
     canDecide: false,
@@ -22,6 +28,7 @@
     plus: 'أعراف بلس',
     undecided: 'لم يحدد الباقة'
   };
+
   const STATUS_LABELS = {
     new: 'جديد',
     contacted: 'تم التواصل',
@@ -34,7 +41,7 @@
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
+      .replace(/\"/g, '&quot;')
       .replace(/'/g, '&#039;');
   }
 
@@ -58,10 +65,15 @@
   }
 
   async function accessToken() {
-    if (!window.opsAuth || !window.opsAuth.auth) throw new Error('Supabase غير متصل.');
+    if (!window.opsAuth || !window.opsAuth.auth) {
+      const error = new Error('Supabase غير متصل.');
+      error.status = 401;
+      throw error;
+    }
+
     const result = await window.opsAuth.auth.getSession();
-    const session = result.data && result.data.session;
-    if (!session) {
+    const session = result && result.data && result.data.session;
+    if (!session || !session.access_token) {
       const error = new Error('انتهت جلسة الإدارة. يرجى تسجيل الدخول مجددًا.');
       error.status = 401;
       throw error;
@@ -79,33 +91,66 @@
       config.headers['Content-Type'] = 'application/json';
     }
 
-    const response = await fetch(API_BASE + path, config);
-    const data = await response.json().catch(function () { return {}; });
-    if (!response.ok) {
-      const error = new Error(data.error || 'تعذر تنفيذ الإجراء.');
-      error.status = response.status;
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = controller
+      ? setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT)
+      : null;
+    if (controller) config.signal = controller.signal;
+
+    try {
+      const response = await fetch(API_BASE + path, config);
+      const data = await response.json().catch(function () { return {}; });
+      if (!response.ok) {
+        const error = new Error(data.error || 'تعذر تنفيذ الإجراء.');
+        error.status = response.status;
+        throw error;
+      }
+      return data;
+    } catch (error) {
+      if (error && error.name === 'AbortError') {
+        const timeoutError = new Error('استغرق الاتصال وقتًا أطول من المتوقع. أعد المحاولة.');
+        timeoutError.status = 408;
+        throw timeoutError;
+      }
       throw error;
+    } finally {
+      if (timer) clearTimeout(timer);
     }
-    return data;
   }
 
-  async function loadRequests() {
-    state.loading = true;
-    state.error = '';
-    try {
-      const data = await api('/ops-business-activation-requests', { method: 'GET' });
-      state.requests = Array.isArray(data.requests) ? data.requests : [];
-      state.canDecide = Boolean(data.can_decide);
-    } catch (error) {
-      console.error('activation-requests-load', error);
-      state.requests = [];
-      state.error = error.message;
-      if (error.status === 401) {
-        localStorage.removeItem('araf_session');
-      }
-    } finally {
-      state.loading = false;
+  async function loadRequests(force) {
+    if (
+      !force &&
+      state.requests.length &&
+      Date.now() - lastRequestsLoadedAt < REQUESTS_TTL
+    ) {
+      return state.requests;
     }
+
+    if (requestsLoadPromise) return requestsLoadPromise;
+
+    state.loading = state.requests.length === 0;
+    state.error = '';
+
+    requestsLoadPromise = (async function () {
+      try {
+        const data = await api('/ops-business-activation-requests', { method: 'GET' });
+        state.requests = Array.isArray(data.requests) ? data.requests : [];
+        state.canDecide = Boolean(data.can_decide);
+        lastRequestsLoadedAt = Date.now();
+        return state.requests;
+      } catch (error) {
+        console.error('activation-requests-load', error);
+        if (!state.requests.length) state.error = error.message;
+        if (error.status === 401) localStorage.removeItem('araf_session');
+        throw error;
+      } finally {
+        state.loading = false;
+        requestsLoadPromise = null;
+      }
+    })();
+
+    return requestsLoadPromise;
   }
 
   function filteredRequests() {
@@ -121,9 +166,7 @@
   }
 
   function actionButtons(request) {
-    if (!state.canDecide || request.status === 'activated' || request.status === 'closed') {
-      return '';
-    }
+    if (!state.canDecide || request.status === 'activated' || request.status === 'closed') return '';
 
     const contacted = request.status === 'new'
       ? '<button class="ops-activation-btn secondary" data-action="contacted" data-id="' +
@@ -165,7 +208,7 @@
     if (state.loading) {
       return '<div class="ops-activation-empty">جارٍ تحميل طلبات التفعيل...</div>';
     }
-    if (state.error) {
+    if (state.error && !state.requests.length) {
       return '<div class="ops-activation-error"><strong>تعذر تحميل طلبات التفعيل</strong><span>' +
         escapeHtml(state.error) + '</span><button data-action="refresh">إعادة المحاولة</button></div>';
     }
@@ -220,16 +263,20 @@
     badge.textContent = String(serviceCount + pendingCount());
   }
 
+  function setServiceVisibility(serviceNodes, visible) {
+    serviceNodes.forEach(function (node) {
+      node.hidden = !visible;
+    });
+  }
+
   function mount() {
     const page = document.getElementById('page-business');
     if (!page) return;
 
     const previousShell = page.querySelector(':scope > #opsBusinessActivationShell');
     if (previousShell) previousShell.remove();
-    const serviceNodes = Array.from(page.children).map(function (node) {
-      return { node: node, wasHidden: node.hidden };
-    });
 
+    const serviceNodes = Array.from(page.children);
     const shell = document.createElement('div');
     shell.id = 'opsBusinessActivationShell';
     shell.innerHTML = shellHtml();
@@ -246,9 +293,7 @@
   }
 
   function findRequest(id) {
-    return state.requests.find(function (request) {
-      return request.id === id;
-    });
+    return state.requests.find(function (request) { return request.id === id; });
   }
 
   async function updateRequest(id, action) {
@@ -263,12 +308,11 @@
     try {
       const data = await api('/ops-update-activation-request', {
         method: 'POST',
-        body: JSON.stringify({ id, action, note })
+        body: JSON.stringify({ id: id, action: action, note: note })
       });
-      const index = state.requests.findIndex(function (request) {
-        return request.id === id;
-      });
+      const index = state.requests.findIndex(function (request) { return request.id === id; });
       if (index >= 0 && data.request) state.requests[index] = data.request;
+      lastRequestsLoadedAt = Date.now();
       rerenderActivationContent();
       if (typeof window.showToast === 'function') {
         window.showToast(action === 'contacted' ? 'تم تسجيل التواصل مع المنشأة' : 'تم إغلاق الطلب', 'success');
@@ -342,13 +386,20 @@
       const data = await api('/ops-activate-business', {
         method: 'POST',
         body: JSON.stringify({
-          id,
+          id: id,
           plan_key: plan.value,
           subscription_start: start && start.value
         })
       });
+
       showCredentials(data);
-      await loadRequests();
+
+      const refreshJobs = [loadRequests(true)];
+      if (window.ArafBusiness && typeof window.ArafBusiness.reload === 'function') {
+        refreshJobs.push(window.ArafBusiness.reload());
+      }
+      await Promise.allSettled(refreshJobs);
+      rerenderActivationContent();
       updateSidebarCount();
     } catch (error) {
       console.error('business-activation', error);
@@ -366,12 +417,6 @@
     } catch (_) {
       window.prompt('انسخ القيمة التالية:', value);
     }
-  }
-
-  function setServiceVisibility(serviceNodes, visible) {
-    serviceNodes.forEach(function (entry) {
-      entry.node.hidden = visible ? entry.wasHidden : true;
-    });
   }
 
   function bindEvents(shell, serviceNodes) {
@@ -400,7 +445,9 @@
       const id = actionElement.dataset.id;
 
       if (action === 'refresh') {
-        loadRequests().then(rerenderActivationContent);
+        loadRequests(true)
+          .then(rerenderActivationContent)
+          .catch(function () { rerenderActivationContent(); });
       } else if (action === 'contacted' || action === 'closed') {
         updateRequest(id, action);
       } else if (action === 'activate') {
@@ -427,17 +474,38 @@
   }
 
   async function renderBusinessWithActivation() {
-    const activationLoad = loadRequests();
-    if (typeof previousRender === 'function') await previousRender();
+    const activationLoad = loadRequests(false);
+    let serviceLoad = Promise.resolve();
+
+    if (typeof previousRender === 'function') {
+      try {
+        serviceLoad = Promise.resolve(previousRender());
+      } catch (error) {
+        console.error('business-services-render', error);
+      }
+    }
+
+    // previousRender ينشئ واجهة الخدمات فورًا قبل أول await؛ لذلك نركّب
+    // مفتاح التبديل مباشرة ولا ننتظر الشبكة حتى لا يشعر المستخدم بتأخير.
     mount();
-    activationLoad.then(rerenderActivationContent);
+
+    const activationUiLoad = activationLoad
+      .then(function () { rerenderActivationContent(); })
+      .catch(function () { rerenderActivationContent(); });
+
+    await Promise.allSettled([serviceLoad, activationUiLoad]);
+    updateSidebarCount();
   }
 
   window.renderBusinessPage = renderBusinessWithActivation;
+
   if (window.ArafBusiness) {
     window.ArafBusiness.reloadActivations = async function () {
-      await loadRequests();
-      rerenderActivationContent();
+      try {
+        await loadRequests(true);
+      } finally {
+        rerenderActivationContent();
+      }
     };
   }
 })();
