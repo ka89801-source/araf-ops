@@ -3,3 +3,6 @@ __pycache__/
 node_modules/
 test-results/
 araf-ops-src/dist/
+.env
+.env.*
+!.env.example
