@@ -6,7 +6,7 @@ from pathlib import Path
 SOURCE = Path(__file__).resolve().parent
 JS_FILES = (
     "data.js", "core.js", "app.js", "views.js", "views2.js", "views3.js",
-    "letters.js", "lex.js",
+    "letters.js", "lex.js", "live-store.js", "live.js", "live-actions.js",
 )
 
 

@@ -4,7 +4,7 @@
 const S = {
   route: 'home', kind: 'direct', view: 'list', saved: 'all', q: '', f: {}, sort: 'new',
   entId: 'ENT-001', bizTab: 'requests', bizF: 'all', empId: null, logF: 'all', tkF: 'open',
-  scope: 'office', attAll: false, dismissed: new Set(), visited: new Set(), resetPending: true,
+  scope: 'office', attAll: false, dismissed: new Set(), visited: new Set(), resetPending: false,
 };
 const A = {};
 
@@ -33,7 +33,7 @@ function sla(r) {
   if (!isOpen(r)) return null;
   const mk = (k, from, win, l, tag, act) => ({ k, l, tag, act, win, h: hoursSince(from), over: hoursSince(from) > win, due: new Date(+from + win * 36e5) });
   if (!r.assigned_to) return mk('assign', r.created_at, SLA.assign, `إسناده لموظف خلال ${SLA.assign} ساعات من وروده`, 'إسناد', 'إسناد');
-  if (!r.contacted_at) return mk('contact', r.assigned_at || r.created_at, SLA.contact, `التواصل مع العميل خلال ${SLA.contact} ساعة من إسناده`, 'تواصل', 'فتح');
+  if (!r.contacted_at) return mk('contact', r.assigned_at || r.created_at, SLA.contact, `التواصل مع العميل خلال ${esc(SLA.contact)} ساعة من إسناده`, 'تواصل', 'فتح');
   if (r.status === 'waiting') return mk('remind', r.updated_at, SLA.remind, `تذكير العميل بالمستندات كل ${SLA.remind} ساعة`, 'متابعة', 'تذكير');
   return mk('move', r.updated_at, SLA.close, `تحريك الطلب خلال ${SLA.close} ساعة من آخر تحديث`, 'تحديث', 'فتح');
 }
@@ -49,10 +49,10 @@ const isLate = (r) => { const s = sla(r); return !!(s && s.over); };
 const payWaiting = (r) => ['pending', 'manual_pending', 'unpaid'].includes(r.payment) && isOpen(r);
 const earned = (kind) => reqList(kind).filter((r) => r.status === 'done').reduce((a, b) => a + (+b.price || 0), 0);
 const REQ = (id) => REQUESTS.find((r) => r.id === id);
-const ENT = (id) => ENTITIES.find((e) => e.id === id);
+const ENT = (id) => ENTITIES.find((e) => e.id === id) || {id, name:'منشأة غير متاحة', plan:'unknown', sub:'unknown', usage:{}};
 const custAv = (r, cls = '') => orgAv(r.customer, cls, !!r.org);
 const payBadge = (r) => `<span class="badge ${PAY[r.payment].b}">${PAY[r.payment].l}</span>`;
-const svName = (r) => SV(r.service).name;
+const svName = (r) => r.service_name || SV(r.service).name;
 
 /* ---------- الهيكل ---------- */
 function shell() {
@@ -65,7 +65,7 @@ function shell() {
       <div class="side-foot">
         <button class="nav-i" data-a="notifs">${ic('bell')}<span>الإشعارات</span><span class="cnt hot" id="navNotif">${unread}</span></button>
         <button class="nav-i" data-a="settings">${ic('sliders')}<span>الإعدادات</span></button>
-        <button class="me" data-a="meMenu">${av(ME, '', true)}<div class="who"><b>${U(ME).name}</b><small>${U(ME).role}</small></div></button>
+        <button class="me" data-a="meMenu">${av(ME, '', true)}<div class="who"><b>${esc(U(ME).name)}</b><small>${U(ME).role}</small></div></button>
       </div>
     </aside>
     <main class="main"><div class="sheet">
@@ -128,14 +128,14 @@ function skeleton() {
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">${'<div class="sk" style="height:96px"></div>'.repeat(4)}</div>
   ${'<div class="sk" style="height:52px"></div>'.repeat(6)}</div>`;
 }
-window.addEventListener('hashchange', () => { parseHash(); render(true); });
+window.addEventListener('hashchange', () => { if (!LIVE.ready) return; parseHash(); render(true); });
 
 /* ---------- الأحداث ---------- */
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-a]');
   if (!$('#pop')?.contains(e.target) && !e.target.closest('[data-a="fab"]')) closePop();
   if (!el) { if (!e.target.closest('#fab')) closeFab(); return; }
-  const fn = A[el.dataset.a]; if (fn) { e.preventDefault(); fn(el, e); }
+  const fn = A[el.dataset.a]; if (fn) { e.preventDefault(); Promise.resolve().then(() => fn(el, e)).catch(err => toast(err.message || 'تعذر إتمام الإجراء', {info:true})); }
   if (el.dataset.a !== 'fab' && !el.closest('#fabMenu')) closeFab();
 });
 document.addEventListener('contextmenu', (e) => {
@@ -143,6 +143,7 @@ document.addEventListener('contextmenu', (e) => {
   const [kind, id] = row.dataset.ctx.split(':'); CTX[kind] && openPop({ x: e.clientX + 210, y: e.clientY }, CTX[kind](id));
 });
 document.addEventListener('keydown', (e) => {
+  if (!window.ARAF_READY) return;
   const k = e.key.toLowerCase();
   if ((e.ctrlKey || e.metaKey) && k === 'k') { e.preventDefault(); return openCmd(); }
   if (e.key === 'Escape') {
@@ -164,7 +165,6 @@ A.toggleSide = () => { const a = $('#app'); if (innerWidth <= 1280) a.classList.
 A.seg = (el) => { S[el.dataset.k] = el.dataset.v; rerender(); };
 A.stop = (el, e) => e.stopPropagation();
 A.copy = (el, e) => { e.stopPropagation(); navigator.clipboard?.writeText(el.dataset.v); toast('نُسخ ' + (el.dataset.l || 'النص')); };
-A.stub = (el) => toast(el.dataset.m, { info: true });
 A.theme = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark', true);
 function setTheme(t, save) {
   document.documentElement.dataset.theme = t;
@@ -172,8 +172,6 @@ function setTheme(t, save) {
   if ($('#view') && $('#view').innerHTML) rerender();
   if (save) { try { localStorage.setItem('araf-ops-theme', t); } catch (e) {} toast(t === 'dark' ? 'الوضع الليلي' : 'الوضع النهاري', { info: true }); }
 }
-A.settings = () => toast('الإعدادات خارج نطاق هذه النسخة التجريبية', { info: true });
-A.meMenu = (el) => openPop(el, [{ h: `${U(ME).name} — ${U(ME).role}` }, { l: 'صفحتي في الفريق', ic: 'user', f: () => openMember(ME) }, { l: 'اختصارات لوحة المفاتيح', ic: 'keyboard', f: shortcuts }, { l: 'طلب تصفير عداد الطلبات', ic: 'refresh', f: resetRequests }, '-', { l: 'تسجيل الخروج', ic: 'logout', red: true, f: () => toast('هذه نسخة تجريبية؛ تسجيل الخروج غير مفعّل', { info: true }) }], { alignStart: true });
 A.mobMore = (el) => openPop(el, [['flow', 'خريطة التدفق', 'droplet'], ['team', 'الفريق', 'team'], ['activity', 'سجل النشاط', 'activity'], ['support', 'الدعم الفني', 'msg']].map(([r, l, i]) => ({ l, ic: i, f: () => go(r) })).concat(['-', { l: 'الإشعارات', ic: 'bell', f: openNotifs }]));
 window.addEventListener('resize', () => syncIndicators());
 
@@ -184,22 +182,21 @@ function attention() {
   const L = [];
   const unassigned = REQUESTS.filter((r) => !r.assigned_to && isOpen(r)).sort((a, b) => a.created_at - b.created_at);
   const over = unassigned.filter((r) => hoursSince(r.created_at) > SLA.assign);
-  if (over.length) L.push({ id: 'x1', sev: 'crit', ic: 'alert', t: `${over.length === 1 ? 'طلب واحد تجاوز' : over.length + ' طلبات تجاوزت'} مهلة الإسناد (${SLA.assign} ساعات)`, m: `الأقدم: ${over[0].customer} — ${svName(over[0])} منذ ${Math.round(hoursSince(over[0].created_at))} ساعة`, acts: [['توزيع تلقائي', 'autoAll', '', 'p'], ['عرضها', 'goFilter', 'unassigned']] });
+  if (over.length) L.push({ id: 'x1', sev: 'crit', ic: 'alert', t: `${over.length === 1 ? 'طلب واحد تجاوز' : over.length + ' طلبات تجاوزت'} مهلة الإسناد (${SLA.assign} ساعات)`, m: `الأقدم: ${over[0].customer} — ${esc(svName(over[0]))} منذ ${Math.round(hoursSince(over[0].created_at))} ساعة`, acts: [['توزيع تلقائي', 'autoAll', '', 'p'], ['عرضها', 'goFilter', 'unassigned']] });
   const noContact = REQUESTS.filter((r) => isOpen(r) && r.assigned_to && !r.contacted_at && hoursSince(r.assigned_at || r.created_at) > SLA.contact);
-  if (noContact.length) L.push({ id: 'x2', sev: 'crit', ic: 'phone', t: `${noContact.length} طلبات مسندة دون تواصل مع العميل خلال ${SLA.contact} ساعة`, m: noContact.slice(0, 2).map((r) => `${r.id.slice(-4)} لدى ${U(r.assigned_to).short}`).join('، '), acts: [['فتح الأقدم', 'openReq', noContact[0].id, 'p'], ['تذكير المسؤولين', 'remindTeam', '']] });
+  if (noContact.length) L.push({ id: 'x2', sev: 'crit', ic: 'phone', t: `${noContact.length} طلبات مسندة دون تواصل مع العميل خلال ${esc(SLA.contact)} ساعة`, m: noContact.slice(0, 2).map((r) => `${r.id.slice(-4)} لدى ${esc(U(r.assigned_to).short)}`).join('، '), acts: [['فتح الأقدم', 'openReq', noContact[0].id, 'p'], ['تذكير المسؤولين', 'remindTeam', '']] });
   const stuck = REQUESTS.filter((r) => r.status === 'waiting' && hoursSince(r.updated_at) > 96);
   if (stuck.length) L.push({ id: 'x3', sev: 'high', ic: 'clock', t: `${stuck.length} طلبات متوقفة بانتظار مستندات العميل منذ أكثر من 4 أيام`, m: stuck.map((r) => r.customer).join('، '), acts: [['تذكير العملاء', 'remindClients', '', 'p'], ['فتح الأقدم', 'openReq', stuck[0].id]] });
   const quote = REQUESTS.filter((r) => r.payment === 'pending_quote' && isOpen(r));
   if (quote.length) L.push({ id: 'x4', sev: 'high', ic: 'receipt', t: `${quote.length} طلبات توكيل بانتظار التسعير`, m: 'لا يبدأ العمل قبل إرسال عرض الأتعاب واعتماده', acts: [['تسعير الأول', 'quote', quote[0].id, 'p'], ['عرض التوكيل', 'nav', 'cases']] });
   const hi = REQUESTS.filter((r) => isOpen(r) && REPORTS['req:' + r.id]?.data.risk === 'مرتفع');
-  if (hi.length) L.push({ id: 'x9', sev: 'high', ic: 'shieldCheck', t: `الفاحص القانوني: ${hi.length === 1 ? 'طلب واحد بمخاطر مرتفعة' : hi.length + ' طلبات بمخاطر مرتفعة'}`, m: hi.slice(0, 2).map((r) => `${r.customer} — ${REPORTS['req:' + r.id].data.area}`).join('، '), acts: [['التقرير', 'lexOpenK', 'req:' + hi[0].id, 'p'], ['الطلب', 'openReq', hi[0].id]] });
+  if (hi.length) L.push({ id: 'x9', sev: 'high', ic: 'shieldCheck', t: `الفاحص القانوني: ${hi.length === 1 ? 'طلب واحد بمخاطر مرتفعة' : hi.length + ' طلبات بمخاطر مرتفعة'}`, m: hi.slice(0, 2).map((r) => `${esc(r.customer)} — ${REPORTS['req:' + r.id].data.area}`).join('، '), acts: [['التقرير', 'lexOpenK', 'req:' + hi[0].id, 'p'], ['الطلب', 'openReq', hi[0].id]] });
   const act = ACTIVATIONS.filter((a) => a.status === 'new');
   if (act.length) L.push({ id: 'x5', sev: 'med', ic: 'building', t: `${act.length === 1 ? 'طلب تفعيل منشأة جديد' : act.length + ' طلبات تفعيل منشآت جديدة'}`, m: act.map((a) => a.name).join('، '), acts: [['فتح التفعيل', 'goAct', '', 'p']] });
   const tk = TICKETS.filter((t) => t.status === 'open');
   if (tk.length) L.push({ id: 'x6', sev: 'med', ic: 'msg', t: `${tk.length} تذاكر دعم مفتوحة`, m: `الأحدث: ${tk[0].subject} — ${tk[0].customer}`, acts: [['فتح التذكرة', 'openTicket', tk[0].id, 'p'], ['كل التذاكر', 'nav', 'support']] });
   const pay = REQUESTS.filter((r) => r.payment === 'pending' && isOpen(r));
   if (pay.length) L.push({ id: 'x7', sev: 'low', ic: 'wallet', t: `${pay.length} طلبات بانتظار التحقق من الدفع`, m: 'تحقق من التحويل قبل بدء التنفيذ', acts: [['عرضها', 'goFilter', 'pay']] });
-  if (S.resetPending) L.push({ id: 'x8', sev: 'low', ic: 'refresh', t: 'طلب تصفير عداد الطلبات بانتظار موافقة مدير آخر', m: 'تقدّم به خالد العتيبي في 14 سبتمبر', acts: [['مراجعة', 'resetReview', '', 'p']] });
   return L.filter((x) => !S.dismissed.has(x.id));
 }
 function slaQueue() {
@@ -217,7 +214,7 @@ VIEWS.home = () => {
   return `
   <section class="hello" style="grid-template-columns:1fr auto;align-items:center">
     <div class="hello-id"><div class="hello-emb"><span class="emb shine" role="img" aria-label="شعار أعراف"></span><i class="orbit"></i></div>
-      <div><h1 class="h-disp">${greet}، ${U(ME).short}</h1>
+      <div><h1 class="h-disp">${greet}، ${esc(U(ME).short)}</h1>
       <p class="line">وصل اليوم <b>${todayIn} طلبات</b>، و<b>${unassigned}</b> منها بلا مسؤول${lateN ? `، و<b style="color:var(--red)">${lateN}</b> تجاوز مهلته الداخلية` : ''}. أغلق الفريق ${doneToday} طلبات حتى الآن.</p><div id="lexLive">${lexLive()}</div></div></div>
     <div class="row gap8"><button class="btn btn-s" data-a="tour">${ic('sparkle')}جولة سريعة</button><button class="btn btn-p" data-a="brief">${ic('sun')}موجز التشغيل</button></div>
   </section>
@@ -244,7 +241,7 @@ VIEWS.home = () => {
     </section>
     <section class="s5">
       <div class="sec-h"><div class="sec-t">حِمل الفريق<small>الطلبات المفتوحة مقابل طاقة كل عضو</small></div><div class="act"><button class="btn btn-sm btn-q" data-a="nav" data-to="team">التفاصيل</button></div></div>
-      ${TEAM.filter((t) => t.status === 'active').map((t) => { const l = load(t.id); return `<div class="li" data-a="member" data-id="${t.id}" style="padding:8px 6px">${av(t.id, 'sm', true)}<div class="grow"><div class="row" style="font-size:12.5px"><span class="grow">${t.short}</span><b class="num">${empOpen(t.id).length}</b></div><div class="hbar" style="height:6px;margin-top:5px"><i class="growX" style="width:${Math.min(100, l)}%;background:${l > 95 ? 'var(--red)' : l > 70 ? 'var(--gold)' : 'var(--green)'}"></i></div></div></div>`; }).join('')}
+      ${TEAM.filter((t) => t.status === 'active').map((t) => { const l = load(t.id); return `<div class="li" data-a="member" data-id="${esc(t.id)}" style="padding:8px 6px">${av(t.id, 'sm', true)}<div class="grow"><div class="row" style="font-size:12.5px"><span class="grow">${esc(t.short)}</span><b class="num">${empOpen(t.id).length}</b></div><div class="hbar" style="height:6px;margin-top:5px"><i class="growX" style="width:${Math.min(100, l)}%;background:${l > 95 ? 'var(--red)' : l > 70 ? 'var(--gold)' : 'var(--green)'}"></i></div></div></div>`; }).join('')}
       <div class="ins" style="border-top:1px solid var(--line);margin-top:8px"><div class="ic">${ic('bulb')}</div><div><p>يمكن موازنة الفريق بنقل طلبين عاديين من الأكثر ضغطًا إلى الأقل.</p><button class="btn-link" data-a="rebalance">اقتراح إعادة توزيع${ic('chevL')}</button></div></div>
     </section>
   </div>
@@ -263,20 +260,7 @@ VIEWS.home = () => {
 };
 /* وصول طلب جديد: التقرير والقُمع والمؤشرات تتحدث فورًا */
 let arrI = 0;
-function liveArrive() {
-  if (arrI >= INCOMING.length || S.route !== 'home') return;
-  const o = INCOMING[arrI++];
-  const r = R(Object.assign({ kind: 'direct', status: 'new', created_at: nowDate(), source: 'direct_services' }, o));
-  REQUESTS.unshift(r); S.lastArrival = r; log('created', `وصل طلب جديد من ${r.customer} — ${svName(r)}`); lexNew('req:' + r.id);
-  const sec = $('#pipeSec'); if (sec) { sec.innerHTML = pipeSecInner(); after(sec); $('.report')?.classList.add('flash-in'); }
-  const openAll = REQUESTS.filter(isOpen);
-  const k = $('.kpis');
-  if (k) { const nk = document.createElement('div'); nk.innerHTML = kpiStrip(REQUESTS.filter((x) => sameDay(x.created_at, TODAY)).length, openAll.filter((x) => !x.assigned_to).length, openAll.filter(isLate).length, REQUESTS.filter((x) => x.closed_at && sameDay(x.closed_at, TODAY)).length); k.replaceWith(nk.firstElementChild); after($('.kpis')); }
-  const sw = $('#slaWrap'); if (sw) { sw.innerHTML = slaPanel(); after(sw); }
-  const f = $('#feed'); if (f) { f.insertAdjacentHTML('afterbegin', logItem(LOG[0], true)); if (f.children.length > 6) f.lastElementChild.remove(); }
-  paintNav();
-  toast(`طلب جديد من ${r.customer} — ${svName(r)}`, { info: true, action: ['فتح', () => openReq(r.id)] });
-}
+function liveArrive() { return LIVE.refresh(); }
 A.attAll = () => { S.attAll = !S.attAll; rerender(); };
 
 const last7 = () => [...Array(7)].map((_, i) => new Date(+TODAY - (6 - i) * DAY));
@@ -293,7 +277,7 @@ function donut(segs, size = 150, sw = 16, inner = '') {
   return `<div class="donut" style="width:${size}px;height:${size}px"><svg width="${size}" height="${size}" style="transform:rotate(-90deg)">${arcs}</svg><div class="donut-c">${inner}</div></div>`;
 }
 function miniArea(vals, labels, w = 420, h = 116) {
-  const padB = 20, padT = 10; const mx = Math.max(...vals) * 1.15, mn = 0;
+  const padB = 20, padT = 10; const mx = Math.max(1, ...vals) * 1.15, mn = 0;
   const pts = vals.map((v, i) => [xRTL(i, vals.length, w, 8, 8), padT + (h - padT - padB) * (1 - (v - mn) / (mx - mn))]);
   const d = smooth(pts);
   let hits = ''; const step = (w - 16) / Math.max(1, vals.length - 1);
@@ -318,18 +302,18 @@ function earnHero() {
   return `<section class="earn">
     <div class="earn-glow"></div><div class="earn-mark"></div>
     <div class="earn-main">
-      <div class="earn-eyebrow">${ic('wallet', 'width="15" height="15"')}الأداء المالي — سبتمبر 2026</div>
-      <div class="earn-label">الإجمالي المكتسب</div>
+      <div class="earn-eyebrow">${ic('wallet', 'width="15" height="15"')}قيم الطلبات المسجلة</div>
+      <div class="earn-label">قيمة المكتمل والاشتراكات النشطة</div>
       <div class="earn-value">${counter(t)}<small>ر.س</small></div>
-      <div class="row gap8" style="margin-top:2px">${delta(t, prevMonth)}<span style="font-size:12.5px;color:rgba(233,230,221,.6)">مقارنة بأغسطس</span></div>
+      <div class="row gap8" style="margin-top:2px">${delta(t, prevMonth)}<span style="font-size:12.5px;color:rgba(233,230,221,.6)">مقارنة بالشهر السابق</span></div>
       <div class="earn-mini">
-        <div><span>محصّل فعليًا</span><b class="num">${fmt(d + c)}</b></div>
+        <div><span>قيمة الطلبات المكتملة</span><b class="num">${fmt(d + c)}</b></div>
         <div><span>طلبات بانتظار الدفع</span><b class="num" style="color:#E9C98B">${fmt(pend)}</b></div>
         <div><span>متكرر شهريًا</span><b class="num">${fmt(subs)}</b></div>
       </div>
     </div>
     <div class="earn-split">
-      ${donut(segs, 138, 14, `<b class="num">${Math.round((subs / t) * 100)}%</b><span>من الإيراد<br>متكرر</span>`)}
+      ${donut(segs, 138, 14, `<b class="num">${Math.round((subs / (t || 1)) * 100)}%</b><span>من الإيراد<br>متكرر</span>`)}
       <div class="earn-legend">${segs.map((s, i) => `<div><i style="background:${s.c}"></i><div><b>${s.l}</b><span class="num">${fmt(s.v)} ر.س${i === 0 ? ` — ${dn} طلبات` : i === 1 ? ` — ${cn} طلبات` : ` — ${ENTITIES.filter((e) => e.sub === 'active').length} منشآت`}</span></div></div>`).join('')}</div>
     </div>
     <div class="earn-chart">
@@ -384,18 +368,18 @@ function pipeStats() {
   const avgClose = closed.length ? Math.round(closed.reduce((a, r) => a + (r.closed_at - r.created_at) / 36e5, 0) / closed.length) : 0;
   const fastest = (() => { const m = {}; closed.filter((r) => r.status === 'done').forEach((r) => { const h = (r.closed_at - r.created_at) / 36e5; (m[r.service] = m[r.service] || []).push(h); });
     const rows = Object.entries(m).map(([k, a]) => [k, a.reduce((x, y) => x + y, 0) / a.length]).sort((a, b) => a[1] - b[1]); return rows[0]; })();
-  return { v, stalls, worst, avgClose, fastest, conv: Math.round((v[4] / v[0]) * 100), drop: Math.round(((v[0] - v[1]) / v[0]) * 100) };
+  return { v, stalls, worst, avgClose, fastest, conv: Math.round((v[4] / (v[0] || 1)) * 100), drop: Math.round(((v[0] - v[1]) / (v[0] || 1)) * 100) };
 }
 function pipeReport() {
   const s = pipeStats(); const [t, a, c, p, d] = s.v;
   const chip = (k, txt) => `<b class="rp" data-st="${k}">${txt}</b>`;
   const nw = S.lastArrival;
   return `<div class="report">
-    ${nw ? `<div class="rp-live"><span class="dot"></span><b>وصل قبل ${hHuman(hoursSince(nw.created_at))}:</b> ${nw.customer} — ${svName(nw)}${nw.kind === 'cases' ? ' (توكيل)' : ''}<button class="btn btn-sm btn-p" data-a="openReq" data-id="${nw.id}">${nw.assigned_to ? 'عرض' : 'إسناد الآن'}</button></div>` : ''}
-    <p class="rp-lead">من أصل ${chip('in', t + ' طلبًا')} وصلت هذا الشهر، وصل ${chip('done', d + ' طلبًا')} إلى الإغلاق مكتملًا — أي نسبة إتمام ${s.conv}%.</p>
+    ${nw ? `<div class="rp-live"><span class="dot"></span><b>وصل قبل ${hHuman(hoursSince(nw.created_at))}:</b> ${esc(nw.customer)} — ${esc(svName(nw))}${nw.kind === 'cases' ? ' (توكيل)' : ''}<button class="btn btn-sm btn-p" data-a="openReq" data-id="${esc(nw.id)}">${nw.assigned_to ? 'عرض' : 'إسناد الآن'}</button></div>` : ''}
+    <p class="rp-lead">من أصل ${chip('in', t + ' طلبًا')} في السجل المحمّل، وصل ${chip('done', d + ' طلبًا')} إلى الإغلاق مكتملًا — أي نسبة إتمام ${s.conv}%.</p>
     <p>أُسند ${chip('assigned', a + ' طلبًا')} إلى الفريق، وتم التواصل مع العميل في ${chip('contacted', c + ' منها')}، ودخل ${chip('progress', p + ' طلبًا')} مرحلة التنفيذ. أكبر تسرّب يحدث عند الباب الأول: ${s.drop}% من الطلبات لم تُسنَد بعد، وهي الخطوة التي تستغرق أقل من دقيقة لو فُتحت اليوم.</p>
     <p>أطول توقف في المسار عند <button class="rp-link" data-a="goStage" data-v="${s.worst.st}">«${s.worst.l}»</button>: ${s.worst.n} طلبات متوقفة منذ ${s.worst.days.toFixed(1)} يوم وسطيًا. تحريكها وحدها يرفع نسبة الإتمام أكثر من أي إجراء آخر هذا الأسبوع.</p>
-    <p class="muted" style="font-size:13px">متوسط زمن الإغلاق ${s.avgClose} ساعة لكل طلب مغلق، وأسرع مسار يمر عبر ${s.fastest ? `«${SV(s.fastest[0]).name}» بمتوسط ${Math.round(s.fastest[1])} ساعة` : 'خدمات أعراف تحقّق'}.</p>
+    <p class="muted" style="font-size:13px">متوسط زمن الإغلاق ${s.avgClose} ساعة لكل طلب مغلق، وأسرع مسار يمر عبر ${s.fastest ? `«${esc(SV(s.fastest[0]).name)}» بمتوسط ${Math.round(s.fastest[1])} ساعة` : 'خدمات أعراف تحقّق'}.</p>
     <div class="rp-stats">
       <div><b>${counter(s.conv, '', '%')}</b><span>نسبة الإتمام</span></div>
       <div><b>${counter(s.avgClose)}<small> س</small></b><span>متوسط الإغلاق</span></div>
@@ -406,13 +390,13 @@ function pipeReport() {
 }
 function funnel() {
   const s = pipeStats(); const v = s.v; const W = 360, BH = 52, GAP = 8, maxW = 300, minW = 96;
-  const w = (n) => minW + (maxW - minW) * (n / v[0]);
+  const w = (n) => minW + (maxW - minW) * (n / (v[0] || 1));
   const H = PIPE.length * (BH + GAP);
   const bands = PIPE.map((p, i) => {
     const y = i * (BH + GAP); const w1 = w(v[i]), w2 = w(v[i + 1] != null ? v[i + 1] : v[i] * 0.94);
     const pts = `${W / 2 - w1 / 2},${y} ${W / 2 + w1 / 2},${y} ${W / 2 + w2 / 2},${y + BH} ${W / 2 - w2 / 2},${y + BH}`;
-    const pct = Math.round((v[i] / v[0]) * 100);
-    const drop = i ? Math.round((v[i] / v[i - 1]) * 100) : 100;
+    const pct = Math.round((v[i] / (v[0] || 1)) * 100);
+    const drop = i ? Math.round((v[i] / (v[i - 1] || 1)) * 100) : 100;
     return `<g class="fn-band" data-st="${p.k}" data-a="goStage" data-v="${p.nav || 'new,pending'}" style="animation-delay:${i * 110}ms"
       data-tip="${esc(p.l + ': ' + v[i] + ' طلبًا (' + pct + '% من الوارد' + (i ? ' — ' + drop + '% انتقلت من المرحلة السابقة' : '') + ')')}">
       <polygon points="${pts}" fill="${isDark() ? p.d : p.c}" />
@@ -426,15 +410,15 @@ function funnel() {
 }
 function topServices() {
   const m = {}; REQUESTS.forEach((r) => { m[r.service] = (m[r.service] || 0) + 1; });
-  const rows = Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 7); const mx = rows[0][1];
-  return rows.map(([k, n], i) => `<div class="srv-row" data-a="goService" data-v="${k}"><span class="ell" style="width:150px">${SV(k).name}</span><div class="hbar grow" style="height:10px"><i class="growX" style="width:${(n / mx) * 100}%;animation-delay:${i * 60}ms;background:${SV(k).c}"></i></div><b class="num" style="width:26px;text-align:end">${n}</b></div>`).join('');
+  const rows = Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 7); const mx = rows[0]?.[1] || 1;
+  return rows.map(([k, n], i) => `<div class="srv-row" data-a="goService" data-v="${k}"><span class="ell" style="width:150px">${esc(SV(k).name)}</span><div class="hbar grow" style="height:10px"><i class="growX" style="width:${(n / mx) * 100}%;animation-delay:${i * 60}ms;background:${SV(k).c}"></i></div><b class="num" style="width:26px;text-align:end">${n}</b></div>`).join('');
 }
 
 /* ---------- جولة تعريفية ---------- */
 const TOUR = [
-  { sel: '.earn', t: 'أين يقف المكتب ماليًا', p: 'الإجمالي المكتسب هذا الشهر، موزعًا على الخدمات المباشرة وتوكيل القضايا واشتراكات المنشآت. تُحتسب الطلبات المكتملة فقط.' },
+  { sel: '.earn', t: 'أين يقف المكتب ماليًا', p: 'قيمة المكتمل والاشتراكات النشطة هذا الشهر، موزعًا على الخدمات المباشرة وتوكيل القضايا واشتراكات المنشآت. تُحتسب الطلبات المكتملة فقط.' },
   { sel: '.kpis', t: 'أربعة أرقام تكفي لبداية اليوم', p: 'كل رقم زر: اضغطه لتصل مباشرة إلى الطلبات التي يمثلها بدل البحث في الجداول.' },
-  { sel: '#lettersSec', t: 'رسائل داخلية لفريقك', p: 'أرسل رسالة لأي عضو فتصله داخل المنصة. ترى متى وصلت ومتى قُرئت، ويرد عليك في المحادثة نفسها.' },
+  { sel: '#lettersSec', t: 'رسائل داخلية لفريقك', p: 'سجّل ملاحظات الفريق في ملف الطلب لتظهر في سجله المشترك.' },
   { sel: '#pipeSec', t: 'مسار الطلبات مقروءًا ومرسومًا', p: 'التقرير يخبرك أين يتوقف العمل، والقُمع يريك كم طلبًا ينتقل من مرحلة لأخرى. اضغط أي مرحلة لفتح طلباتها.' },
   { sel: '#attList', t: 'ما يحتاج قرارك الآن', p: 'كل بند هنا له زر إجراء مباشر: توزيع، تذكير، تسعير، تفعيل. الإخفاء لا يحذف شيئًا ويمكن التراجع عنه.' },
   { sel: '.dl-panel', t: 'المهل الداخلية', p: 'إسناد خلال 4 ساعات، وتواصل خلال 24 ساعة. ما يتجاوزها يظهر هنا بالعدّاد وباللون الأحمر في الجداول.' },
@@ -463,13 +447,12 @@ function tour(i = 0) {
 function endTour(quiet) { $('#tourHole')?.remove(); $('#tourCard')?.remove(); if (!quiet) try { localStorage.setItem('araf-ops-tour', '1'); } catch (e) {} }
 A.tour = () => tour(0);
 /* تُعرض الجولة مرة واحدة لكل متصفح */
-setTimeout(() => { try { if (!localStorage.getItem('araf-ops-tour') && S.route === 'home') { localStorage.setItem('araf-ops-tour', '1'); tour(0); } } catch (e) {} }, 1800);
 A.tourGo = (el) => tour(+el.dataset.i);
 A.tourEnd = () => { endTour(); toast('يمكنك إعادة الجولة في أي وقت من زر «جولة سريعة»', { info: true }); };
 
 function attRow(a) {
-  return `<div class="att sev-${a.sev}"><div class="ic">${ic(a.ic)}</div><div><div class="t">${a.t}</div><div class="m">${a.m}</div></div>
-   <div class="acts">${a.acts.map(([l, f, id, p]) => `<button class="btn btn-sm ${p ? 'btn-p' : 'btn-s'}" data-a="${f}" data-id="${id}" data-v="${id}" data-to="${id}">${l}</button>`).join('')}<button class="btn btn-sm btn-q" data-a="dismissAtt" data-id="${a.id}" data-tip="تم — إخفاء">${ic('check')}</button></div></div>`;
+  return `<div class="att sev-${a.sev}"><div class="ic">${ic(a.ic)}</div><div><div class="t">${esc(a.t)}</div><div class="m">${esc(a.m)}</div></div>
+   <div class="acts">${a.acts.map(([l, f, id, p]) => `<button class="btn btn-sm ${p ? 'btn-p' : 'btn-s'}" data-a="${f}" data-id="${id}" data-v="${id}" data-to="${id}">${l}</button>`).join('')}<button class="btn btn-sm btn-q" data-a="dismissAtt" data-id="${esc(a.id)}" data-tip="تم — إخفاء">${ic('check')}</button></div></div>`;
 }
 function slaPanel() {
   const L = REQUESTS.filter(isOpen).map((r) => ({ r, s: sla(r) })).filter((x) => x.s).sort((a, b) => a.s.due - b.s.due);
@@ -492,20 +475,19 @@ function slaRow(x) {
   const over = x.s.over; const left = (x.s.due - nowDate()) / 36e5;
   const pct = Math.max(3, Math.min(100, (x.s.h / x.s.win) * 100));
   const act = x.s.k === 'assign' ? ['إسناد الآن', 'assign'] : x.s.k === 'remind' ? ['تذكير العميل', 'remindOne'] : ['فتح الطلب', 'openReq'];
-  return `<div class="sla-row ${over ? 'over' : left <= 6 ? 'soon' : ''}" data-a="openReq" data-id="${x.r.id}">
+  return `<div class="sla-row ${over ? 'over' : left <= 6 ? 'soon' : ''}" data-a="openReq" data-id="${esc(x.r.id)}">
     <span class="tag">${x.s.tag}</span>
     <div class="grow" style="min-width:0">
-      <b class="ell">${x.r.customer} — ${svName(x.r)}</b>
+      <b class="ell">${esc(x.r.customer)} — ${esc(svName(x.r))}</b>
       <small>${x.r.assigned_to ? U(x.r.assigned_to).short : 'بلا مسؤول'} · مضى ${hHuman(x.s.h)} · المهلة ${x.s.win} ساعة</small>
       <div class="sla-bar"><i style="width:${pct}%"></i></div>
     </div>
     <div class="sla-left">${over ? `<b>متأخر ${hHuman(x.s.h - x.s.win)}</b>` : `<b>يتبقى ${hHuman(left)}</b>`}
-      <button class="btn btn-sm ${over ? 'btn-g' : 'btn-s'}" data-a="${act[1]}" data-id="${x.r.id}">${act[0]}</button></div></div>`;
+      <button class="btn btn-sm ${over ? 'btn-g' : 'btn-s'}" data-a="${act[1]}" data-id="${esc(x.r.id)}">${act[0]}</button></div></div>`;
 }
-A.remindOne = (el, e) => { e.stopPropagation(); const r = REQ(el.dataset.id); r.updated_at = nowDate(); r.notes.push({ by: ME, at: nowDate(), text: 'أُرسل تذكير للعميل بالمستندات الناقصة.' }); rerender(); toast(`أُرسل تذكير إلى ${r.customer}`); };
 A.slaRules = (el, e) => { e.stopPropagation(); openPop(el, [{ h: 'قواعد المهل الداخلية' },
   { l: `إسناد الطلب خلال ${SLA.assign} ساعات من وروده`, ic: 'user' },
-  { l: `التواصل مع العميل خلال ${SLA.contact} ساعة من الإسناد`, ic: 'phone' },
+  { l: `التواصل مع العميل خلال ${esc(SLA.contact)} ساعة من الإسناد`, ic: 'phone' },
   { l: `تحريك الطلب خلال ${SLA.close} ساعة من آخر تحديث`, ic: 'refresh' },
   { l: `تذكير العميل كل ${SLA.remind} ساعة إذا كان الطلب بانتظار مستنداته`, ic: 'clock' },
   '-', { h: 'لا تُحتسب المهل على الطلبات المغلقة أو الملغاة' }]); };
@@ -514,7 +496,7 @@ const LOG_IC = { created: 'inbox', assigned: 'user', status: 'refresh', note: 'p
 function logItem(f, isNew) {
   const u = f.by ? U(f.by) : null;
   const avh = u ? av(f.by) : `<span class="av" style="--c:var(--gold-dk)">${ic(LOG_IC[f.type] || 'activity', 'width="14" height="14"')}</span>`;
-  return `<div class="fi ${isNew ? 'new' : ''}">${avh}<div><p>${u ? `<b>${u.short}</b> ` : ''}${f.text}</p><time>${ago(f.at)}</time></div></div>`;
+  return `<div class="fi ${isNew ? 'new' : ''}">${avh}<div><p>${u ? `<b>${esc(u.short)}</b> ` : ''}${esc(f.text)}</p><time>${ago(f.at)}</time></div></div>`;
 }
 
 /* الديناميكيات الحية */
@@ -538,15 +520,6 @@ HOOKS.push((root) => {
     x.onmouseenter = () => { const b = $(`.fn-band[data-st="${x.dataset.st}"]`); if (!b) return; $('.funnel').classList.add('dim'); b.classList.add('hl'); };
     x.onmouseleave = () => { $('.funnel')?.classList.remove('dim'); $$('.fn-band.hl').forEach((b) => b.classList.remove('hl')); };
   });
-  if ($('#pipeSec', root)) { clearInterval(window._arr); window._arr = setInterval(liveArrive, 24000); timers.push(window._arr); }
-  if ($('#feed', root) && S.route === 'home') {
-    let i = 0;
-    timers.push(setInterval(() => {
-      const f = $('#feed'); if (!f || i >= LIVE_EVENTS.length) return;
-      const ev = { ...LIVE_EVENTS[i++], at: nowDate() }; LOG.unshift(ev);
-      f.insertAdjacentHTML('afterbegin', logItem(ev, true)); if (f.children.length > 6) f.lastElementChild.remove();
-    }, 34000));
-  }
 });
 A.dismissAtt = (el, e) => { e.stopPropagation(); const id = el.dataset.id; S.dismissed.add(id); const row = el.closest('.att'); row.classList.add('collapse-out'); setTimeout(() => { row.remove(); const n = attention().length; $('#attCount') && ($('#attCount').textContent = `${n} ${n > 10 ? 'بندًا' : 'بنود'}`); if (!n) $('#attList').innerHTML = empty('لا شيء عالق', 'كل الطلبات مسندة وضمن مهلها.'); }, 450); toast('أُخفي من قائمة التدخل', { undo: () => { S.dismissed.delete(id); rerender(); } }); };
 A.goStage = (el) => { const v = el.dataset.v; S.f = { status: v }; S.saved = 'all'; S.kind = 'direct'; go('requests'); };
@@ -559,8 +532,8 @@ A.brief = () => openDrawer(() => {
   const byEmp = TEAM.filter((t) => t.status === 'active').map((t) => ({ t, n: empOpen(t.id).length, late: empOpen(t.id).filter(isLate).length }));
   return { head: `<div class="muted" style="font-size:12px">${wd(TODAY)}، ${dmy(TODAY)} — ${hijri(TODAY)}</div><h2 class="h-disp h2">موجز التشغيل</h2>`,
     body: `<div class="next-step" style="margin-bottom:18px"><div class="ic">${ic('alert')}</div><div><div class="lbl">أهم ما في اليوم</div><div class="t">${att[0] ? att[0].t : 'لا شيء عالق'}</div><div class="m">${att[0] ? att[0].m : ''}</div></div></div>
-    <div class="dsec" style="margin-top:0"><h4>${ic('clock', 'width="15" height="15"')}أقرب المهل</h4>${q.map((x) => `<div class="li" data-a="openReq" data-id="${x.r.id}"><div class="ic">${ic(x.s.k === 'assign' ? 'user' : x.s.k === 'contact' ? 'phone' : 'refresh')}</div><div class="grow"><div class="t">${x.r.customer} — ${svName(x.r)}</div><div class="m">${x.s.l}</div></div><span class="badge ${x.s.over ? 'b-red' : 'b-gold'}">${x.s.over ? 'متأخر' : rel(x.s.due)}</span></div>`).join('')}</div>
-    <div class="dsec"><h4>${ic('team', 'width="15" height="15"')}الفريق اليوم</h4>${byEmp.map(({ t, n, late }) => `<div class="li" data-a="member" data-id="${t.id}">${av(t.id, '', true)}<div class="grow"><div class="t">${t.name}</div><div class="m">${n} طلبات مفتوحة${late ? ` — ${late} تجاوزت المهلة` : ''}</div></div></div>`).join('')}</div>
-    <div class="dsec"><h4>${ic('building', 'width="15" height="15"')}المنشآت</h4><p style="font-size:13px;line-height:1.8;color:var(--ink-2)">${BIZ_REQUESTS.filter((b) => b.status === 'new').length} طلبات منشآت جديدة، و${ACTIVATIONS.filter((a) => a.status !== 'activated' && a.status !== 'closed').length} طلبات تفعيل قيد المعالجة. اشتراك شركة طيف اللوجستية في مهلة سداد.</p></div>`,
-    foot: `<button class="btn btn-p" data-a="drClose">ابدأ اليوم</button><span class="muted" style="font-size:12px;margin-inline-start:auto">يُحدَّث الموجز كل صباح 7:00</span>` };
+    <div class="dsec" style="margin-top:0"><h4>${ic('clock', 'width="15" height="15"')}أقرب المهل</h4>${q.map((x) => `<div class="li" data-a="openReq" data-id="${esc(x.r.id)}"><div class="ic">${ic(x.s.k === 'assign' ? 'user' : x.s.k === 'contact' ? 'phone' : 'refresh')}</div><div class="grow"><div class="t">${esc(x.r.customer)} — ${esc(svName(x.r))}</div><div class="m">${x.s.l}</div></div><span class="badge ${x.s.over ? 'b-red' : 'b-gold'}">${x.s.over ? 'متأخر' : rel(x.s.due)}</span></div>`).join('')}</div>
+    <div class="dsec"><h4>${ic('team', 'width="15" height="15"')}الفريق اليوم</h4>${byEmp.map(({ t, n, late }) => `<div class="li" data-a="member" data-id="${esc(t.id)}">${av(t.id, '', true)}<div class="grow"><div class="t">${esc(t.name)}</div><div class="m">${n} طلبات مفتوحة${late ? ` — ${late} تجاوزت المهلة` : ''}</div></div></div>`).join('')}</div>
+    <div class="dsec"><h4>${ic('building', 'width="15" height="15"')}المنشآت</h4><p style="font-size:13px;line-height:1.8;color:var(--ink-2)">${BIZ_REQUESTS.filter((b) => b.status === 'new').length} طلبات منشآت جديدة، و${ACTIVATIONS.filter((a) => a.status !== 'activated' && a.status !== 'closed').length} طلبات تفعيل قيد المعالجة. </p></div>`,
+    foot: `<button class="btn btn-p" data-a="drClose">ابدأ اليوم</button><span class="muted" style="font-size:12px;margin-inline-start:auto">يُحدّث عند مزامنة البيانات</span>` };
 });

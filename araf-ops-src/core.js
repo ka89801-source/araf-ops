@@ -8,24 +8,24 @@ const fmt = (n) => Math.round(n).toLocaleString('en-US');
 const sar = (n) => `<span class="ltr num">SAR ${fmt(n)}</span>`;
 const sarK = (n) => `<span class="ltr num">SAR ${n >= 1e6 ? (n / 1e6).toFixed(2).replace(/\.?0+$/, '') + 'M' : n >= 1000 ? Math.round(n / 1000) + 'K' : n}</span>`;
 const byId = (arr, id) => arr.find((x) => x.id === id);
-const U = (id) => byId(TEAM, id) || { id: 'sys', name: 'النظام', short: 'النظام', ini: 'ن', c: '#97773C', role: '' };
+const U = (id) => byId(TEAM, id) || { id: id || 'sys', name: id ? 'عضو غير متاح' : 'النظام', short: id ? 'عضو غير متاح' : 'النظام', ini: 'ن', c: '#97773C', role: '', skills: [], cap: 12 };
 const norm = (s) => String(s || '').replace(/[أإآا]/g, 'ا').replace(/ة/g, 'ه').replace(/ى/g, 'ي').replace(/[ًٌٍَُِّْـ]/g, '').toLowerCase();
 
 /* ---------- Dates ---------- */
 const DAY = 864e5;
-const sod = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const sod = (d) => d ? new Date(d.getFullYear(), d.getMonth(), d.getDate()) : new Date(0);
 const dayDiff = (a, b = TODAY) => Math.round((sod(a) - sod(b)) / DAY);
-const sameDay = (a, b) => sod(a).getTime() === sod(b).getTime();
+const sameDay = (a, b) => !!a && !!b && sod(a).getTime() === sod(b).getTime();
 const MONTH_AR = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 const WEEK_AR = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 const fH = new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' });
 /* كل تاريخ مكتوب يُتبع برقم الشهر بين قوسين */
-const dm = (d) => `${d.getDate()} ${MONTH_AR[d.getMonth()]} (${d.getMonth() + 1})`;
-const dmy = (d) => `${d.getDate()} ${MONTH_AR[d.getMonth()]} ${d.getFullYear()} (${d.getDate()}/${d.getMonth() + 1})`;
-const dNum = (d) => `${d.getDate()}/${d.getMonth() + 1}`;
-const wd = (d) => WEEK_AR[d.getDay()];
+const dm = (d) => !d ? '—' : `${d.getDate()} ${MONTH_AR[d.getMonth()]} (${d.getMonth() + 1})`;
+const dmy = (d) => !d ? '—' : `${d.getDate()} ${MONTH_AR[d.getMonth()]} ${d.getFullYear()} (${d.getDate()}/${d.getMonth() + 1})`;
+const dNum = (d) => !d ? '—' : `${d.getDate()}/${d.getMonth() + 1}`;
+const wd = (d) => !d ? '—' : WEEK_AR[d.getDay()];
 const hijri = (d) => fH.format(d).replace(' هـ', '') + ' هـ';
-const hm = (d) => { let h = d.getHours(), m = d.getMinutes(); const p = h < 12 ? 'ص' : 'م'; h = h % 12 || 12; return `<span class="ltr num">${h}:${String(m).padStart(2, '0')}</span> ${p}`; };
+const hm = (d) => { if (!d) return '—'; let h = d.getHours(), m = d.getMinutes(); const p = h < 12 ? 'ص' : 'م'; h = h % 12 || 12; return `<span class="ltr num">${h}:${String(m).padStart(2, '0')}</span> ${p}`; };
 const hm24 = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 const hasTime = (d) => d && (d.getHours() || d.getMinutes());
 function plural(n, one, two, few, many) {
@@ -35,6 +35,7 @@ function plural(n, one, two, few, many) {
 const pDays = (n) => plural(n, 'يوم', 'يومين', 'أيام', 'يومًا');
 const pHours = (n) => plural(n, 'ساعة', 'ساعتين', 'ساعات', 'ساعة');
 function rel(d) {
+  if (!d) return 'غير محدد';
   const n = dayDiff(d);
   if (n === 0) return 'اليوم'; if (n === 1) return 'غدًا'; if (n === -1) return 'أمس';
   if (n === 2) return 'بعد غد';
@@ -42,18 +43,15 @@ function rel(d) {
   return -n <= 30 ? `منذ ${pDays(-n)}` : dm(d);
 }
 function ago(d) {
+  if (!d) return 'غير متاح';
   const now = nowDate(); const mins = Math.round((now - d) / 6e4);
   if (mins < 1) return 'الآن'; if (mins < 60) return mins <= 2 ? 'قبل دقيقة' : `قبل ${mins} دقيقة`;
   const h = Math.round(mins / 60); if (h < 24 && sameDay(d, now)) return `قبل ${pHours(h)}`;
   if (dayDiff(d) === -1) return 'أمس ' + hm(d);
   return rel(d);
 }
-/* The demo is anchored to 16 Sep 2026; the time-of-day follows the real clock during working hours. */
-function nowDate() {
-  const r = new Date(); let h = r.getHours(), m = r.getMinutes();
-  if (h < 8 || h >= 18) { h = 11; m = 24; }
-  return new Date(2026, 8, 16, h, m, r.getSeconds());
-}
+/* Actual local clock, also used for live deadlines. */
+function nowDate() { return new Date(); }
 
 /* ---------- Icons ---------- */
 const IC = {
@@ -135,11 +133,11 @@ const ic = (n, s = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentC
 const LOGO = `<svg viewBox="0 0 40 40" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6v28M13 34h14M8 11h24M20 8.5v.01"/><path d="M8 11 4 21a5 5 0 0 0 8 0z M32 11l-4 10a5 5 0 0 0 8 0z"/></svg>`;
 
 /* ---------- Small components ---------- */
-const av = (uid, cls = '', pres = false) => { const u = U(uid); return `<span class="av ${cls}" style="--c:${u.c}" data-tip="${esc(u.name)}${u.role ? '<br><b>' + esc(u.role) + '</b>' : ''}">${u.ini}${pres && u.pres !== undefined ? `<span class="pres ${u.pres}"></span>` : ''}</span>`; };
+const av = (uid, cls = '', pres = false) => { const u = U(uid); return `<span class="av ${cls}" style="--c:${u.c}" data-tip="${esc(u.name)}${u.role ? '<br><b>' + esc(u.role) + '</b>' : ''}">${esc(u.ini)}${pres && u.pres !== undefined ? `<span class="pres ${u.pres}"></span>` : ''}</span>`; };
 const avs = (ids, cls = 'sm') => `<span class="avs">${ids.map((i) => av(i, cls)).join('')}</span>`;
 const stBadge = (s) => `<span class="st" style="--c:${ST[s] ? ST[s].c : 'var(--faint)'}">${ST[s] ? ST[s].l : s}</span>`;
 const priBadge = (p) => `<span class="badge ${PRI[p].b}">${PRI[p].l}</span>`;
-const orgAv = (name, cls = '', org = true) => `<span class="av ${cls}" style="--c:${org ? '#1B3A4B' : '#97773C'};border-radius:${org ? '10px' : '50%'}">${String(name || '?').replace(/^(شركة|مؤسسة|مجموعة|جمعية)\s+/, '').trim()[0]}</span>`;
+const orgAv = (name, cls = '', org = true) => `<span class="av ${cls}" style="--c:${org ? '#1B3A4B' : '#97773C'};border-radius:${org ? '10px' : '50%'}">${esc(String(name || '?').replace(/^(شركة|مؤسسة|مجموعة|جمعية)\s+/, '').trim()[0])}</span>`;
 const delta = (cur, prev, invert = false) => { if (!prev) return ''; const p = Math.round(((cur - prev) / prev) * 100); const good = invert ? p < 0 : p > 0; const cls = p === 0 ? 'flat' : good ? 'up' : 'dn'; return `<span class="delta ${cls}">${p > 0 ? ic('up') : p < 0 ? ic('down') : ''}${Math.abs(p)}%</span>`; };
 const counter = (n, pre = '', suf = '', dec = 0) => `<span class="num" data-count="${n}" data-dec="${dec}" data-pre="${esc(pre)}" data-suf="${esc(suf)}">${pre}${dec ? (0).toFixed(dec) : 0}${suf}</span>`;
 const emptyArt = (kind = 'folder') => `<svg class="art" width="96" height="72" viewBox="0 0 96 72" fill="none"><rect x="18" y="14" width="60" height="46" rx="8" fill="#F6EFE1"/><rect x="26" y="8" width="44" height="46" rx="6" fill="#fff" stroke="#EAD9B6"/><path d="M34 20h28M34 28h20M34 36h24" stroke="#C9A96E" stroke-width="2.4" stroke-linecap="round" opacity=".7"/><circle cx="70" cy="52" r="11" fill="#1B3A4B"/><path d="M66 52h8M70 48v8" stroke="#C9A96E" stroke-width="2.2" stroke-linecap="round"/></svg>`;
@@ -148,7 +146,7 @@ const empty = (title, text, btn = '', act = '') => `<div class="empty">${emptyAr
 /* ---------- Toast ---------- */
 function toast(msg, { undo, action, info } = {}) {
   const box = $('#toasts'); const el = document.createElement('div'); el.className = 'toast';
-  el.innerHTML = `<span class="ic ${info ? 'info' : ''}">${ic(info ? 'bell' : 'check')}</span><span>${msg}</span>${undo ? '<button data-u>تراجع</button>' : ''}${action ? `<button data-x>${action[0]}</button>` : ''}`;
+  el.innerHTML = `<span class="ic ${info ? 'info' : ''}">${ic(info ? 'bell' : 'check')}</span><span>${esc(msg)}</span>${undo ? '<button data-u>تراجع</button>' : ''}${action ? `<button data-x>${action[0]}</button>` : ''}`;
   box.appendChild(el);
   const kill = () => { el.classList.add('out'); setTimeout(() => el.remove(), 260); };
   const t = setTimeout(kill, 4200);
@@ -189,15 +187,15 @@ function closeModal() { const w = $('#modal'); w.classList.remove('show'); setTi
 function openPop(anchorOrXY, items, opts = {}) {
   closePop();
   const p = document.createElement('div'); p.className = 'pop'; p.id = 'pop';
-  p.innerHTML = items.map((it) => it === '-' ? '<div class="msep"></div>' : it.h ? `<div class="mh">${it.h}</div>` :
-    `<button class="mi ${it.red ? 'red' : ''}" data-i="${items.indexOf(it)}">${it.ic ? ic(it.ic) : ''}<span>${it.l}</span>${it.k ? `<span class="k">${it.k}</span>` : ''}${it.on ? `<span class="k" style="color:var(--green)">${ic('check', 'width="14" height="14"')}</span>` : ''}</button>`).join('');
+  p.innerHTML = items.map((it) => it === '-' ? '<div class="msep"></div>' : it.h ? `<div class="mh">${esc(it.h)}</div>` :
+    `<button class="mi ${it.red ? 'red' : ''}" data-i="${items.indexOf(it)}">${it.ic ? ic(it.ic) : ''}<span>${esc(it.l)}</span>${it.k ? `<span class="k">${it.k}</span>` : ''}${it.on ? `<span class="k" style="color:var(--green)">${ic('check', 'width="14" height="14"')}</span>` : ''}</button>`).join('');
   document.body.appendChild(p);
   let x, y;
   if (anchorOrXY.nodeType) { const r = anchorOrXY.getBoundingClientRect(); x = r.right - p.offsetWidth; y = r.bottom + 6; if (opts.alignStart) x = r.left; }
   else { x = anchorOrXY.x - p.offsetWidth; y = anchorOrXY.y; }
   x = Math.max(8, Math.min(x, innerWidth - p.offsetWidth - 8)); if (y + p.offsetHeight > innerHeight - 8) y = Math.max(8, y - p.offsetHeight - 40);
   p.style.left = x + 'px'; p.style.top = y + 'px';
-  p.onclick = (e) => { const b = e.target.closest('[data-i]'); if (!b) return; const it = items[+b.dataset.i]; closePop(); it.f && it.f(); };
+  p.onclick = (e) => { const b = e.target.closest('[data-i]'); if (!b) return; const it = items[+b.dataset.i]; closePop(); if (it.f) Promise.resolve().then(it.f).catch(e => toast(e.message || 'تعذر إتمام الإجراء', {info:true})); };
 }
 function closePop() { $('#pop')?.remove(); }
 
@@ -208,7 +206,7 @@ document.addEventListener('mouseover', (e) => {
   if (t) {
     clearTimeout(tipT);
     tipT = setTimeout(() => {
-      tipEl.innerHTML = t.dataset.tip; tipEl.classList.add('show');
+      tipEl.textContent = t.dataset.tip.replace(/<br>|<\/?b>/g, ' '); tipEl.classList.add('show');
       const r = t.getBoundingClientRect(); const w = tipEl.offsetWidth, h = tipEl.offsetHeight;
       let x = r.left + r.width / 2 - w / 2, y = r.top - h - 8; if (y < 6) y = r.bottom + 8;
       tipEl.style.left = Math.max(6, Math.min(x, innerWidth - w - 6)) + 'px'; tipEl.style.top = y + 'px';
@@ -259,7 +257,7 @@ function smooth(pts) {
 function lineChart({ series, labels, w = 640, h = 220, yFmt = (v) => v, max, bars }) {
   const padL = 36, padR = 8, padT = 14, padB = 26; const n = labels.length;
   const all = series.flatMap((s) => s.values).concat(bars ? bars.values : []);
-  const mx = max || Math.ceil(Math.max(...all) * 1.12 / 10) * 10; const ih = h - padT - padB;
+  const mx = max || Math.ceil(Math.max(1, ...all) * 1.12 / 10) * 10; const ih = h - padT - padB;
   const y = (v) => padT + ih - (v / mx) * ih;
   let g = '';
   for (let k = 0; k <= 4; k++) { const v = (mx / 4) * k; g += `<line class="gridl" x1="${padL}" x2="${w - padR}" y1="${y(v)}" y2="${y(v)}"/><text class="axis" x="${padL - 6}" y="${y(v) + 3.5}" text-anchor="end" direction="ltr">${yFmt(v)}</text>`; }
@@ -275,11 +273,11 @@ function lineChart({ series, labels, w = 640, h = 220, yFmt = (v) => v, max, bar
     if (!s.dash) pts.forEach((p, i) => { lines += `<circle cx="${p[0]}" cy="${p[1]}" r="${i === pts.length - 1 ? 4 : 0}" fill="#fff" stroke="${s.color}" stroke-width="2"/>`; });
   });
   let hits = ''; const step = (w - padL - padR - 28) / Math.max(1, n - 1);
-  labels.forEach((l, i) => { const x = xRTL(i, n, w, padL + 14, padR + 14); const tip = `<b>${l}</b><br>` + series.map((s) => s.values[i] != null ? `${s.name}: ${yFmt(s.values[i], true)}` : '').filter(Boolean).join('<br>') + (bars && bars.values[i] != null ? `<br>${bars.name}: ${yFmt(bars.values[i], true)}` : ''); hits += `<rect class="hit" x="${x - step / 2}" y="${padT}" width="${step}" height="${ih}" data-tip="${esc(tip)}"/>`; });
+  labels.forEach((l, i) => { const x = xRTL(i, n, w, padL + 14, padR + 14); const tip = `<b>${l}</b><br>` + series.map((s) => s.values[i] != null ? `${esc(s.name)}: ${yFmt(s.values[i], true)}` : '').filter(Boolean).join('<br>') + (bars && bars.values[i] != null ? `<br>${esc(bars.name)}: ${yFmt(bars.values[i], true)}` : ''); hits += `<rect class="hit" x="${x - step / 2}" y="${padT}" width="${step}" height="${ih}" data-tip="${esc(tip)}"/>`; });
   return `<div class="chart-box"><svg viewBox="0 0 ${w} ${h}">${g}${bar}${lines}${hits}</svg></div>`;
 }
 function groupBars({ groups, labels, w = 640, h = 200, colors }) {
-  const padL = 28, padR = 6, padT = 10, padB = 26; const n = labels.length; const mx = Math.ceil(Math.max(...groups.flat()) * 1.15);
+  const padL = 28, padR = 6, padT = 10, padB = 26; const n = labels.length; const mx = Math.ceil(Math.max(1, ...groups.flat()) * 1.15);
   const ih = h - padT - padB; const y = (v) => padT + ih - (v / mx) * ih; const slot = (w - padL - padR) / n; const bw = Math.min(14, slot / (groups.length + 1.4));
   let s = '';
   for (let k = 0; k <= 3; k++) { const v = Math.round((mx / 3) * k); s += `<line class="gridl" x1="${padL}" x2="${w - padR}" y1="${y(v)}" y2="${y(v)}"/><text class="axis" x="${padL - 6}" y="${y(v) + 3.5}" text-anchor="end">${v}</text>`; }

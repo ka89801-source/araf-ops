@@ -27,7 +27,7 @@ const FKEYS = FL.map((c) => Object.keys(c.nodes));
 const RANGES = [['today', 'اليوم'], ['week', 'آخر 7 أيام'], ['month', 'هذا الشهر'], ['all', 'الكل']];
 S.flowRange = 'all';
 function flowItems() {
-  const from = { today: sod(TODAY), week: new Date(+TODAY - 6 * DAY), month: new Date(2026, 8, 1), all: new Date(2000, 0, 1) }[S.flowRange];
+  const from = { today: sod(TODAY), week: new Date(+TODAY - 6 * DAY), month: new Date(TODAY.getFullYear(), TODAY.getMonth(), 1), all: new Date(2000, 0, 1) }[S.flowRange];
   const it = [];
   REQUESTS.forEach((r) => {
     if (r.created_at < from) return;
@@ -168,8 +168,8 @@ function flowWaffle() {
   const counts = {}; REQUESTS.forEach((r) => { counts[r.service] = (counts[r.service] || 0) + 1; });
   const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6).map((x) => x[0]);
   const sorted = REQUESTS.slice().sort((a, b) => (top.indexOf(a.service) + 99) % 99 - (top.indexOf(b.service) + 99) % 99);
-  return `<div><div class="waffle" style="grid-template-columns:repeat(10,1fr)">${sorted.map((r, i) => `<i style="background:${top.includes(r.service) ? SV(r.service).c : 'var(--faint)'};animation-delay:${i * 14}ms" data-a="openReq" data-id="${r.id}" data-tip="${esc(r.customer + ' — ' + svName(r))}"></i>`).join('')}</div>
-    <div class="legend" style="margin-top:14px">${top.map((k) => `<span><i style="--c:${SV(k).c}"></i>${SV(k).name} (${counts[k]})</span>`).join('')}<span><i style="--c:var(--faint)"></i>خدمات أخرى</span></div></div>`;
+  return `<div><div class="waffle" style="grid-template-columns:repeat(10,1fr)">${sorted.map((r, i) => `<i style="background:${top.includes(r.service) ? SV(r.service).c : 'var(--faint)'};animation-delay:${i * 14}ms" data-a="openReq" data-id="${esc(r.id)}" data-tip="${esc(r.customer + ' — ' + svName(r))}"></i>`).join('')}</div>
+    <div class="legend" style="margin-top:14px">${top.map((k) => `<span><i style="--c:${SV(k).c}"></i>${esc(SV(k).name)} (${counts[k]})</span>`).join('')}<span><i style="--c:var(--faint)"></i>خدمات أخرى</span></div></div>`;
 }
 function flowSpeed() {
   const closed = REQUESTS.filter((r) => r.closed_at && r.assigned_at && r.contacted_at);
