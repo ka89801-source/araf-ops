@@ -46,6 +46,19 @@ svg{display:block;flex-shrink:0}
 ::-webkit-scrollbar-thumb:hover{background-color:rgba(27,58,75,.26)}
 
 /* ---------- App shell ---------- */
+.welcome-screen{min-height:100vh;min-height:100dvh;display:grid;place-items:center;position:relative;overflow:auto;padding:48px 24px 80px;text-align:center;background:radial-gradient(ellipse at 50% 42%,#fff 0%,#F7F6F1 55%,var(--canvas) 100%)}
+.welcome-content{width:min(100%,440px);display:flex;flex-direction:column;align-items:center;animation:welcomeIn .7s var(--ease-out) both}
+.welcome-logo{object-fit:contain;margin-bottom:26px;filter:drop-shadow(0 8px 18px rgba(151,119,60,.14))}
+.welcome-eyebrow{color:var(--gold-dk);font-size:12px;margin-bottom:9px}
+.welcome-content h1{font-family:var(--f-disp);font-size:clamp(30px,5vw,40px);font-weight:600;line-height:1.55;color:var(--navy)}
+.welcome-status{font-size:14px;color:var(--mute);margin-top:10px;line-height:1.9;overflow-wrap:anywhere}
+.welcome-progress{display:block;width:90px;height:3px;margin-top:28px;border-radius:8px;overflow:hidden;background:var(--gold-soft)}
+.welcome-progress i{display:block;height:100%;width:40%;background:var(--gold-dk);border-radius:inherit;animation:welcomeProgress 1.6s ease-in-out infinite alternate}
+.welcome-signature{position:absolute;bottom:max(26px,env(safe-area-inset-bottom));inset-inline:24px;color:var(--mute);font-size:11px}
+.welcome-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:24px}
+@keyframes welcomeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes welcomeProgress{from{transform:translateX(0)}to{transform:translateX(-150%)}}
+@media(prefers-reduced-motion:reduce){.welcome-content,.welcome-progress i{animation:none}.welcome-progress i{width:100%}}
 .app{display:grid;grid-template-columns:var(--side) 1fr;height:100vh;transition:grid-template-columns .35s var(--ease-out)}
 .app.collapsed{--side:76px}
 .side{display:flex;flex-direction:column;padding:18px 14px 14px;gap:4px;min-width:0;overflow:hidden}
@@ -1477,6 +1490,16 @@ button[aria-busy=true]{cursor:progress;opacity:.7}
 </style>
 </head>
 <body>
+<main class="welcome-screen" id="welcomeScreen" dir="rtl" aria-labelledby="welcomeTitle" aria-busy="true">
+  <div class="welcome-content">
+    <img class="welcome-logo" src="data:image/png;base64,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" width="72" height="72" alt="أعراف">
+    <p class="welcome-eyebrow">مركز العمليات</p>
+    <h1 id="welcomeTitle">أهلًا بك في أعراف</h1>
+    <p class="welcome-status" role="status">جارٍ تجهيز منصة أعراف</p>
+    <span class="welcome-progress" aria-hidden="true"><i></i></span>
+  </div>
+  <span class="welcome-signature" aria-hidden="true">أعراف للمحامين والمستشارين</span>
+</main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
 <script>/* ==========================================================
@@ -2661,6 +2684,7 @@ function openReq(id, push) { DR.reqId = id; openDrawer(() => reqPanel(id), { wid
 /* ---------- الإسناد ---------- */
 A.assign = (el, e) => {
   e?.stopPropagation(); const r = REQ(el.dataset.id); let pick = r.assigned_to;
+  const verification = livePrepareVerification();
   const emps = TEAM.filter((t) => t.status === 'active').map((t) => ({ t, n: empOpen(t.id).length, l: load(t.id) })).sort((a, b) => a.l - b.l);
   const body = () => `<p style="font-size:13px;color:var(--ink-2);margin-bottom:14px">مرتبة من الأقل ضغطًا إلى الأكثر. النسبة تقارن الطلبات المفتوحة بطاقة كل موظف.</p>
     <div class="assign-list">${emps.map(({ t, n, l }) => `<button class="assign-i ${pick === t.id ? 'on' : ''}" data-a="pickEmp" data-id="${esc(t.id)}">${av(t.id, 'lg', true)}
@@ -2672,7 +2696,7 @@ A.assign = (el, e) => {
     <div class="m-b" id="assignBody">${body()}</div>
     <div class="m-f"><button class="btn btn-q" data-a="mClose">إلغاء</button><button class="btn btn-g" data-a="autoAssign" data-id="${esc(r.id)}">${ic('sparkle')}توزيع تلقائي</button><button class="btn btn-p" data-a="doAssign" data-id="${esc(r.id)}">تأكيد الإسناد</button></div>`, 'lg');
   A.pickEmp = (b) => { pick = b.dataset.id; $('#assignBody').innerHTML = body(); };
-  A.doAssign = (b) => { if (!pick) return toast('اختر موظفًا أولًا', { info: true }); return assignTo(b.dataset.id, pick); };
+  A.doAssign = (b) => { if (!pick) return toast('اختر موظفًا أولًا', { info: true }); return assignTo(b.dataset.id, pick, verification); };
 };
 
 /* ---------- تغيير الحالة والإغلاق والتسعير ---------- */
@@ -3381,7 +3405,7 @@ A.lexToNote=el=>{const key=el.dataset.k;return LIVE.run('request:'+key.slice(4),
       return rows;
     }
     async requests() {
-      const filter = this.user.role === 'admin' ? {} : { assigned_to: this.user.id };
+      const filter = ['admin', 'manager'].includes(this.user.role) ? {} : { assigned_to: this.user.id };
       return this.all('service_requests', filter);
     }
     async audit(id, action, description) {
@@ -3392,7 +3416,8 @@ A.lexToNote=el=>{const key=el.dataset.k;return LIVE.run('request:'+key.slice(4),
     async patchRequest(id, changes, action = 'status_change', description = 'تحديث الطلب', options = {}) {
       this.requireUser(); const row = this.rows[id];
       if (!row) throw new Error('حدّث القائمة ثم أعد المحاولة');
-      if (this.user.role !== 'admin' && row.assigned_to !== this.user.id) throw new Error('الطلب غير مسند إليك');
+      if (!['admin', 'manager'].includes(this.user.role) && row.assigned_to !== this.user.id) throw new Error('الطلب غير مسند إليك');
+      if (['assigned_to','assigned_by','assigned_at'].some(key => Object.hasOwn(changes, key))) this.requireUser(true);
       const allowed = new Set(['status','priority','price','payment_status','assigned_to','assigned_by','assigned_at',
         'contacted_at','closed_at','closed_by','closing_note','notes','case_current_stage','case_last_session_summary',
         'case_sessions_count','case_next_action','case_next_session_at','case_followup_updated_at','case_followup_updated_by','case_followup_updated_by_name']);
@@ -3402,10 +3427,32 @@ A.lexToNote=el=>{const key=el.dataset.k;return LIVE.run('request:'+key.slice(4),
       q = row.updated_at ? q.eq('updated_at', row.updated_at) : q.is('updated_at', null);
       const { data, error } = await q.select('*').maybeSingle();
       if (error) throw new Error(error.message || 'تعذر حفظ التغيير');
-      if (!data) throw new Error('تغيّر الطلب أو لم تُمنح صلاحية الحفظ. حدّث القائمة ثم أعد المحاولة.');
+      if (!data) { const conflict = new Error('تغيّر الطلب أو لم تُمنح صلاحية الحفظ. حدّث القائمة ثم أعد المحاولة.'); conflict.code = 'REQUEST_CONFLICT'; throw conflict; }
       this.rows[id] = data;
       const audit = this.audit(id, action, description).catch(() => 'حُفظ التغيير، لكن تعذر تسجيل النشاط');
       return options.deferAudit ? { data, audit } : { data, warning: await audit };
+    }
+    async assignRequest(id, employeeId) {
+      this.requireUser(true);
+      const original = this.rows[id];
+      if (!original || !employeeId) throw new Error('تعذر العثور على الطلب أو الموظف؛ حدّث القائمة');
+      const save = () => this.patchRequest(id, {
+        assigned_to: employeeId, assigned_by: this.user.id, assigned_at: new Date().toISOString(),
+        ...(['new','pending'].includes(this.rows[id].status) ? { status: 'assigned' } : {})
+      }, 'assign', 'إسناد الطلب', { deferAudit: true });
+      try { return await save(); }
+      catch (error) {
+        if (error.code !== 'REQUEST_CONFLICT') throw error;
+        const { data: latest, error: readError } = await this.db.from('service_requests').select('*').eq('id', id).maybeSingle();
+        if (readError || !latest) throw error;
+        // Retry once only when unrelated fields changed. A competing assignment
+        // or status change must be reviewed, never silently overwritten.
+        if (['assigned_to','assigned_by','assigned_at','status'].some(key => (latest[key] ?? null) !== (original[key] ?? null))) {
+          throw new Error('تغيّر إسناد الطلب أو حالته لدى مستخدم آخر. حدّث القائمة وراجع الطلب قبل الإسناد.');
+        }
+        this.rows[id] = latest;
+        return save();
+      }
     }
     async addNote(id, text) {
       if (!text.trim()) throw new Error('اكتب الملاحظة');
@@ -3589,7 +3636,6 @@ function livePaintStatus() {
   banner.innerHTML=`<span>${failed.length ? 'تعذر تحديث: '+failed.map(k=>names[k]).join('، ')+' — آخر بيانات متاحة قد تكون قديمة' : 'متصل ببيانات المنصة الحالية'}</span><button class="btn btn-sm btn-s" data-a="refreshLive">تحديث</button>`;
 }
 async function bootLive() {
-  document.body.innerHTML='<main dir="rtl" style="padding:48px;font-family:sans-serif"><h2>جارٍ تحميل منصة أعراف…</h2></main>';
   try {
     if(!window.sb || !window.opsAuth) throw new Error('تعذر تحميل اتصال Supabase');
     LIVE.store=new window.ArafLiveStore(window.sb,window.opsAuth,liveApi);
@@ -3605,7 +3651,11 @@ async function bootLive() {
     window.opsAuth.auth.onAuthStateChange((event)=>{ if(event==='SIGNED_OUT'){LIVE.ready=false;window.ARAF_READY=false;location.replace('login.html');} });
   } catch(e) {
     if(e.status===401 || e.status===403){location.replace('login.html');return;}
-    document.body.innerHTML=`<main dir="rtl" style="padding:48px;font-family:sans-serif"><h2>تعذر تحميل المنصة</h2><p>${esc(e.message)}</p><button onclick="location.reload()">إعادة المحاولة</button> <a href="login.html">تسجيل الدخول</a></main>`;
+    document.body.innerHTML=`<main class="welcome-screen" dir="rtl" aria-labelledby="welcomeTitle"><div class="welcome-content">
+      <img class="welcome-logo" src="${EMBLEM}" width="72" height="72" alt="أعراف">
+      <h1 id="welcomeTitle">تعذر تجهيز المنصة</h1><p class="welcome-status" role="alert">${esc(e.message)}</p>
+      <div class="welcome-actions"><button class="btn btn-p" onclick="location.reload()">إعادة المحاولة</button><a class="btn btn-s" href="login.html">تسجيل الدخول</a></div>
+    </div></main>`;
   }
 }
 A.refreshLive=()=>LIVE.refresh();
@@ -3619,12 +3669,20 @@ function liveBusy(button, label='جارٍ الحفظ…') {
   if(button){button.setAttribute('aria-busy','true');button.innerHTML=ic('clock')+esc(label);}
   return ()=>{saved.forEach(([el,disabled])=>el.disabled=disabled);if(button){button.removeAttribute('aria-busy');button.innerHTML=html;}};
 }
+function livePrepareVerification() {
+  const verification={startedAt:Date.now(),promise:LIVE.store.verify()};
+  // Opening a modal starts verification; a failure is shown when saving.
+  verification.promise.catch(()=>{});
+  return verification;
+}
 LIVE.run = async function(key, task, message='حُفظ التغيير', options={}) {
   if(LIVE.pending.has(key)) return;
   LIVE.pending.add(key);
   const resetBusy=liveBusy(options.button || $('#modal.show [data-a="liveSave"]') || $('#modal.show [data-a="doAssign"]'),options.busyLabel);
   try {
-    await LIVE.store.verify();
+    const verification=options.verification;
+    if(verification && Date.now()-verification.startedAt<15000) await verification.promise;
+    else await LIVE.store.verify();
     if (LIVE.store.user.id !== ME) throw new Error('تغير الحساب؛ أعد تحميل الصفحة');
     const result=await task();
     const requestSaved=key.startsWith('request:') && result?.data?.id;
@@ -3658,14 +3716,12 @@ function statusChanges(row,status) {
 function setStatus(id,status) {
   return LIVE.run('request:'+id,()=>LIVE.store.patchRequest(id,statusChanges(LIVE.store.rows[id],status)));
 };
-function assignTo(id,emp) {
+function assignTo(id,emp,verification) {
   return LIVE.run('request:'+id,()=>{
     LIVE.store.requireUser(true);
     if(!TEAM.some(t=>t.id===emp && t.status==='active'))throw new Error('اختر موظفًا نشطًا');
-    const row=LIVE.store.rows[id],now=new Date().toISOString();
-    return LIVE.store.patchRequest(id,{assigned_to:emp,assigned_by:ME,assigned_at:now,
-      ...(['new','pending'].includes(row.status)?{status:'assigned'}:{})},'assign','إسناد الطلب',{deferAudit:true});
-  },'حُفظ إسناد الطلب');
+    return LIVE.store.assignRequest(id,emp);
+  },'حُفظ إسناد الطلب',{verification});
 };
 A.autoAssign=el=>{
   const best=TEAM.filter(t=>t.status==='active').sort((a,b)=>load(a.id)-load(b.id))[0];
@@ -3732,7 +3788,7 @@ A.qaSave=el=>LIVE.run('create:'+el.dataset.k,async()=>{
   }
   if(k==='emp'){
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val('qEmail')))throw new Error('أدخل بريدًا صحيحًا');
-    return LIVE.store.insert('employees',{id:crypto.randomUUID(),full_name:val('qName'),name:val('qName'),email:val('qEmail'),phone:val('qPhone'),role:val('qRole'),status:'active',created_at:now},true);
+    return LIVE.store.insert('employees',{id:crypto.randomUUID(),full_name:val('qName'),email:val('qEmail'),phone:val('qPhone'),role:val('qRole'),status:'active',created_at:now},true);
   }
   if(k==='ticket'){
     if(!val('qPhone') || !val('qDet'))throw new Error('أدخل الجوال ونص الرسالة');

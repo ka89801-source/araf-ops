@@ -7,12 +7,20 @@ function liveBusy(button, label='جارٍ الحفظ…') {
   if(button){button.setAttribute('aria-busy','true');button.innerHTML=ic('clock')+esc(label);}
   return ()=>{saved.forEach(([el,disabled])=>el.disabled=disabled);if(button){button.removeAttribute('aria-busy');button.innerHTML=html;}};
 }
+function livePrepareVerification() {
+  const verification={startedAt:Date.now(),promise:LIVE.store.verify()};
+  // Opening a modal starts verification; a failure is shown when saving.
+  verification.promise.catch(()=>{});
+  return verification;
+}
 LIVE.run = async function(key, task, message='حُفظ التغيير', options={}) {
   if(LIVE.pending.has(key)) return;
   LIVE.pending.add(key);
   const resetBusy=liveBusy(options.button || $('#modal.show [data-a="liveSave"]') || $('#modal.show [data-a="doAssign"]'),options.busyLabel);
   try {
-    await LIVE.store.verify();
+    const verification=options.verification;
+    if(verification && Date.now()-verification.startedAt<15000) await verification.promise;
+    else await LIVE.store.verify();
     if (LIVE.store.user.id !== ME) throw new Error('تغير الحساب؛ أعد تحميل الصفحة');
     const result=await task();
     const requestSaved=key.startsWith('request:') && result?.data?.id;
@@ -46,14 +54,12 @@ function statusChanges(row,status) {
 function setStatus(id,status) {
   return LIVE.run('request:'+id,()=>LIVE.store.patchRequest(id,statusChanges(LIVE.store.rows[id],status)));
 };
-function assignTo(id,emp) {
+function assignTo(id,emp,verification) {
   return LIVE.run('request:'+id,()=>{
     LIVE.store.requireUser(true);
     if(!TEAM.some(t=>t.id===emp && t.status==='active'))throw new Error('اختر موظفًا نشطًا');
-    const row=LIVE.store.rows[id],now=new Date().toISOString();
-    return LIVE.store.patchRequest(id,{assigned_to:emp,assigned_by:ME,assigned_at:now,
-      ...(['new','pending'].includes(row.status)?{status:'assigned'}:{})},'assign','إسناد الطلب',{deferAudit:true});
-  },'حُفظ إسناد الطلب');
+    return LIVE.store.assignRequest(id,emp);
+  },'حُفظ إسناد الطلب',{verification});
 };
 A.autoAssign=el=>{
   const best=TEAM.filter(t=>t.status==='active').sort((a,b)=>load(a.id)-load(b.id))[0];
@@ -120,7 +126,7 @@ A.qaSave=el=>LIVE.run('create:'+el.dataset.k,async()=>{
   }
   if(k==='emp'){
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val('qEmail')))throw new Error('أدخل بريدًا صحيحًا');
-    return LIVE.store.insert('employees',{id:crypto.randomUUID(),full_name:val('qName'),name:val('qName'),email:val('qEmail'),phone:val('qPhone'),role:val('qRole'),status:'active',created_at:now},true);
+    return LIVE.store.insert('employees',{id:crypto.randomUUID(),full_name:val('qName'),email:val('qEmail'),phone:val('qPhone'),role:val('qRole'),status:'active',created_at:now},true);
   }
   if(k==='ticket'){
     if(!val('qPhone') || !val('qDet'))throw new Error('أدخل الجوال ونص الرسالة');

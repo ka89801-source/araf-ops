@@ -36,6 +36,19 @@ svg{display:block;flex-shrink:0}
 ::-webkit-scrollbar-thumb:hover{background-color:rgba(27,58,75,.26)}
 
 /* ---------- App shell ---------- */
+.welcome-screen{min-height:100vh;min-height:100dvh;display:grid;place-items:center;position:relative;overflow:auto;padding:48px 24px 80px;text-align:center;background:radial-gradient(ellipse at 50% 42%,#fff 0%,#F7F6F1 55%,var(--canvas) 100%)}
+.welcome-content{width:min(100%,440px);display:flex;flex-direction:column;align-items:center;animation:welcomeIn .7s var(--ease-out) both}
+.welcome-logo{object-fit:contain;margin-bottom:26px;filter:drop-shadow(0 8px 18px rgba(151,119,60,.14))}
+.welcome-eyebrow{color:var(--gold-dk);font-size:12px;margin-bottom:9px}
+.welcome-content h1{font-family:var(--f-disp);font-size:clamp(30px,5vw,40px);font-weight:600;line-height:1.55;color:var(--navy)}
+.welcome-status{font-size:14px;color:var(--mute);margin-top:10px;line-height:1.9;overflow-wrap:anywhere}
+.welcome-progress{display:block;width:90px;height:3px;margin-top:28px;border-radius:8px;overflow:hidden;background:var(--gold-soft)}
+.welcome-progress i{display:block;height:100%;width:40%;background:var(--gold-dk);border-radius:inherit;animation:welcomeProgress 1.6s ease-in-out infinite alternate}
+.welcome-signature{position:absolute;bottom:max(26px,env(safe-area-inset-bottom));inset-inline:24px;color:var(--mute);font-size:11px}
+.welcome-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:24px}
+@keyframes welcomeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes welcomeProgress{from{transform:translateX(0)}to{transform:translateX(-150%)}}
+@media(prefers-reduced-motion:reduce){.welcome-content,.welcome-progress i{animation:none}.welcome-progress i{width:100%}}
 .app{display:grid;grid-template-columns:var(--side) 1fr;height:100vh;transition:grid-template-columns .35s var(--ease-out)}
 .app.collapsed{--side:76px}
 .side{display:flex;flex-direction:column;padding:18px 14px 14px;gap:4px;min-width:0;overflow:hidden}

@@ -117,7 +117,6 @@ function livePaintStatus() {
   banner.innerHTML=`<span>${failed.length ? 'تعذر تحديث: '+failed.map(k=>names[k]).join('، ')+' — آخر بيانات متاحة قد تكون قديمة' : 'متصل ببيانات المنصة الحالية'}</span><button class="btn btn-sm btn-s" data-a="refreshLive">تحديث</button>`;
 }
 async function bootLive() {
-  document.body.innerHTML='<main dir="rtl" style="padding:48px;font-family:sans-serif"><h2>جارٍ تحميل منصة أعراف…</h2></main>';
   try {
     if(!window.sb || !window.opsAuth) throw new Error('تعذر تحميل اتصال Supabase');
     LIVE.store=new window.ArafLiveStore(window.sb,window.opsAuth,liveApi);
@@ -133,7 +132,11 @@ async function bootLive() {
     window.opsAuth.auth.onAuthStateChange((event)=>{ if(event==='SIGNED_OUT'){LIVE.ready=false;window.ARAF_READY=false;location.replace('login.html');} });
   } catch(e) {
     if(e.status===401 || e.status===403){location.replace('login.html');return;}
-    document.body.innerHTML=`<main dir="rtl" style="padding:48px;font-family:sans-serif"><h2>تعذر تحميل المنصة</h2><p>${esc(e.message)}</p><button onclick="location.reload()">إعادة المحاولة</button> <a href="login.html">تسجيل الدخول</a></main>`;
+    document.body.innerHTML=`<main class="welcome-screen" dir="rtl" aria-labelledby="welcomeTitle"><div class="welcome-content">
+      <img class="welcome-logo" src="${EMBLEM}" width="72" height="72" alt="أعراف">
+      <h1 id="welcomeTitle">تعذر تجهيز المنصة</h1><p class="welcome-status" role="alert">${esc(e.message)}</p>
+      <div class="welcome-actions"><button class="btn btn-p" onclick="location.reload()">إعادة المحاولة</button><a class="btn btn-s" href="login.html">تسجيل الدخول</a></div>
+    </div></main>`;
   }
 }
 A.refreshLive=()=>LIVE.refresh();

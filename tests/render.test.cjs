@@ -40,6 +40,25 @@ test('failed save restores controls and leaves the request unchanged',async()=>{
  await vm.runInContext(`LIVE.run('request:r',async()=>{throw new Error('denied')},'saved',{button})`,c);
  assert.equal(c.button.disabled,false);assert.equal(vm.runInContext('REQ("r").status',c),'new');assert.deepEqual(c.toasts,['denied']);
 });
+test('assignment reuses verification begun in its modal; expired verification is refreshed',async()=>{
+ const c=actionContext();c.verifies=0;c.saves=0;
+ vm.runInContext(`LIVE.store.verify=async()=>{verifies++;return LIVE.store.user};LIVE.refresh=async()=>{};globalThis.verification=livePrepareVerification();`,c);
+ await vm.runInContext(`LIVE.run('request:r',async()=>{saves++;return {data:{id:'r',status:'assigned'}}},'saved',{verification})`,c);
+ assert.equal(c.verifies,1);assert.equal(c.saves,1);
+ vm.runInContext('verification.startedAt=Date.now()-16000',c);
+ await vm.runInContext(`LIVE.run('request:r',async()=>{saves++;return {data:{id:'r',status:'assigned'}}},'saved',{verification})`,c);
+ assert.equal(c.verifies,2);assert.equal(c.saves,2);
+});
+test('failed verification and double clicks never dispatch duplicate assignment saves',async()=>{
+ const c=actionContext();c.saves=0;
+ vm.runInContext(`LIVE.store.verify=async()=>{throw new Error('expired session')};globalThis.verification=livePrepareVerification()`,c);
+ await vm.runInContext(`LIVE.run('request:r',async()=>{saves++},'saved',{verification})`,c);
+ assert.equal(c.saves,0);assert.deepEqual(c.toasts,['expired session']);
+ let finish;c.pending=new Promise(resolve=>finish=resolve);vm.runInContext(`LIVE.store.verify=()=>pending;LIVE.refresh=async()=>{}`,c);
+ const first=vm.runInContext(`LIVE.run('request:r',async()=>{saves++;return {data:{id:'r',status:'assigned'}}})`,c);
+ await vm.runInContext(`LIVE.run('request:r',async()=>{saves++})`,c);assert.equal(c.saves,0);
+ finish();await first;assert.equal(c.saves,1);
+});
 test('refresh started before a saved mutation cannot replace its confirmed row',async()=>{
  const c=actionContext();let finish;c.oldRows=new Promise(resolve=>finish=resolve);
  vm.runInContext(`LIVE.store={user:{id:'e1'},all:async()=>[],requests:()=>oldRows,messages:async()=>[]};liveApi=async()=>({entities:[],requests:[]});REQUESTS.push(mapRequest({id:'r',status:'new'}));`,c);
