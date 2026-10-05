@@ -206,6 +206,7 @@ function openReq(id, push) { DR.reqId = id; openDrawer(() => reqPanel(id), { wid
 /* ---------- الإسناد ---------- */
 A.assign = (el, e) => {
   e?.stopPropagation(); const r = REQ(el.dataset.id); let pick = r.assigned_to;
+  const verification = livePrepareVerification();
   const emps = TEAM.filter((t) => t.status === 'active').map((t) => ({ t, n: empOpen(t.id).length, l: load(t.id) })).sort((a, b) => a.l - b.l);
   const body = () => `<p style="font-size:13px;color:var(--ink-2);margin-bottom:14px">مرتبة من الأقل ضغطًا إلى الأكثر. النسبة تقارن الطلبات المفتوحة بطاقة كل موظف.</p>
     <div class="assign-list">${emps.map(({ t, n, l }) => `<button class="assign-i ${pick === t.id ? 'on' : ''}" data-a="pickEmp" data-id="${esc(t.id)}">${av(t.id, 'lg', true)}
@@ -217,7 +218,7 @@ A.assign = (el, e) => {
     <div class="m-b" id="assignBody">${body()}</div>
     <div class="m-f"><button class="btn btn-q" data-a="mClose">إلغاء</button><button class="btn btn-g" data-a="autoAssign" data-id="${esc(r.id)}">${ic('sparkle')}توزيع تلقائي</button><button class="btn btn-p" data-a="doAssign" data-id="${esc(r.id)}">تأكيد الإسناد</button></div>`, 'lg');
   A.pickEmp = (b) => { pick = b.dataset.id; $('#assignBody').innerHTML = body(); };
-  A.doAssign = (b) => { if (!pick) return toast('اختر موظفًا أولًا', { info: true }); return assignTo(b.dataset.id, pick); };
+  A.doAssign = (b) => { if (!pick) return toast('اختر موظفًا أولًا', { info: true }); return assignTo(b.dataset.id, pick, verification); };
 };
 
 /* ---------- تغيير الحالة والإغلاق والتسعير ---------- */

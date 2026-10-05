@@ -68,7 +68,7 @@ begin
     or p_body is null or char_length(btrim(p_body)) not between 1 and 4000 then
     raise exception 'بيانات الرسالة غير صالحة';
   end if;
-  select coalesce(nullif(e.full_name,''),nullif(e.name,''),e.email)
+  select coalesce(nullif(e.full_name,''),e.email)
   into recipient_name from public.employees e
   where e.id::text=p_recipient and e.status='active';
   if recipient_name is null then

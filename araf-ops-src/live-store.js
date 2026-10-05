@@ -27,7 +27,7 @@
       return rows;
     }
     async requests() {
-      const filter = this.user.role === 'admin' ? {} : { assigned_to: this.user.id };
+      const filter = ['admin', 'manager'].includes(this.user.role) ? {} : { assigned_to: this.user.id };
       return this.all('service_requests', filter);
     }
     async audit(id, action, description) {
@@ -38,7 +38,8 @@
     async patchRequest(id, changes, action = 'status_change', description = 'تحديث الطلب', options = {}) {
       this.requireUser(); const row = this.rows[id];
       if (!row) throw new Error('حدّث القائمة ثم أعد المحاولة');
-      if (this.user.role !== 'admin' && row.assigned_to !== this.user.id) throw new Error('الطلب غير مسند إليك');
+      if (!['admin', 'manager'].includes(this.user.role) && row.assigned_to !== this.user.id) throw new Error('الطلب غير مسند إليك');
+      if (['assigned_to','assigned_by','assigned_at'].some(key => Object.hasOwn(changes, key))) this.requireUser(true);
       const allowed = new Set(['status','priority','price','payment_status','assigned_to','assigned_by','assigned_at',
         'contacted_at','closed_at','closed_by','closing_note','notes','case_current_stage','case_last_session_summary',
         'case_sessions_count','case_next_action','case_next_session_at','case_followup_updated_at','case_followup_updated_by','case_followup_updated_by_name']);
@@ -48,10 +49,32 @@
       q = row.updated_at ? q.eq('updated_at', row.updated_at) : q.is('updated_at', null);
       const { data, error } = await q.select('*').maybeSingle();
       if (error) throw new Error(error.message || 'تعذر حفظ التغيير');
-      if (!data) throw new Error('تغيّر الطلب أو لم تُمنح صلاحية الحفظ. حدّث القائمة ثم أعد المحاولة.');
+      if (!data) { const conflict = new Error('تغيّر الطلب أو لم تُمنح صلاحية الحفظ. حدّث القائمة ثم أعد المحاولة.'); conflict.code = 'REQUEST_CONFLICT'; throw conflict; }
       this.rows[id] = data;
       const audit = this.audit(id, action, description).catch(() => 'حُفظ التغيير، لكن تعذر تسجيل النشاط');
       return options.deferAudit ? { data, audit } : { data, warning: await audit };
+    }
+    async assignRequest(id, employeeId) {
+      this.requireUser(true);
+      const original = this.rows[id];
+      if (!original || !employeeId) throw new Error('تعذر العثور على الطلب أو الموظف؛ حدّث القائمة');
+      const save = () => this.patchRequest(id, {
+        assigned_to: employeeId, assigned_by: this.user.id, assigned_at: new Date().toISOString(),
+        ...(['new','pending'].includes(this.rows[id].status) ? { status: 'assigned' } : {})
+      }, 'assign', 'إسناد الطلب', { deferAudit: true });
+      try { return await save(); }
+      catch (error) {
+        if (error.code !== 'REQUEST_CONFLICT') throw error;
+        const { data: latest, error: readError } = await this.db.from('service_requests').select('*').eq('id', id).maybeSingle();
+        if (readError || !latest) throw error;
+        // Retry once only when unrelated fields changed. A competing assignment
+        // or status change must be reviewed, never silently overwritten.
+        if (['assigned_to','assigned_by','assigned_at','status'].some(key => (latest[key] ?? null) !== (original[key] ?? null))) {
+          throw new Error('تغيّر إسناد الطلب أو حالته لدى مستخدم آخر. حدّث القائمة وراجع الطلب قبل الإسناد.');
+        }
+        this.rows[id] = latest;
+        return save();
+      }
     }
     async addNote(id, text) {
       if (!text.trim()) throw new Error('اكتب الملاحظة');

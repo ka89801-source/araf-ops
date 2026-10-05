@@ -11,6 +11,7 @@ const F='10000000-0000-4000-8000-000000000002';
 const R='20000000-0000-4000-8000-000000000001';
 const AR='20000000-0000-4000-8000-000000000002';
 const stamp='2026-10-01T00:00:00Z';
+const repair=fs.readFileSync(path.join(__dirname,'../../supabase/ops-v2-fix-messages-20261005.sql'),'utf8');
 const migration=fs.readFileSync(path.join(__dirname,'../../supabase/ops-v2-features.sql'),'utf8');
 test('v2 SQL against local PostgreSQL only',async t=>{
   const db=new PGlite();
@@ -20,7 +21,7 @@ test('v2 SQL against local PostgreSQL only',async t=>{
     create schema auth;
     create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
     create table public.business_admins(auth_user_id uuid primary key,employee_external_id text,display_name text,admin_role text,active boolean);
-    create table public.employees(id text primary key,full_name text,name text,email text,status text);
+    create table public.employees(id text primary key,full_name text,email text,status text);
     create table public.business_entities(id uuid primary key,code text unique,updated_at timestamptz,subscription_status text);
     create table public.business_requests(id uuid primary key,entity_id uuid references public.business_entities(id),archived_at timestamptz);
     create table public.business_usage(id uuid primary key,entity_id uuid references public.business_entities(id),request_id uuid references public.business_requests(id));
@@ -28,7 +29,7 @@ test('v2 SQL against local PostgreSQL only',async t=>{
     create table public.business_activation_requests(id uuid primary key,entity_code text,metadata jsonb);
     create table public.business_email_notifications(id uuid primary key,event_type text,reference_id uuid);
     insert into public.business_admins values('${A}','e1','Admin','admin',true),('${B}','e2','Employee','employee',true),('${C}','e3','Manager','manager',true);
-    insert into public.employees values('e1','Admin','Admin','a@example.test','active'),('e2','Employee','Employee','b@example.test','active'),('e3','Manager','Manager','c@example.test','active');
+    insert into public.employees values('e1','Admin','a@example.test','active'),('e2','Employee','b@example.test','active'),('e3','Manager','c@example.test','active');
     insert into public.business_entities values('${E}','TEST-1','${stamp}','active'),('${F}','TEST-2','${stamp}','active');
     insert into public.business_requests values('${R}','${E}',null),('${AR}','${E}','${stamp}'),('20000000-0000-4000-8000-000000000003','${F}',null);
     insert into public.business_usage values(gen_random_uuid(),'${E}','${R}'),(gen_random_uuid(),'${E}','${AR}'),(gen_random_uuid(),'${F}','20000000-0000-4000-8000-000000000003');
@@ -60,6 +61,17 @@ test('v2 SQL against local PostgreSQL only',async t=>{
     await assert.rejects(send(A,undefined,'Changed body'),/تغيّر محتوى/);
     const list=uid=>call(uid,'select public.ops_v2_list_messages() as result');
     assert.equal((await list(A)).length,1);assert.equal((await list(B)).length,1);assert.equal((await list(C)).length,0);
+  });
+  await t.test('repair fixes the reported missing column on an installed database without losing messages',async()=>{
+    const fn=migration.slice(migration.indexOf('create or replace function public.ops_v2_send_message('),migration.indexOf('create or replace function public.ops_v2_read_message'));
+    await db.exec(fn.replace("coalesce(nullif(e.full_name,''),e.email)","coalesce(nullif(e.full_name,''),nullif(e.name,''),e.email)"));
+    await assert.rejects(send(A),/column e.name does not exist/);
+    await db.exec(repair);await db.exec(repair);
+    assert.equal((await send(A)).id,message.id);
+    assert.equal((await send(A)).to_name,'Employee');
+    assert.equal((await call(B,'select public.ops_v2_list_messages() as result'))[0].body,'Private message');
+    assert.deepEqual(await originalCounts(),before);
+    await assert.rejects(call(null,'select public.ops_v2_send_message(null,null,null,false,null)',[],'anon'),/permission denied/);
   });
   await t.test('only the recipient can acknowledge a message',async()=>{
     await assert.rejects(call(C,'select public.ops_v2_read_message($1) as result',[message.id]),/غير متاحة/);

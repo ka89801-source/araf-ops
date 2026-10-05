@@ -12,6 +12,38 @@ function store(db){const s=new LiveStore(db,null,async()=>({ok:true,user:{id:'au
 test('session is verified by existing API, not editable local storage',async()=>{const s=store(mockDB(()=>({})));assert.equal((await s.verify()).id,'e1');s.api=async()=>({ok:true,admin:{active:false},user:{id:'a'}});await assert.rejects(s.verify());});
 test('loads every page beyond Supabase default cap',async()=>{const db=mockDB(op=>({data:Array.from({length:op.range[0]<1000?500:201},(_,i)=>({id:op.range[0]+i}))}));const rows=await store(db).all('service_requests');assert.equal(rows.length,1201);assert.deepEqual(db.calls.map(c=>c.range),[[0,499],[500,999],[1000,1499]]);});
 test('employee scope uses the original assigned_to filter',async()=>{const db=mockDB(()=>({data:[]})),s=store(db);s.user={id:'e2',role:'employee'};await s.requests();assert.deepEqual(db.calls[0].filters,[['eq','assigned_to','e2']]);});
+test('manager can see and assign unassigned requests with the verified role',async()=>{
+ const db=mockDB(op=>op.update?{data:{id:'r1',...op.update[0]}}:{data:[]}),s=store(db);
+ s.user={id:'e3',role:'manager'};await s.requests();assert.deepEqual(db.calls[0].filters,[]);
+ s.rows.r1={id:'r1',status:'new',assigned_to:null,updated_at:'old'};
+ const result=await s.assignRequest('r1','e2');assert.equal(result.data.assigned_to,'e2');assert.equal(result.data.assigned_by,'e3');assert.equal(result.data.status,'assigned');
+});
+test('employee cannot reassign their own request or access another employee request',async()=>{
+ const db=mockDB(()=>({})),s=store(db);s.user={id:'e2',role:'employee'};s.rows.r1={id:'r1',assigned_to:'e2'};
+ await assert.rejects(s.assignRequest('r1','e3'),/للإدارة/);
+ await assert.rejects(s.patchRequest('r1',{assigned_to:'e3'}),/للإدارة/);
+ s.rows.r1.assigned_to='e3';await assert.rejects(s.patchRequest('r1',{status:'done'}),/غير مسند/);assert.equal(db.calls.length,0);
+});
+test('assignment tolerates an unrelated concurrent edit, preserving the newer notes',async()=>{
+ let writes=0;const latest={id:'r1',status:'new',assigned_to:null,updated_at:'newer',notes:[{text:'Concurrent note'}]};
+ const db=mockDB(op=>op.table==='request_activity_log'?{}:!op.update?{data:latest}:++writes===1?{data:null}:{data:{...latest,...op.update[0]}}),s=store(db);
+ s.rows.r1={id:'r1',status:'new',assigned_to:null,updated_at:'old',notes:[]};const result=await s.assignRequest('r1','e2');
+ assert.equal(writes,2);assert.equal(result.data.notes[0].text,'Concurrent note');assert.equal(result.data.assigned_to,'e2');
+ assert.deepEqual(db.calls[2].filters,[['eq','id','r1'],['eq','updated_at','newer']]);assert.equal(db.calls[2].update[0].notes,undefined);
+});
+test('assignment does not overwrite a competing assignment or state change',async()=>{
+ for(const latest of [{assigned_to:'e3'},{status:'done'},{assigned_at:'new-assignment'}]){
+  const db=mockDB(op=>op.update?{data:null}:{data:{id:'r1',status:'new',assigned_to:null,updated_at:'newer',...latest}}),s=store(db);
+  s.rows.r1={id:'r1',status:'new',assigned_to:null,updated_at:'old'};
+  await assert.rejects(s.assignRequest('r1','e2'),/تغيّر إسناد الطلب أو حالته/);assert.equal(db.calls.filter(c=>c.update).length,1);
+ }
+});
+test('assignment does not retry denied writes, and retries version conflicts at most once',async()=>{
+ const denied=mockDB(()=>({error:{message:'denied'}})),s=store(denied);s.rows.r1={id:'r1',status:'new'};
+ await assert.rejects(s.assignRequest('r1','e2'),/denied/);assert.equal(denied.calls.length,1);
+ const conflict=mockDB(op=>op.update?{data:null}:{data:{id:'r1',status:'new',updated_at:'newer'}});s.db=conflict;
+ await assert.rejects(s.assignRequest('r1','e2'),/تغيّر الطلب/);assert.equal(conflict.calls.filter(c=>c.update).length,2);
+});
 test('successful write uses original fields, existing version, then audit',async()=>{const db=mockDB(op=>op.table==='request_activity_log'?{}:{data:{id:'r1',updated_at:'new',status:'done'}}),s=store(db);s.rows.r1={id:'r1',updated_at:'old'};await s.patchRequest('r1',{status:'done',closed_by:'e1'});assert.deepEqual(db.calls[0].filters,[['eq','id','r1'],['eq','updated_at','old']]);assert.equal(s.rows.r1.status,'done');assert.equal(db.calls[1].table,'request_activity_log');});
 test('RLS/permission error never updates the displayed store',async()=>{const db=mockDB(()=>({error:{message:'denied'}})),s=store(db);s.rows.r1={id:'r1',status:'new',updated_at:'old'};await assert.rejects(s.patchRequest('r1',{status:'done'}),/denied/);assert.equal(s.rows.r1.status,'new');assert.equal(db.calls.length,1);});
 test('concurrent update returns conflict instead of overwriting notes',async()=>{const s=store(mockDB(()=>({data:null})));s.rows.r1={id:'r1',notes:[{text:'first'}],updated_at:'old'};await assert.rejects(s.addNote('r1','second'),/تغيّر/);assert.equal(s.rows.r1.notes.length,1);});
