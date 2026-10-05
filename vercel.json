@@ -1,0 +1,3 @@
+{
+  "functions": { "api/legal-check.js": { "maxDuration": 120 }, "api/ops/[route].js": { "maxDuration": 60 } }
+}

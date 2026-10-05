@@ -1,0 +1,6 @@
+{
+  "name": "araf-ops-v2-database-tests",
+  "private": true,
+  "scripts": {"test": "node --test schema.test.cjs"},
+  "devDependencies": {"@electric-sql/pglite": "0.5.8"}
+}
