@@ -36,6 +36,18 @@ svg{display:block;flex-shrink:0}
 ::-webkit-scrollbar-thumb:hover{background-color:rgba(27,58,75,.26)}
 
 /* ---------- App shell ---------- */
+.legal-auto{border:1px solid var(--gold-soft);background:linear-gradient(115deg,var(--sheet),var(--gold-bg));margin-bottom:18px}
+.legal-caption{font-size:12px;line-height:1.9;margin:12px 0}
+.legal-review-note{padding:14px 16px;border-radius:12px;background:var(--gold-bg);color:var(--ink-2);font-size:12px;line-height:1.9;margin-bottom:22px}
+.legal-report-text{overflow-wrap:anywhere;font-size:14px;line-height:2.05;color:var(--ink)}
+.legal-report-text h3{font-size:17px;color:var(--navy);margin:24px 0 10px}.legal-report-text h4{font-size:14px;margin:16px 0 8px}
+.legal-report-text p{margin:0 0 12px}.legal-report-text ul,.legal-report-text ol{padding-inline-start:24px;margin:10px 0 18px}
+.legal-report-text li{margin-bottom:6px}.legal-source{gap:10px;overflow-wrap:anywhere}.legal-source svg{width:16px;height:16px}
+.legal-report-text a{color:var(--gold-dk);text-decoration:underline;text-underline-offset:3px}
+.legal-query{padding:14px;border:1px solid var(--line-2);border-radius:12px;margin-top:18px;font-size:12px;color:var(--mute)}
+.legal-query summary{cursor:pointer;color:var(--ink-2)}.legal-query p{white-space:pre-wrap;line-height:1.9;margin-top:12px}
+.legal-request-marker{display:inline-flex;vertical-align:middle;color:var(--gold-dk);margin-inline-start:6px}.legal-request-marker svg{width:15px;height:15px}
+.legal-auto .row{flex-wrap:wrap}.legal-auto .badge{white-space:normal}
 .welcome-screen{min-height:100vh;min-height:100dvh;display:grid;place-items:center;position:relative;overflow:auto;padding:48px 24px 80px;text-align:center;background:radial-gradient(ellipse at 50% 42%,#fff 0%,#F7F6F1 55%,var(--canvas) 100%)}
 .welcome-content{width:min(100%,440px);display:flex;flex-direction:column;align-items:center;animation:welcomeIn .7s var(--ease-out) both}
 .welcome-logo{object-fit:contain;margin-bottom:26px;filter:drop-shadow(0 8px 18px rgba(151,119,60,.14))}

@@ -15,7 +15,7 @@ module.exports = async function handler(req, res) {
     if (!auth.ok) return res.status(auth.status === 401 ? 401 : 403).json({ error: 'تعذر التحقق من صلاحيات الإدارة' });
     const profile = await auth.json();
     if (!profile.ok || !profile.admin?.active) return res.status(403).json({ error: 'الحساب غير مخول' });
-    const response = await fetch('https://araf.online/api/free-ask', {
+    const response = await fetch('https://www.araf.online/api/free-ask', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }),
       redirect: 'error', signal: AbortSignal.timeout(110000)
     });
