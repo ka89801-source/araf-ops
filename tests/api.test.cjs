@@ -17,7 +17,7 @@ test('assistant verifies operations access before forwarding any case',async()=>
 });
 test('assistant receives only the edited summary, without operations token',async()=>{
  const old=global.fetch;const calls=[];global.fetch=async(url,options)=>{calls.push({url,options});return calls.length===1?{ok:true,json:async()=>({ok:true,admin:{active:true}})}:{ok:true,json:async()=>({content:'<p>answer</p>',sources:[{url:'https://example.com'}],confidenceLevel:'review'})};};
- try{const r=res();await legal({method:'POST',headers:{authorization:'Bearer test-token'},body:{query:'hypothetical question',secret:'ignored'}},r);assert.equal(r.code,200);assert.equal(calls[1].url,'https://araf.online/api/free-ask');assert.deepEqual(JSON.parse(calls[1].options.body),{query:'hypothetical question'});assert.equal(calls[1].options.headers.Authorization,undefined);assert.equal(r.data.content,'<p>answer</p>');}finally{global.fetch=old;}
+ try{const r=res();await legal({method:'POST',headers:{authorization:'Bearer test-token'},body:{query:'hypothetical question',secret:'ignored'}},r);assert.equal(r.code,200);assert.equal(calls[1].url,'https://www.araf.online/api/free-ask');assert.deepEqual(JSON.parse(calls[1].options.body),{query:'hypothetical question'});assert.equal(calls[1].options.headers.Authorization,undefined);assert.equal(r.data.content,'<p>answer</p>');}finally{global.fetch=old;}
 });
 test('assistant enforces original input limit without truncating a submitted question',async()=>{
  const old=global.fetch;let called=false;global.fetch=async()=>{called=true;};
