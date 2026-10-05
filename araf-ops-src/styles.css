@@ -1163,6 +1163,15 @@ body,.sheet,.side,.report,.funnel-wrap,.kpi-c,.ent,.tk{transition:background-col
    الرسائل الداخلية
    ========================================================== */
 .letters{margin-bottom:30px}
+.delete-pending{box-shadow:inset -4px 0 0 var(--red);background:color-mix(in srgb,var(--red-bg) 55%,var(--surface,#fff))}
+.delete-marker{display:flex;align-items:center;gap:5px;width:fit-content;max-width:100%;margin-top:6px;padding:4px 9px;border:1px solid var(--red);border-radius:7px;background:var(--red-bg);color:var(--red);font:600 11.5px var(--f-ui);cursor:pointer;white-space:normal;text-align:start}
+.delete-marker:hover{filter:brightness(.93)}
+.btn-destructive{background:var(--red)!important;color:#fff!important;border-color:var(--red)!important}
+.danger-note{padding:12px;border:1px solid var(--red);border-radius:10px;background:var(--red-bg);color:var(--red);line-height:1.9}
+.ent-danger{border-top:1px solid var(--line);margin-top:12px;padding-top:10px}
+button[aria-busy=true]{cursor:progress;opacity:.7}
+.letter-body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:2;font-size:14px}
+.letters-error{padding:12px 16px;border-radius:10px;background:var(--amber-bg);color:var(--ink);margin-bottom:12px;font-size:13px}
 .letters .sec-t .badge{margin-inline-start:4px}
 .msg-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,.62fr);gap:12px}
 .msg-list{display:flex;flex-direction:column;gap:10px}
@@ -1252,7 +1261,15 @@ body,.sheet,.side,.report,.funnel-wrap,.kpi-c,.ent,.tk{transition:background-col
 @keyframes fly{to{transform:translate(-26px,-18px) rotate(-12deg);opacity:0}}
 .send-main.done{background:var(--green) !important;color:#fff !important}
 @media (max-width:1280px){.msg-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.msg-new{min-height:120px}}
-@media (max-width:760px){.msg-grid{grid-template-columns:1fr}.bub{max-width:92%}}
+@media (max-width:760px){
+  .msg-grid{grid-template-columns:1fr}.bub{max-width:92%}
+  .letters .sec-h{flex-direction:column;align-items:stretch;gap:12px}
+  .letters .sec-t{flex-wrap:wrap}
+  .letters .sec-h .act{margin-inline-start:0;flex-wrap:wrap}
+  .searchbtn{min-width:0}
+  .searchbtn svg{flex-shrink:0}
+  .searchbtn>span:not(.kbd){white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+}
 
 
 /* ---------- شعار أعراف ---------- */

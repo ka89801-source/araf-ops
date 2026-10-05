@@ -1,4 +1,4 @@
-/* Existing Supabase tables and existing operations API. No migrations or clone. */
+/* Existing backend plus optional, authenticated v2 RPCs on the same database. */
 (function (root) {
   'use strict';
   class LiveStore {
@@ -35,7 +35,7 @@
         title: description, description, created_by: this.user.id, created_by_name: this.user.name, created_at: new Date().toISOString() });
       return error ? 'حُفظ التغيير، لكن تعذر تسجيل النشاط' : '';
     }
-    async patchRequest(id, changes, action = 'status_change', description = 'تحديث الطلب') {
+    async patchRequest(id, changes, action = 'status_change', description = 'تحديث الطلب', options = {}) {
       this.requireUser(); const row = this.rows[id];
       if (!row) throw new Error('حدّث القائمة ثم أعد المحاولة');
       if (this.user.role !== 'admin' && row.assigned_to !== this.user.id) throw new Error('الطلب غير مسند إليك');
@@ -50,7 +50,8 @@
       if (error) throw new Error(error.message || 'تعذر حفظ التغيير');
       if (!data) throw new Error('تغيّر الطلب أو لم تُمنح صلاحية الحفظ. حدّث القائمة ثم أعد المحاولة.');
       this.rows[id] = data;
-      return { data, warning: await this.audit(id, action, description).catch(() => 'حُفظ التغيير، لكن تعذر تسجيل النشاط') };
+      const audit = this.audit(id, action, description).catch(() => 'حُفظ التغيير، لكن تعذر تسجيل النشاط');
+      return options.deferAudit ? { data, audit } : { data, warning: await audit };
     }
     async addNote(id, text) {
       if (!text.trim()) throw new Error('اكتب الملاحظة');
@@ -79,6 +80,36 @@
       const { data, error } = await this.db.rpc('approve_and_delete_service_request', {
         p_request_id: request.request_id, p_approved_by: this.user.id, p_approved_by_name: this.user.name });
       if (error) throw new Error(error.message || 'تعذر اعتماد الحذف'); return data;
+    }
+    async v2Rpc(name, payload = {}) {
+      this.requireUser();
+      const { data, error } = await this.auth.rpc(name, payload);
+      if (error) {
+        if (['PGRST202','42P01','42883'].includes(error.code)) throw new Error('هذه الميزة بانتظار تفعيل إضافة الإصدار الجديد في قاعدة البيانات');
+        throw new Error(error.message || 'تعذر إتمام الإجراء');
+      }
+      if (data == null) throw new Error('لم يؤكد الخادم الإجراء');
+      return data;
+    }
+    async messages() {
+      const rows = []; let before = null;
+      for (;;) {
+        const page = await this.v2Rpc('ops_v2_list_messages', { p_before: before });
+        if (!Array.isArray(page)) throw new Error('استجابة رسائل غير صالحة');
+        rows.push(...page); if (page.length < 200) return rows;
+        before = page[page.length - 1].id;
+      }
+    }
+    sendMessage(to, subject, body, urgent, nonce) {
+      if (!to || to === this.user.id) throw new Error('اختر موظفًا آخر');
+      if (!body.trim() || body.trim().length > 4000 || subject.trim().length > 120) throw new Error('اكتب رسالة حتى ٤٠٠٠ حرف وموضوعًا حتى ١٢٠ حرفًا');
+      return this.v2Rpc('ops_v2_send_message', { p_recipient: to, p_subject: subject.trim() || 'رسالة', p_body: body.trim(), p_urgent: !!urgent, p_nonce: nonce });
+    }
+    readMessage(id) { return this.v2Rpc('ops_v2_read_message', { p_id: id }); }
+    deleteEntity(entity, confirmation) {
+      this.requireUser(true);
+      if (!entity?.id || !entity.code || confirmation.trim() !== entity.code) throw new Error('اكتب رمز المنشأة كما يظهر لتأكيد الحذف');
+      return this.v2Rpc('ops_v2_delete_entity', { p_entity_id: entity.id, p_confirm_code: confirmation.trim(), p_expected_updated_at: entity.updated_at || null });
     }
   }
   if (typeof module !== 'undefined' && module.exports) module.exports = { LiveStore };

@@ -1173,6 +1173,15 @@ body,.sheet,.side,.report,.funnel-wrap,.kpi-c,.ent,.tk{transition:background-col
    الرسائل الداخلية
    ========================================================== */
 .letters{margin-bottom:30px}
+.delete-pending{box-shadow:inset -4px 0 0 var(--red);background:color-mix(in srgb,var(--red-bg) 55%,var(--surface,#fff))}
+.delete-marker{display:flex;align-items:center;gap:5px;width:fit-content;max-width:100%;margin-top:6px;padding:4px 9px;border:1px solid var(--red);border-radius:7px;background:var(--red-bg);color:var(--red);font:600 11.5px var(--f-ui);cursor:pointer;white-space:normal;text-align:start}
+.delete-marker:hover{filter:brightness(.93)}
+.btn-destructive{background:var(--red)!important;color:#fff!important;border-color:var(--red)!important}
+.danger-note{padding:12px;border:1px solid var(--red);border-radius:10px;background:var(--red-bg);color:var(--red);line-height:1.9}
+.ent-danger{border-top:1px solid var(--line);margin-top:12px;padding-top:10px}
+button[aria-busy=true]{cursor:progress;opacity:.7}
+.letter-body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:2;font-size:14px}
+.letters-error{padding:12px 16px;border-radius:10px;background:var(--amber-bg);color:var(--ink);margin-bottom:12px;font-size:13px}
 .letters .sec-t .badge{margin-inline-start:4px}
 .msg-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,.62fr);gap:12px}
 .msg-list{display:flex;flex-direction:column;gap:10px}
@@ -1262,7 +1271,15 @@ body,.sheet,.side,.report,.funnel-wrap,.kpi-c,.ent,.tk{transition:background-col
 @keyframes fly{to{transform:translate(-26px,-18px) rotate(-12deg);opacity:0}}
 .send-main.done{background:var(--green) !important;color:#fff !important}
 @media (max-width:1280px){.msg-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.msg-new{min-height:120px}}
-@media (max-width:760px){.msg-grid{grid-template-columns:1fr}.bub{max-width:92%}}
+@media (max-width:760px){
+  .msg-grid{grid-template-columns:1fr}.bub{max-width:92%}
+  .letters .sec-h{flex-direction:column;align-items:stretch;gap:12px}
+  .letters .sec-t{flex-wrap:wrap}
+  .letters .sec-h .act{margin-inline-start:0;flex-wrap:wrap}
+  .searchbtn{min-width:0}
+  .searchbtn svg{flex-shrink:0}
+  .searchbtn>span:not(.kbd){white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+}
 
 
 /* ---------- شعار أعراف ---------- */
@@ -2075,6 +2092,9 @@ window.addEventListener('resize', () => syncIndicators());
    ========================================================== */
 function attention() {
   const L = [];
+  const deletion=REQUESTS.filter(r=>pendingDelete(r.id));
+  if(deletion.length){const other=deletion.find(r=>String(pendingDelete(r.id).requested_by)!==String(ME)),first=other||deletion[0];L.push({id:'delete-pending',sev:'crit',ic:'alert',t:`${deletion.length} طلبات عليها إجراء حذف`,m:'تظهر علامة الحذف الحمراء في قوائم الطلبات حتى اعتماد الإجراء.',acts:[[deleteActionLabel(first.id),'reviewDelete',first.id,'p']]});}
+
   const unassigned = REQUESTS.filter((r) => !r.assigned_to && isOpen(r)).sort((a, b) => a.created_at - b.created_at);
   const over = unassigned.filter((r) => hoursSince(r.created_at) > SLA.assign);
   if (over.length) L.push({ id: 'x1', sev: 'crit', ic: 'alert', t: `${over.length === 1 ? 'طلب واحد تجاوز' : over.length + ' طلبات تجاوزت'} مهلة الإسناد (${SLA.assign} ساعات)`, m: `الأقدم: ${over[0].customer} — ${esc(svName(over[0]))} منذ ${Math.round(hoursSince(over[0].created_at))} ساعة`, acts: [['توزيع تلقائي', 'autoAll', '', 'p'], ['عرضها', 'goFilter', 'unassigned']] });
@@ -2313,7 +2333,7 @@ function topServices() {
 const TOUR = [
   { sel: '.earn', t: 'أين يقف المكتب ماليًا', p: 'قيمة المكتمل والاشتراكات النشطة هذا الشهر، موزعًا على الخدمات المباشرة وتوكيل القضايا واشتراكات المنشآت. تُحتسب الطلبات المكتملة فقط.' },
   { sel: '.kpis', t: 'أربعة أرقام تكفي لبداية اليوم', p: 'كل رقم زر: اضغطه لتصل مباشرة إلى الطلبات التي يمثلها بدل البحث في الجداول.' },
-  { sel: '#lettersSec', t: 'رسائل داخلية لفريقك', p: 'سجّل ملاحظات الفريق في ملف الطلب لتظهر في سجله المشترك.' },
+  { sel: '#lettersSec', t: 'رسائل داخلية لفريقك', p: 'أرسل رسالة لأي موظف وتابع الوارد والمرسل وحالة القراءة من هنا.' },
   { sel: '#pipeSec', t: 'مسار الطلبات مقروءًا ومرسومًا', p: 'التقرير يخبرك أين يتوقف العمل، والقُمع يريك كم طلبًا ينتقل من مرحلة لأخرى. اضغط أي مرحلة لفتح طلباتها.' },
   { sel: '#attList', t: 'ما يحتاج قرارك الآن', p: 'كل بند هنا له زر إجراء مباشر: توزيع، تذكير، تسعير، تفعيل. الإخفاء لا يحذف شيئًا ويمكن التراجع عنه.' },
   { sel: '.dl-panel', t: 'المهل الداخلية', p: 'إسناد خلال 4 ساعات، وتواصل خلال 24 ساعة. ما يتجاوزها يظهر هنا بالعدّاد وباللون الأحمر في الجداول.' },
@@ -2373,7 +2393,7 @@ function slaRow(x) {
   return `<div class="sla-row ${over ? 'over' : left <= 6 ? 'soon' : ''}" data-a="openReq" data-id="${esc(x.r.id)}">
     <span class="tag">${x.s.tag}</span>
     <div class="grow" style="min-width:0">
-      <b class="ell">${esc(x.r.customer)} — ${esc(svName(x.r))}</b>
+      <b class="ell">${esc(x.r.customer)} — ${esc(svName(x.r))}</b>${deleteMarker(x.r.id)}
       <small>${x.r.assigned_to ? U(x.r.assigned_to).short : 'بلا مسؤول'} · مضى ${hHuman(x.s.h)} · المهلة ${x.s.win} ساعة</small>
       <div class="sla-bar"><i style="width:${pct}%"></i></div>
     </div>
@@ -2427,7 +2447,7 @@ A.brief = () => openDrawer(() => {
   const byEmp = TEAM.filter((t) => t.status === 'active').map((t) => ({ t, n: empOpen(t.id).length, late: empOpen(t.id).filter(isLate).length }));
   return { head: `<div class="muted" style="font-size:12px">${wd(TODAY)}، ${dmy(TODAY)} — ${hijri(TODAY)}</div><h2 class="h-disp h2">موجز التشغيل</h2>`,
     body: `<div class="next-step" style="margin-bottom:18px"><div class="ic">${ic('alert')}</div><div><div class="lbl">أهم ما في اليوم</div><div class="t">${att[0] ? att[0].t : 'لا شيء عالق'}</div><div class="m">${att[0] ? att[0].m : ''}</div></div></div>
-    <div class="dsec" style="margin-top:0"><h4>${ic('clock', 'width="15" height="15"')}أقرب المهل</h4>${q.map((x) => `<div class="li" data-a="openReq" data-id="${esc(x.r.id)}"><div class="ic">${ic(x.s.k === 'assign' ? 'user' : x.s.k === 'contact' ? 'phone' : 'refresh')}</div><div class="grow"><div class="t">${esc(x.r.customer)} — ${esc(svName(x.r))}</div><div class="m">${x.s.l}</div></div><span class="badge ${x.s.over ? 'b-red' : 'b-gold'}">${x.s.over ? 'متأخر' : rel(x.s.due)}</span></div>`).join('')}</div>
+    <div class="dsec" style="margin-top:0"><h4>${ic('clock', 'width="15" height="15"')}أقرب المهل</h4>${q.map((x) => `<div class="li" data-a="openReq" data-id="${esc(x.r.id)}"><div class="ic">${ic(x.s.k === 'assign' ? 'user' : x.s.k === 'contact' ? 'phone' : 'refresh')}</div><div class="grow"><div class="t">${esc(x.r.customer)} — ${esc(svName(x.r))}</div>${deleteMarker(x.r.id)}<div class="m">${x.s.l}</div></div><span class="badge ${x.s.over ? 'b-red' : 'b-gold'}">${x.s.over ? 'متأخر' : rel(x.s.due)}</span></div>`).join('')}</div>
     <div class="dsec"><h4>${ic('team', 'width="15" height="15"')}الفريق اليوم</h4>${byEmp.map(({ t, n, late }) => `<div class="li" data-a="member" data-id="${esc(t.id)}">${av(t.id, '', true)}<div class="grow"><div class="t">${esc(t.name)}</div><div class="m">${n} طلبات مفتوحة${late ? ` — ${late} تجاوزت المهلة` : ''}</div></div></div>`).join('')}</div>
     <div class="dsec"><h4>${ic('building', 'width="15" height="15"')}المنشآت</h4><p style="font-size:13px;line-height:1.8;color:var(--ink-2)">${BIZ_REQUESTS.filter((b) => b.status === 'new').length} طلبات منشآت جديدة، و${ACTIVATIONS.filter((a) => a.status !== 'activated' && a.status !== 'closed').length} طلبات تفعيل قيد المعالجة. </p></div>`,
     foot: `<button class="btn btn-p" data-a="drClose">ابدأ اليوم</button><span class="muted" style="font-size:12px;margin-inline-start:auto">يُحدّث عند مزامنة البيانات</span>` };
@@ -2513,9 +2533,9 @@ function slaCell(r) {
 }
 function reqTable(L) {
   return `<div class="clist"><div class="chead rq"><span></span><span>الطلب والعميل</span><span>الخدمة</span><span>القيمة والدفع</span><span>الحالة</span><span class="c-sla">المهلة</span><span>المسؤول</span><span class="c-date">تاريخ الوصول</span><span></span></div>
-  ${L.map((r) => `<div class="crow rq" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}" data-peek="${esc(r.id)}">
+  ${L.map((r) => `<div class="crow rq ${pendingDelete(r.id)?'delete-pending':''}" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}" data-peek="${esc(r.id)}">
     <span class="pri" style="background:${PRI[r.priority].c};${r.priority === 'normal' ? 'opacity:.35' : ''}" data-tip="أولوية ${PRI[r.priority].l}"></span>
-    <div style="min-width:0" class="row gap8">${custAv(r)}<div style="min-width:0"><div class="ttl ell">${esc(r.customer)}${lexBadge(r.id)}${isLate(r) ? `<span class="flagi" data-tip="تجاوز المهلة الداخلية">${ic('alert')}</span>` : ''}</div><div class="par ell"><span class="ltr num">${esc(r.id)}</span>${["direct_services","cases"].includes(r.source) ? "" : " — " + (SRC[r.source] || r.source)}</div></div></div>
+    <div style="min-width:0" class="row gap8">${custAv(r)}<div style="min-width:0"><div class="ttl ell">${esc(r.customer)}${lexBadge(r.id)}${isLate(r) ? `<span class="flagi" data-tip="تجاوز المهلة الداخلية">${ic('alert')}</span>` : ''}</div><div class="par ell"><span class="ltr num">${esc(r.id)}</span>${["direct_services","cases"].includes(r.source) ? "" : " — " + (SRC[r.source] || r.source)}</div>${deleteMarker(r.id)}</div></div>
     <div class="cell"><span class="st" style="--c:${SV(r.service).c}">${esc(svName(r))}</span></div>
     <div class="cell">${r.price ? `<b class="num" style="font-weight:600">${fmt(r.price)}</b> <small style="display:inline">ر.س</small>` : '<span class="muted">غير مسعّر</span>'}<small>${PAY[r.payment].l}</small></div>
     <div class="cell">${stBadge(r.status)}</div>
@@ -2526,9 +2546,9 @@ function reqTable(L) {
 }
 function caseTable(L) {
   return `<div class="clist"><div class="chead cs"><span></span><span>العميل والقضية</span><span>نوع القضية</span><span>الأتعاب</span><span>المرحلة</span><span class="c-sess">الجلسة القادمة</span><span>المحامي</span><span></span></div>
-  ${L.map((r) => `<div class="crow cs" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}" data-peek="${esc(r.id)}">
+  ${L.map((r) => `<div class="crow cs ${pendingDelete(r.id)?'delete-pending':''}" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}" data-peek="${esc(r.id)}">
     <span class="pri" style="background:${PRI[r.priority].c};${r.priority === 'normal' ? 'opacity:.35' : ''}"></span>
-    <div style="min-width:0" class="row gap8">${custAv(r)}<div style="min-width:0"><div class="ttl ell">${esc(r.customer)}${lexBadge(r.id)}</div><div class="par ell"><span class="ltr num">${esc(r.id)}</span> — ${esc(r.details.slice(0, 46))}…</div></div></div>
+    <div style="min-width:0" class="row gap8">${custAv(r)}<div style="min-width:0"><div class="ttl ell">${esc(r.customer)}${lexBadge(r.id)}</div><div class="par ell"><span class="ltr num">${esc(r.id)}</span> — ${esc(r.details.slice(0, 46))}…</div>${deleteMarker(r.id)}</div></div>
     <div class="cell"><span class="st" style="--c:${SV(r.service).c}">${esc(svName(r))}</span></div>
     <div class="cell">${r.price ? `<b class="num" style="font-weight:600">${fmt(r.price)}</b>` : `<span class="badge b-gold">بانتظار التسعير</span>`}<small>${r.price ? PAY[r.payment].l : ''}</small></div>
     <div class="cell"><b style="font-weight:500">${esc(r.stage || ST[r.status].l)}</b><small>${r.sessions ? `${r.sessions} جلسات محضورة` : 'لم تبدأ الجلسات'}</small></div>
@@ -2537,18 +2557,18 @@ function caseTable(L) {
     <button class="icon-btn more" data-a="reqMenu" data-id="${esc(r.id)}">${ic('more')}</button></div>`).join('')}</div>`;
 }
 function caseCards(L) {
-  return `<div class="cards">${L.map((r, i) => `<div class="ccard" style="animation:rbIn .5s var(--ease-out) ${i * 30}ms both" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}">
+  return `<div class="cards">${L.map((r, i) => `<div class="ccard ${pendingDelete(r.id)?'delete-pending':''}" style="animation:rbIn .5s var(--ease-out) ${i * 30}ms both" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}">
     <div class="row"><span class="st" style="--c:${SV(r.service).c}">${esc(svName(r))}</span><span style="margin-inline-start:auto">${stBadge(r.status)}</span></div>
-    <div class="row gap8">${custAv(r, 'lg')}<div style="min-width:0"><div class="ttl ell">${esc(r.customer)}</div><div class="muted" style="font-size:12px">${esc(r.id)}</div></div></div>
+    <div class="row gap8">${custAv(r, 'lg')}<div style="min-width:0"><div class="ttl ell">${esc(r.customer)}</div><div class="muted" style="font-size:12px">${esc(r.id)}</div>${deleteMarker(r.id)}</div></div>
     <div class="muted" style="font-size:12.5px;line-height:1.6">${esc(r.stage || 'لم تُحدد المرحلة بعد')}</div>
     <div class="foot">${ic('cal', 'width="14" height="14"')}<span class="grow">${r.next_session ? `${rel(r.next_session)} — ${hm(r.next_session)}` : 'لا جلسة محددة'}</span>${r.assigned_to ? av(r.assigned_to, 'sm') : '<span class="badge b-amber">بلا محامٍ</span>'}</div></div>`).join('')}</div>`;
 }
 function reqBoard(L, kind) {
   const cols = ['new', 'pending', 'assigned', 'contacted', 'waiting', 'progress', 'review', 'done', 'closed', 'cancelled', 'unknown'];
   return `<div class="kanban">${cols.map((k) => { const rs = L.filter((r) => r.status === k);
-    return `<div class="kcol" data-drop="req" data-v="${k}"><div class="kcol-h"><i style="background:${ST[k].c}"></i>${ST[k].l}<span class="n">${rs.length}</span></div><div class="kcards">${rs.map((r) => `<div class="kcard" draggable="true" data-drag="${esc(r.id)}" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}">
+    return `<div class="kcol" data-drop="req" data-v="${k}"><div class="kcol-h"><i style="background:${ST[k].c}"></i>${ST[k].l}<span class="n">${rs.length}</span></div><div class="kcards">${rs.map((r) => `<div class="kcard ${pendingDelete(r.id)?'delete-pending':''}" draggable="true" data-drag="${esc(r.id)}" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}">
       <div class="row" style="margin-bottom:6px"><span class="pri-dot" style="background:${PRI[r.priority].c}"></span><span class="m grow ell">${esc(svName(r))}</span>${isLate(r) ? `<span style="color:var(--red)" data-tip="تجاوز المهلة">${ic('alert', 'width="13" height="13"')}</span>` : ''}</div>
-      <div class="ttl">${esc(r.customer)}</div>
+      <div class="ttl">${esc(r.customer)}</div>${deleteMarker(r.id)}
       <div class="row" style="margin-top:10px"><span class="m grow">${r.price ? fmt(r.price) + ' ر.س' : 'غير مسعّر'} — ${rel(r.created_at)}</span>${r.assigned_to ? av(r.assigned_to, 'sm') : `<span class="badge b-amber" style="height:20px">بلا مسؤول</span>`}</div></div>`).join('') || '<div class="muted" style="font-size:12px;text-align:center;padding:20px 0">اسحب طلبًا إلى هنا</div>'}</div></div>`; }).join('')}</div>`;
 }
 window.PEEK = (el) => {
@@ -2652,7 +2672,7 @@ A.assign = (el, e) => {
     <div class="m-b" id="assignBody">${body()}</div>
     <div class="m-f"><button class="btn btn-q" data-a="mClose">إلغاء</button><button class="btn btn-g" data-a="autoAssign" data-id="${esc(r.id)}">${ic('sparkle')}توزيع تلقائي</button><button class="btn btn-p" data-a="doAssign" data-id="${esc(r.id)}">تأكيد الإسناد</button></div>`, 'lg');
   A.pickEmp = (b) => { pick = b.dataset.id; $('#assignBody').innerHTML = body(); };
-  A.doAssign = (b) => { if (!pick) return toast('اختر موظفًا أولًا', { info: true }); assignTo(b.dataset.id, pick); };
+  A.doAssign = (b) => { if (!pick) return toast('اختر موظفًا أولًا', { info: true }); return assignTo(b.dataset.id, pick); };
 };
 
 /* ---------- تغيير الحالة والإغلاق والتسعير ---------- */
@@ -2715,7 +2735,7 @@ function bizEntities() {
         <div class="hbar" style="height:5px;margin-top:4px"><i class="growX" style="width:${q.pct}%;background:${q.c}"></i></div></div>`; }).join('')}</div>
       <div class="foot"><span class="row gap6">${av(e.manager, 'sm')}<span class="muted" style="font-size:12px">${esc(e.manager_name || (e.manager ? U(e.manager).short : 'لم يُعيّن'))}</span></span>
       <span class="muted" style="font-size:12px;margin-inline-start:auto">${open} طلبات جارية</span>
-      <span class="badge ${days <= 5 ? 'b-amber' : 'b-ghost'}">تجديد ${rel(e.cycle_end)}</span></div></article>`; }).join('')}</div>`;
+      <span class="badge ${days <= 5 ? 'b-amber' : 'b-ghost'}">تجديد ${rel(e.cycle_end)}</span></div>${canManage()?`<div class="ent-danger"><button class="btn btn-sm btn-danger" data-a="deleteEntity" data-id="${esc(e.id)}">${ic('x')}إلغاء الاشتراك وحذف المنشأة</button></div>`:''}</article>`; }).join('')}</div>`;
 }
 function bizActivation() {
   const L = ACTIVATIONS.filter((a) => S.bizF === 'all' ? true : S.bizF === 'pending' ? ['new', 'contacted'].includes(a.status) : a.status === S.bizF);
@@ -2737,7 +2757,7 @@ A.openEnt = (el) => {
       <p class="muted" style="font-size:12px;line-height:1.7;margin-top:10px">الخدمات غير المشمولة في الباقة تُسعَّر خارج الحصة، ولا يبدأ تنفيذها قبل موافقة المنشأة.</p></div>
     <div class="dsec"><h4>بيانات التواصل</h4><dl class="kv"><dt>جهة الاتصال</dt><dd>${esc(e.contact)}</dd><dt>الجوال</dt><dd class="ltr num">${esc(e.phone)}</dd><dt>السجل التجاري</dt><dd class="ltr num">${esc(e.cr)}</dd><dt>مدير الحساب</dt><dd class="row gap6">${av(e.manager, 'sm')}${esc(e.manager_name || (e.manager ? U(e.manager).name : 'لم يُعيّن'))}</dd><dt>بداية الاشتراك</dt><dd>${dmy(e.start)}</dd></dl></div>
     <div class="dsec"><h4>طلبات المنشأة</h4>${rs.map((b) => `<div class="li" data-a="openBiz" data-id="${esc(b.id)}"><div class="ic">${ic('file')}</div><div class="grow"><div class="t">${esc(b.subject)}</div><div class="m">${esc(BIZ_SERVICES[b.service])} — ${rel(b.created_at)}</div></div><span class="badge ${BIZ_ST[b.status].b}">${BIZ_ST[b.status].l}</span></div>`).join('') || '<p class="muted" style="font-size:13px">لا طلبات في هذه الدورة.</p>'}</div>`,
-    foot: `<button class="btn btn-p" data-a="stub" data-m="فُتحت محادثة مع ${esc(e.contact)}">${ic('msg')}مراسلة المنشأة</button>${e.sub === 'grace' ? `<button class="btn btn-g" data-a="stub" data-m="أُرسل تذكير سداد إلى ${esc(e.name)}">${ic('receipt')}تذكير سداد</button>` : ''}<button class="btn btn-q" data-a="stub" data-m="ستُتاح إدارة الباقة بعد الربط" style="margin-inline-start:auto">تغيير الباقة</button>` }), { wide: true });
+    foot: `${canManage()?`<button class="btn btn-s btn-danger" data-a="deleteEntity" data-id="${esc(e.id)}">إلغاء الاشتراك وحذف المنشأة</button>`:''}<button class="btn btn-p" data-a="stub" data-m="فُتحت محادثة مع ${esc(e.contact)}">${ic('msg')}مراسلة المنشأة</button>${e.sub === 'grace' ? `<button class="btn btn-g" data-a="stub" data-m="أُرسل تذكير سداد إلى ${esc(e.name)}">${ic('receipt')}تذكير سداد</button>` : ''}<button class="btn btn-q" data-a="stub" data-m="ستُتاح إدارة الباقة بعد الربط" style="margin-inline-start:auto">تغيير الباقة</button>` }), { wide: true });
 };
 A.openBiz = (el) => {
   const b = BIZ_REQUESTS.find((x) => x.id === el.dataset.id); const e = ENT(b.entity); const q = quotaState(e, b.service);
@@ -2786,7 +2806,7 @@ function openMember(id) {
     body: `<div class="kpi-strip" style="grid-template-columns:repeat(4,1fr)"><div><span>مفتوح</span><b>${open.length}</b></div><div><span>متأخر</span><b style="${open.filter(isLate).length ? 'color:var(--red)' : ''}">${open.filter(isLate).length}</b></div><div><span>مغلق</span><b>${closed.length}</b></div><div><span>متوسط الإغلاق</span><b>${avgH}<small style="font-size:12px"> س</small></b></div></div>
     <div class="dsec" style="margin-top:0"><h4>الطلبات المفتوحة</h4>${open.length ? open.map((r) => `<div class="li" data-a="openReq" data-id="${esc(r.id)}"><div class="ic">${ic(r.kind === 'cases' ? 'gavel' : 'file')}</div><div class="grow"><div class="t">${esc(r.customer)} — ${esc(svName(r))}</div><div class="m">${ST[r.status].l} — ${rel(r.created_at)}</div></div>${isLate(r) ? '<span class="badge b-red">متأخر</span>' : ''}</div>`).join('') : '<p class="muted" style="font-size:13px">لا طلبات مفتوحة.</p>'}</div>
     <div class="dsec"><h4>البيانات</h4><dl class="kv"><dt>البريد</dt><dd class="ltr">${esc(u.email)}</dd><dt>الجوال</dt><dd class="ltr num">${esc(u.phone)}</dd><dt>التخصص</dt><dd>${u.skills.join('، ')}</dd><dt>الطاقة الاستيعابية</dt><dd>${u.cap} طلبًا</dd><dt>آخر دخول</dt><dd>${ago(u.last)}</dd><dt>انضم في</dt><dd>${dmy(u.joined)}</dd></dl></div>`,
-    foot: `<button class="btn btn-p" data-a="stub" data-m="فُتحت محادثة مع ${esc(u.short)}">${ic('msg')}رسالة</button>${id !== ME ? `<button class="btn btn-s" data-a="stub" data-m="ستتاح إدارة الصلاحيات بعد الربط">${ic('lock')}الصلاحيات</button>` : ''}<span class="muted" style="font-size:12px;margin-inline-start:auto">${esc(u.email)}</span>` }), { wide: true });
+    foot: `<button class="btn btn-p" data-a="messageEmployee" data-id="${esc(id)}">${ic('msg')}رسالة</button>${id !== ME ? `<button class="btn btn-s" data-a="stub" data-m="ستتاح إدارة الصلاحيات بعد الربط">${ic('lock')}الصلاحيات</button>` : ''}<span class="muted" style="font-size:12px;margin-inline-start:auto">${esc(u.email)}</span>` }), { wide: true });
 }
 A.member = (el) => openMember(el.dataset.id);
 
@@ -2982,7 +3002,7 @@ const CTX = {
   req: (id) => { const r = REQ(id); return [{ h: `${esc(r.id)} — ${esc(r.customer)}` }, { l: 'فتح الطلب', ic: 'expand', k: 'Enter', f: () => openReq(id) },
     ...(isOpen(r) ? [{ l: r.assigned_to ? 'تغيير المسؤول' : 'إسناد', ic: 'user', k: 'Shift A', f: () => A.assign({ dataset: { id } }) }, { l: 'تغيير الحالة', ic: 'refresh', f: () => A.statusModal({ dataset: { id } }) }, { l: 'إغلاق الطلب', ic: 'check', f: () => A.closeReq({ dataset: { id } }) }] : [{ l: 'إعادة فتح', ic: 'refresh', f: () => A.reopen({ dataset: { id } }) }]),
     '-', { l: 'نسخ رقم الجوال', ic: 'copy', f: () => { navigator.clipboard?.writeText(r.phone); toast('نُسخ رقم الجوال'); } },
-    { l: 'طلب حذف الطلب', ic: 'x', red: true, f: () => askDelete(r) }]; },
+    ...(canManage() || pendingDelete(id) ? [{ l: deleteActionLabel(id), ic: 'x', red: true, f: () => askDelete(r) }] : [])]; },
   emp: (id) => [{ l: 'فتح الملف', ic: 'user', f: () => openMember(id) }, { l: 'إسناد طلب له', ic: 'plus', f: () => toast('اختر طلبًا من القائمة ثم «إسناد»', { info: true }) }],
   ent: (id) => [{ l: 'فتح المنشأة', ic: 'building', f: () => A.openEnt({ dataset: { id } }) }, { l: 'تذكير سداد', ic: 'receipt', f: () => toast('أُرسل تذكير السداد') }],
   biz: (id) => [{ l: 'فتح الطلب', ic: 'expand', f: () => A.openBiz({ dataset: { id } }) }],
@@ -3209,11 +3229,79 @@ VIEWS.flow = () => {
   <section class="flow-card"><div class="sec-h"><div class="sec-t">توزيع الطلبات<small>كل مربع طلب — اضغطه لفتحه</small></div></div>${flowWaffle()}</section>`;
 };
 
-/* No messaging table/API exists in the original operations integration. */
-const unreadLetters=()=>0;
-function lettersSec(){return `<div class="sec-h"><div class="sec-t">الملاحظات الداخلية</div></div><p class="muted">اكتب ملاحظات الفريق داخل الطلب؛ تُحفظ في سجله المشترك.</p>`;}
-function composeLetter(){toast('المراسلات المستقلة غير مرتبطة بخدمة في المنصة الحالية. استخدم الملاحظات داخل الطلب',{info:true});}
-A.compose=A.inbox=composeLetter;
+/* Private employee messages persisted by authenticated v2 RPCs. */
+const LETTERS=[];
+let letterTab='in';
+const mapLetter=row=>({...row,id:String(row.id),at:liveDate(row.created_at),readAt:liveDate(row.read_at)});
+const isUnread=l=>l.to_id===String(ME) && !l.read_at;
+const unreadLetters=()=>LETTERS.filter(isUnread).length;
+const letterOther=l=>l.from_id===String(ME)?l.to_id:l.from_id;
+const letterName=l=>l.from_id===String(ME)?l.to_name:l.from_name;
+function messageIssue(){return LIVE.errors.messages?`<div class="letters-error" role="status">${esc(LIVE.errors.messages)}${LETTERS.length?' — تظهر آخر الرسائل المحمّلة.':''}<button class="btn btn-sm btn-q" data-a="refreshLetters">إعادة المحاولة</button></div>`:'';}
+function lettersSec(){
+  const count=unreadLetters(),rows=LETTERS.slice().sort((a,b)=>Number(isUnread(b))-Number(isUnread(a)) || b.at-a.at).slice(0,3);
+  return `<div class="sec-h"><div class="sec-t">رسائل الفريق${count?`<span class="badge b-red">${count} غير مقروءة</span>`:'<small>اترك رسالة لأي موظف</small>'}</div><div class="act"><button class="btn btn-sm btn-q" data-a="inbox">كل الرسائل</button><button class="btn btn-sm btn-p" data-a="compose">${ic('pen')}رسالة جديدة</button></div></div>
+  ${messageIssue()}<div class="msg-grid">${rows.map(msgCard).join('')}<button class="msg-card msg-new" data-a="compose"><span class="mn-ic">${ic('send')}</span><b>رسالة جديدة</b><small>لأي عضو في الفريق</small></button></div>`;
+}
+function msgCard(l){
+  const mine=l.from_id===String(ME),unread=isUnread(l);
+  return `<button class="msg-card ${unread?'unread':''}" data-a="openLetter" data-id="${esc(l.id)}"><div class="mc-top">${av(letterOther(l),'',true)}<div class="grow" style="min-width:0"><div class="mc-who"><span class="dir ${mine?'out':'in'}">${ic(mine?'send':'inbox','width="12" height="12"')}${mine?'إلى':'من'}</span><b class="ell">${esc(letterName(l))}</b></div></div><time>${ago(l.at)}</time></div><div class="mc-subj">${unread?'<i class="udot"></i>':''}<span class="ell">${esc(l.subject)}</span></div><p class="mc-prev">${esc(l.body)}</p><div class="mc-foot">${l.urgent?'<span class="badge b-red">عاجلة</span>':''}${mine?`<span class="rc ${l.read_at?'read':''}" style="margin-inline-start:auto">${ic(l.read_at?'checks':'check','width="14" height="14"')}${l.read_at?'قُرئت':'أُرسلت'}</span>`:unread?'<span class="mc-new">جديدة</span>':''}</div></button>`;
+}
+function refreshLettersQuiet(){
+  const section=$('#lettersSec');if(section){section.innerHTML=lettersSec();after(section);}
+  const dot=$('#mailDot');if(dot){dot.textContent=unreadLetters();dot.style.display=unreadLetters()?'':'none';}
+  const top=DR.stack[DR.stack.length-1];
+  if(top?.render===inboxPanel || top?.render?._message)refreshDrawer();
+}
+function upsertLetter(row){
+  const l=mapLetter(row),index=LETTERS.findIndex(x=>x.id===l.id);
+  if(index<0)LETTERS.unshift(l);else LETTERS.splice(index,1,l);
+  LIVE.messageVersion++;return l;
+}
+function inboxPanel(){
+  const rows=LETTERS.filter(l=>letterTab==='all'||(letterTab==='in'?l.to_id===String(ME):letterTab==='out'?l.from_id===String(ME):isUnread(l))).slice().sort((a,b)=>b.at-a.at);
+  return {head:`<div class="row gap8"><h2 class="h2 grow">رسائل الفريق</h2><button class="btn btn-sm btn-p" data-a="compose">${ic('pen')}رسالة جديدة</button></div>`,body:`${messageIssue()}<div class="ntabs">${[['in','الواردة'],['out','المرسلة'],['unread','غير المقروءة'],['all','الكل']].map(([key,label])=>`<button class="${letterTab===key?'on':''}" data-a="letterTab" data-v="${key}">${label}${key==='unread'&&unreadLetters()?`<span class="n hot">${unreadLetters()}</span>`:''}</button>`).join('')}</div>${rows.length?`<div class="msg-list">${rows.map(msgCard).join('')}</div>`:empty('لا توجد رسائل هنا','أرسل رسالة إلى أحد أعضاء الفريق.','رسالة جديدة','compose')}`};
+}
+function letterPanel(id){
+  const fn=()=>{
+    const l=LETTERS.find(x=>x.id===id);if(!l)return {head:'الرسالة',body:'حدّث صندوق الرسائل'};
+    const mine=l.from_id===String(ME);
+    return {head:`<div class="row gap12">${av(letterOther(l),'lg',true)}<div><h2 class="h2">${esc(l.subject)}</h2><div class="muted">${mine?'إلى':'من'} ${esc(letterName(l))}</div></div>`,body:`<div class="row gap8" style="margin-bottom:18px"><time class="muted">${dmy(l.at)} — ${hm(l.at)}</time>${l.urgent?'<span class="badge b-red">عاجلة</span>':''}${mine?`<span class="badge ${l.read_at?'b-green':'b-ghost'}">${l.read_at?'قُرئت '+ago(l.readAt):'أُرسلت'}</span>`:''}</div><div class="note letter-body">${esc(l.body)}</div>`,foot:`<button class="btn btn-p" data-a="replyLetter" data-id="${esc(l.id)}">${ic('send')}${mine?'رسالة أخرى':'رد على الرسالة'}</button><button class="btn btn-q" data-a="inbox">صندوق الرسائل</button>`};
+  };fn._message=id;return fn;
+}
+A.openLetter=async el=>{
+  const l=LETTERS.find(x=>x.id===el.dataset.id);if(!l)return;
+  openDrawer(letterPanel(l.id),{wide:true});
+  if(isUnread(l)){
+    try{upsertLetter(await LIVE.store.readMessage(l.id));refreshLettersQuiet();}
+    catch(e){toast('تعذر تسجيل قراءة الرسالة: '+e.message,{info:true});}
+  }
+};
+function composeLetter(to='',subject=''){
+  closeDrawer();let pick=to,nonce=crypto.randomUUID(),lastPayload='';
+  const people=()=>TEAM.filter(t=>String(t.id)!==String(ME)&&t.status==='active').map(t=>`<button type="button" class="to-chip ${pick===t.id?'on':''}" data-a="pickTo" data-id="${esc(t.id)}">${av(t.id,'sm',true)}<span><b>${esc(t.name)}</b><small>${esc(t.role)}</small></span>${pick===t.id?`<i class="tick">${ic('check')}</i>`:''}</button>`).join('')||'<p class="muted">لا يوجد موظف آخر نشط.</p>';
+  openModal(`<div class="m-h"><div class="grow"><h3 class="h2">رسالة جديدة</h3><p class="muted" style="font-size:13px">تظهر في صندوق الموظف داخل المنصة.</p></div><button class="icon-btn" data-a="mClose">${ic('x')}</button></div><div class="m-b">${messageIssue()}<div class="field" style="margin-bottom:14px"><label>إلى الموظف</label><div class="to-row" id="toRow">${people()}</div></div><div class="field" style="margin-bottom:12px"><label>الموضوع</label><input class="inp" id="ltSubject" maxlength="120" value="${esc(subject)}" placeholder="مثال: متابعة طلبات اليوم"></div><div class="field"><label>الرسالة</label><textarea class="inp" id="ltBody" rows="5" maxlength="4000" placeholder="اكتب رسالتك…"></textarea></div><label class="switch-row" style="margin-top:14px"><input type="checkbox" id="ltUrgent"><span class="switch"></span><span>تمييزها كعاجلة</span></label><div class="lt-err" id="ltError" role="alert"></div></div><div class="m-f"><button class="btn btn-q" data-a="mClose">إلغاء</button><button class="btn btn-p send-main" data-a="sendLetter">${ic('send')}إرسال الرسالة</button></div>`,'lg');
+  A.pickTo=el=>{pick=el.dataset.id;$('#toRow').innerHTML=people();};
+  A.sendLetter=async button=>{
+    if(LIVE.pending.has('send-letter'))return;
+    const body=val('ltBody'),subject=val('ltSubject'),urgent=$('#ltUrgent').checked,errorBox=$('#ltError');
+    if(!pick||!body){errorBox.textContent=!pick?'اختر موظفًا':'اكتب نص الرسالة';return;}
+    const payload=JSON.stringify([pick,subject,body,urgent]);if(lastPayload&&payload!==lastPayload)nonce=crypto.randomUUID();lastPayload=payload;
+    LIVE.pending.add('send-letter');const restore=liveBusy(button,'جارٍ الإرسال…');errorBox.textContent='';
+    try{
+      const row=await LIVE.store.sendMessage(pick,subject,body,urgent,nonce);
+      upsertLetter(row);closeModal();refreshLettersQuiet();toast('أُرسلت الرسالة إلى '+U(pick).name);
+    }catch(e){errorBox.textContent=e.message;}finally{LIVE.pending.delete('send-letter');restore();}
+  };
+  $('#modal').onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();$('#modal [data-a="sendLetter"]')?.click();}};
+}
+A.compose=()=>composeLetter();
+A.inbox=()=>{openDrawer(inboxPanel);LIVE.refreshMessages();};
+A.letterTab=el=>{letterTab=el.dataset.v;refreshDrawer();};
+A.refreshLetters=()=>LIVE.refreshMessages();
+A.replyLetter=el=>{const l=LETTERS.find(x=>x.id===el.dataset.id);if(l)composeLetter(letterOther(l),('رد: '+l.subject).slice(0,120));};
+
+A.messageEmployee=el=>composeLetter(el.dataset.id);
 
 /* Existing Araf assistant, explicit per-request checks; reports stay in memory. */
 const REPORTS = {};
@@ -3264,7 +3352,7 @@ A.lexAgain=el=>{delete REPORTS[el.dataset.k];lexOpenKey(el.dataset.k);};
 A.lexCopy=async el=>{await navigator.clipboard.writeText(REPORTS[el.dataset.k].text);toast('نُسخ رد المساعد');};
 A.lexToNote=el=>{const key=el.dataset.k;return LIVE.run('request:'+key.slice(4),()=>LIVE.store.addNote(key.slice(4),'رد المساعد القانوني:\n'+REPORTS[key].text),'حُفظ الرد كملاحظة داخلية');};
 
-/* Existing Supabase tables and existing operations API. No migrations or clone. */
+/* Existing backend plus optional, authenticated v2 RPCs on the same database. */
 (function (root) {
   'use strict';
   class LiveStore {
@@ -3301,7 +3389,7 @@ A.lexToNote=el=>{const key=el.dataset.k;return LIVE.run('request:'+key.slice(4),
         title: description, description, created_by: this.user.id, created_by_name: this.user.name, created_at: new Date().toISOString() });
       return error ? 'حُفظ التغيير، لكن تعذر تسجيل النشاط' : '';
     }
-    async patchRequest(id, changes, action = 'status_change', description = 'تحديث الطلب') {
+    async patchRequest(id, changes, action = 'status_change', description = 'تحديث الطلب', options = {}) {
       this.requireUser(); const row = this.rows[id];
       if (!row) throw new Error('حدّث القائمة ثم أعد المحاولة');
       if (this.user.role !== 'admin' && row.assigned_to !== this.user.id) throw new Error('الطلب غير مسند إليك');
@@ -3316,7 +3404,8 @@ A.lexToNote=el=>{const key=el.dataset.k;return LIVE.run('request:'+key.slice(4),
       if (error) throw new Error(error.message || 'تعذر حفظ التغيير');
       if (!data) throw new Error('تغيّر الطلب أو لم تُمنح صلاحية الحفظ. حدّث القائمة ثم أعد المحاولة.');
       this.rows[id] = data;
-      return { data, warning: await this.audit(id, action, description).catch(() => 'حُفظ التغيير، لكن تعذر تسجيل النشاط') };
+      const audit = this.audit(id, action, description).catch(() => 'حُفظ التغيير، لكن تعذر تسجيل النشاط');
+      return options.deferAudit ? { data, audit } : { data, warning: await audit };
     }
     async addNote(id, text) {
       if (!text.trim()) throw new Error('اكتب الملاحظة');
@@ -3346,13 +3435,43 @@ A.lexToNote=el=>{const key=el.dataset.k;return LIVE.run('request:'+key.slice(4),
         p_request_id: request.request_id, p_approved_by: this.user.id, p_approved_by_name: this.user.name });
       if (error) throw new Error(error.message || 'تعذر اعتماد الحذف'); return data;
     }
+    async v2Rpc(name, payload = {}) {
+      this.requireUser();
+      const { data, error } = await this.auth.rpc(name, payload);
+      if (error) {
+        if (['PGRST202','42P01','42883'].includes(error.code)) throw new Error('هذه الميزة بانتظار تفعيل إضافة الإصدار الجديد في قاعدة البيانات');
+        throw new Error(error.message || 'تعذر إتمام الإجراء');
+      }
+      if (data == null) throw new Error('لم يؤكد الخادم الإجراء');
+      return data;
+    }
+    async messages() {
+      const rows = []; let before = null;
+      for (;;) {
+        const page = await this.v2Rpc('ops_v2_list_messages', { p_before: before });
+        if (!Array.isArray(page)) throw new Error('استجابة رسائل غير صالحة');
+        rows.push(...page); if (page.length < 200) return rows;
+        before = page[page.length - 1].id;
+      }
+    }
+    sendMessage(to, subject, body, urgent, nonce) {
+      if (!to || to === this.user.id) throw new Error('اختر موظفًا آخر');
+      if (!body.trim() || body.trim().length > 4000 || subject.trim().length > 120) throw new Error('اكتب رسالة حتى ٤٠٠٠ حرف وموضوعًا حتى ١٢٠ حرفًا');
+      return this.v2Rpc('ops_v2_send_message', { p_recipient: to, p_subject: subject.trim() || 'رسالة', p_body: body.trim(), p_urgent: !!urgent, p_nonce: nonce });
+    }
+    readMessage(id) { return this.v2Rpc('ops_v2_read_message', { p_id: id }); }
+    deleteEntity(entity, confirmation) {
+      this.requireUser(true);
+      if (!entity?.id || !entity.code || confirmation.trim() !== entity.code) throw new Error('اكتب رمز المنشأة كما يظهر لتأكيد الحذف');
+      return this.v2Rpc('ops_v2_delete_entity', { p_entity_id: entity.id, p_confirm_code: confirmation.trim(), p_expected_updated_at: entity.updated_at || null });
+    }
   }
   if (typeof module !== 'undefined' && module.exports) module.exports = { LiveStore };
   else root.ArafLiveStore = LiveStore;
 })(typeof window !== 'undefined' ? window : globalThis);
 
 /* Shared backend bootstrap: never show demo data or report a failed load as zero. */
-const LIVE = { ready: false, pending: new Set(), errors: {}, deletes: [], refreshPromise: null };
+const LIVE = { ready: false, pending: new Set(), errors: {}, deletes: [], refreshPromise: null, requestVersion: 0, deleteVersion: 0, businessVersion: 0, messageVersion: 0, messagesPromise: null };
 const liveDate = (v) => v && Number.isFinite(new Date(v).getTime()) ? new Date(v) : null;
 const replaceRows = (target, rows) => target.splice(0, target.length, ...rows);
 const val = (id) => $('#' + id)?.value?.trim() || '';
@@ -3436,12 +3555,13 @@ LIVE.refresh = async function () {
   LIVE.refreshPromise = (async () => {
     const jobs = {
       team: async()=>{ const rows=await LIVE.store.all('employees'); replaceRows(TEAM, rows.map(mapEmployee)); if(!TEAM.some(t=>t.id===ME)) TEAM.push(mapEmployee({...LIVE.store.user,full_name:LIVE.store.user.name,status:'active'})); },
-      requests: async()=>{ const rows=await LIVE.store.requests(); LIVE.store.rows=Object.fromEntries(rows.map(r=>[String(r.id),r])); replaceRows(REQUESTS,rows.map(mapRequest)); },
+      requests: async()=>{ const version=LIVE.requestVersion; const rows=await LIVE.store.requests(); if(version!==LIVE.requestVersion || [...LIVE.pending].some(k=>k.startsWith('request:')))return; LIVE.store.rows=Object.fromEntries(rows.map(r=>[String(r.id),r])); replaceRows(REQUESTS,rows.map(mapRequest)); },
       support: async()=>replaceRows(TICKETS,(await LIVE.store.all('support_tickets')).map(t=>({...t,customer:t.name || t.customer_name || '',phone:t.phone || t.customer_phone || '',body:t.problem || t.message || t.details || '',subject:t.subject || 'رسالة دعم',channel:t.channel || 'نموذج الموقع',at:liveDate(t.created_at),status:t.status === 'new' ? 'open' : Object.hasOwn(TK_ST,t.status) ? t.status : 'open'}))),
       activity: async()=>replaceRows(LOG,(await LIVE.store.all('request_activity_log')).map(l=>({...l,at:liveDate(l.created_at),by:l.created_by,text:l.description || l.title || '',type:({assign:'assigned',close:'closed',status_change:'status',case_followup:'case'})[l.action] || l.action}))),
-      deletes: async()=>{ LIVE.deletes=await LIVE.store.all('request_delete_requests',{status:'pending'}); },
-      business: async()=>applyBusiness(await liveApi('ops-business-snapshot')),
-      activation: async()=>{ const data=await liveApi('ops-business-activation-requests'); replaceRows(ACTIVATIONS,(data.requests || []).map(a=>({...a,name:a.entity_name || '',type:a.entity_type || '',contact:a.contact_name || a.contact_details || '',phone:a.contact_phone || '',plan:knownPlan(a.requested_plan),at:liveDate(a.created_at),note:a.metadata?.closed_note || a.metadata?.contacted_note || '',cr:a.metadata?.commercial_registration || '',city:a.metadata?.city || '',email:a.metadata?.email || ''}))); }
+      deletes: async()=>{ const version=LIVE.deleteVersion,rows=await LIVE.store.all('request_delete_requests',{status:'pending'});if(version===LIVE.deleteVersion)LIVE.deletes=rows; },
+      business: async()=>{const version=LIVE.businessVersion,snapshot=await liveApi('ops-business-snapshot');if(version===LIVE.businessVersion)applyBusiness(snapshot);},
+      messages: async()=>{await LIVE.refreshMessages();if(LIVE.errors.messages)throw new Error(LIVE.errors.messages);},
+      activation: async()=>{ const version=LIVE.businessVersion,data=await liveApi('ops-business-activation-requests');if(version!==LIVE.businessVersion)return; replaceRows(ACTIVATIONS,(data.requests || []).map(a=>({...a,name:a.entity_name || '',type:a.entity_type || '',contact:a.contact_name || a.contact_details || '',phone:a.contact_phone || '',plan:knownPlan(a.requested_plan),at:liveDate(a.created_at),note:a.metadata?.closed_note || a.metadata?.contacted_note || '',cr:a.metadata?.commercial_registration || '',city:a.metadata?.city || '',email:a.metadata?.email || ''}))); }
     };
     await Promise.allSettled(Object.entries(jobs).map(async([key,fn])=>{ try {await fn();delete LIVE.errors[key];}catch(e){LIVE.errors[key]=e.message;} }));
     rebuildMetrics();
@@ -3449,9 +3569,22 @@ LIVE.refresh = async function () {
   })().finally(()=>LIVE.refreshPromise=null);
   return LIVE.refreshPromise;
 };
+LIVE.refreshMessages=async function(){
+  if(LIVE.messagesPromise)return LIVE.messagesPromise;
+  LIVE.messagesPromise=(async()=>{
+    const version=LIVE.messageVersion;
+    try{
+      const rows=await LIVE.store.messages();
+      if(version===LIVE.messageVersion)replaceRows(LETTERS,rows.map(mapLetter));
+      delete LIVE.errors.messages;
+    }catch(e){LIVE.errors.messages=e.message;}
+    if(LIVE.ready){refreshLettersQuiet();livePaintStatus();}
+  })().finally(()=>LIVE.messagesPromise=null);
+  return LIVE.messagesPromise;
+};
 function livePaintStatus() {
   const banner=$('#liveStatus'); if(!banner) return;
-  const names={team:'الفريق',requests:'الطلبات',support:'الدعم',activity:'النشاط',deletes:'طلبات الحذف',business:'المنشآت',activation:'التفعيل'};
+  const names={team:'الفريق',requests:'الطلبات',support:'الدعم',activity:'النشاط',deletes:'طلبات الحذف',business:'المنشآت',activation:'التفعيل',messages:'رسائل الفريق'};
   const failed=Object.keys(LIVE.errors);
   banner.innerHTML=`<span>${failed.length ? 'تعذر تحديث: '+failed.map(k=>names[k]).join('، ')+' — آخر بيانات متاحة قد تكون قديمة' : 'متصل ببيانات المنصة الحالية'}</span><button class="btn btn-sm btn-s" data-a="refreshLive">تحديث</button>`;
 }
@@ -3466,6 +3599,7 @@ async function bootLive() {
     shell(); try {setTheme(localStorage.getItem('araf-ops-theme') || 'light');}catch(_){setTheme('light');}
     $('#scroll').insertAdjacentHTML('afterbegin','<div id="liveStatus" class="row gap12" style="padding:10px 24px;font-size:12px"></div>');
     LIVE.ready=true; window.ARAF_READY=true; parseHash(); render(false); livePaintStatus();
+    setInterval(()=>{if(!document.hidden)LIVE.refreshMessages();},15000);
     setInterval(()=>{ if(!document.hidden && !LIVE.pending.size && !$('#modal')?.classList.contains('show') && !$('#drawer')?.classList.contains('show')) LIVE.refresh(); },30000);
     document.addEventListener('visibilitychange',()=>{if(!document.hidden && !LIVE.pending.size && !$('#modal')?.classList.contains('show') && !$('#drawer')?.classList.contains('show'))LIVE.refresh();});
     window.opsAuth.auth.onAuthStateChange((event)=>{ if(event==='SIGNED_OUT'){LIVE.ready=false;window.ARAF_READY=false;location.replace('login.html');} });
@@ -3477,18 +3611,35 @@ async function bootLive() {
 A.refreshLive=()=>LIVE.refresh();
 
 /* All mutations are confirmed by the existing backend before UI success. */
-LIVE.run = async function(key, task, message='حُفظ التغيير') {
+function liveBusy(button, label='جارٍ الحفظ…') {
+  const controls=$$('#modal.show button, #modal.show input, #modal.show textarea, #modal.show select');
+  if(button && !controls.includes(button)) controls.push(button);
+  const saved=controls.map(el=>[el,el.disabled]); const html=button?.innerHTML;
+  controls.forEach(el=>el.disabled=true);
+  if(button){button.setAttribute('aria-busy','true');button.innerHTML=ic('clock')+esc(label);}
+  return ()=>{saved.forEach(([el,disabled])=>el.disabled=disabled);if(button){button.removeAttribute('aria-busy');button.innerHTML=html;}};
+}
+LIVE.run = async function(key, task, message='حُفظ التغيير', options={}) {
   if(LIVE.pending.has(key)) return;
   LIVE.pending.add(key);
+  const resetBusy=liveBusy(options.button || $('#modal.show [data-a="liveSave"]') || $('#modal.show [data-a="doAssign"]'),options.busyLabel);
   try {
     await LIVE.store.verify();
     if (LIVE.store.user.id !== ME) throw new Error('تغير الحساب؛ أعد تحميل الصفحة');
     const result=await task();
-    await LIVE.refresh();
+    const requestSaved=key.startsWith('request:') && result?.data?.id;
+    if(requestSaved){
+      LIVE.requestVersion++;
+      const row=mapRequest(result.data),i=REQUESTS.findIndex(r=>r.id===row.id);
+      if(i<0) REQUESTS.push(row); else REQUESTS.splice(i,1,row);
+      rebuildMetrics();
+    } else if(!options.local) await LIVE.refresh();
     closeModal(); if(DR.stack.length) refreshDrawer(); rerender(); livePaintStatus();
-    toast(result?.warning || message,{info:!!result?.warning}); return result;
+    toast(result?.warning || message,{info:!!result?.warning});
+    if(result?.audit) result.audit.then(warning=>{if(warning)toast(warning,{info:true});});
+    return result;
   } catch(e) { toast(e.message || 'تعذر الحفظ. حدّث البيانات للتحقق قبل تكرار الإجراء',{info:true}); }
-  finally {LIVE.pending.delete(key);}
+  finally {LIVE.pending.delete(key);resetBusy();}
 };
 function liveForm(title,body,save,label='حفظ') {
   openModal(`<div class="m-h"><h3 class="h2 grow">${esc(title)}</h3><button class="icon-btn" data-a="mClose">${ic('x')}</button></div><div class="m-b">${body}</div><div class="m-f"><button class="btn btn-q" data-a="mClose">إلغاء</button><button class="btn btn-p" data-a="liveSave">${esc(label)}</button></div>`);
@@ -3513,7 +3664,7 @@ function assignTo(id,emp) {
     if(!TEAM.some(t=>t.id===emp && t.status==='active'))throw new Error('اختر موظفًا نشطًا');
     const row=LIVE.store.rows[id],now=new Date().toISOString();
     return LIVE.store.patchRequest(id,{assigned_to:emp,assigned_by:ME,assigned_at:now,
-      ...(['new','pending'].includes(row.status)?{status:'assigned'}:{})},'assign','إسناد الطلب');
+      ...(['new','pending'].includes(row.status)?{status:'assigned'}:{})},'assign','إسناد الطلب',{deferAudit:true});
   },'حُفظ إسناد الطلب');
 };
 A.autoAssign=el=>{
@@ -3602,18 +3753,37 @@ A.tkClose=el=>LIVE.run('ticket:'+el.dataset.id,async()=>{
   const {data,error}=await window.sb.from('support_tickets').update({status:'closed',updated_at:new Date().toISOString()}).eq('id',el.dataset.id).select('id').single();
   if(error||!data)throw new Error(error?.message||'تعذر إغلاق التذكرة');closeDrawer();
 },'أُغلقت التذكرة. لم تُرسل رسالة للعميل');
+const canManage=()=>['admin','manager'].includes(LIVE.store?.user?.role);
+const pendingDelete=id=>LIVE.deletes.find(d=>String(d.request_id)===String(id));
+function deleteActionLabel(id){const p=pendingDelete(id);return !p?'حذف الطلب':String(p.requested_by)===String(ME)?'بانتظار اعتماد الحذف':canManage()?'اعتماد الحذف':'طلب حذف معلّق';}
+function deleteMarker(id){
+  const p=pendingDelete(id);if(!p)return '';
+  return `<button class="delete-marker" data-a="reviewDelete" data-id="${esc(id)}" aria-label="${esc(deleteActionLabel(id))}">${ic('alert','width="14" height="14"')}<span>${deleteActionLabel(id)}</span></button>`;
+}
 function askDelete(r){
-  const pending=LIVE.deletes.find(d=>d.request_id===r.id);
+  const pending=pendingDelete(r.id);
   if(pending){
-    liveForm('طلب حذف بانتظار الاعتماد',`<p>طلبه: ${esc(pending.requested_by_name || '')}</p>`,()=>LIVE.run('delete:'+r.id,async()=>{
-      await LIVE.store.approveDelete(pending); closeDrawer();
-    },'اعتُمد الحذف'),'اعتماد الحذف');return;
+    const own=String(pending.requested_by)===String(ME);
+    if(own || !canManage()){
+      openModal(`<div class="m-h"><h3 class="h2">بانتظار اعتماد الحذف</h3></div><div class="m-b"><p>طلبه: ${esc(pending.requested_by_name || '')}</p><p>يلزم اعتماد الحذف من مستخدم إداري آخر. لم يُحذف الطلب بعد.</p></div><div class="m-f"><button class="btn btn-s" data-a="mClose">إغلاق</button></div>`);return;
+    }
+    liveForm('اعتماد الحذف',`<p>طلبه: ${esc(pending.requested_by_name || '')}</p><p class="danger-note">سيُحذف طلب ${esc(r.customer)} نهائيًا من قاعدة البيانات المشتركة. لا يمكن التراجع عن الحذف.</p>`,()=>LIVE.run('delete:'+r.id,async()=>{
+      await LIVE.store.approveDelete(pending);
+      LIVE.requestVersion++;LIVE.deleteVersion++;delete LIVE.store.rows[r.id];
+      replaceRows(REQUESTS,REQUESTS.filter(x=>x.id!==r.id));
+      LIVE.deletes=LIVE.deletes.filter(d=>String(d.request_id)!==String(r.id));
+      closeDrawer();rebuildMetrics();
+    },'اعتُمد الحذف',{local:true}),'اعتماد الحذف');
+  }else{
+    if(!canManage())return toast('هذا الإجراء متاح للإدارة',{info:true});
+    liveForm('حذف الطلب',`<p>سيُرسل طلب الحذف للاعتماد من مستخدم إداري آخر.</p>`+liveNote('سبب الحذف','liveDeleteReason'),()=>LIVE.run('delete:'+r.id,async()=>{
+      LIVE.store.requireUser(true); const reason=val('liveDeleteReason');if(!reason)throw new Error('اكتب سبب الحذف');
+      const row=await LIVE.store.insert('request_delete_requests',{request_id:r.id,requested_by:ME,requested_by_name:LIVE.store.user.name,status:'pending'},true);
+      LIVE.deleteVersion++;LIVE.deletes.push(row);
+      return {warning:await LIVE.store.audit(r.id,'delete_request','طلب حذف: '+reason)};
+    },'سُجّل طلب الحذف وينتظر اعتماد مستخدم آخر'),'حذف الطلب');
   }
-  liveForm('طلب حذف '+r.id,liveNote('سبب الحذف','liveDeleteReason'),()=>LIVE.run('delete:'+r.id,async()=>{
-    LIVE.store.requireUser(true); const reason=val('liveDeleteReason');if(!reason)throw new Error('اكتب سبب الحذف');
-    await LIVE.store.insert('request_delete_requests',{request_id:r.id,requested_by:ME,requested_by_name:LIVE.store.user.name,status:'pending'},true);
-    return {warning:await LIVE.store.audit(r.id,'delete_request','طلب حذف: '+reason)};
-  },'سُجّل طلب الحذف وينتظر اعتماد مستخدم آخر'),'إرسال طلب الحذف');
+  $('#modal [data-a="liveSave"]')?.classList.add('btn-destructive');
 };
 function resetRequests(){liveForm('طلب تصفير العداد','<p>يسجل هذا الإجراء طلبًا للإدارة وفق الآلية الحالية.</p>',()=>LIVE.run('reset-request',()=>LIVE.store.insert('ops_reset_requests',{requested_by:ME,requested_by_name:LIVE.store.user.name,status:'pending'},true),'سُجّل طلب التصفير'),'إرسال الطلب');};
 A.resetReview=resetRequests;
@@ -3641,7 +3811,25 @@ A.remindOne=el=>{
   const r=REQ(el.dataset.id);let phone=r.phone.replace(/\D/g,'');if(phone.startsWith('05'))phone='966'+phone.slice(1);
   if(!phone)return;window.open('https://wa.me/'+phone,'_blank','noopener,noreferrer');
 };
-CTX.ent=id=>[{l:'فتح المنشأة',f:()=>A.openEnt({dataset:{id}})}];
+CTX.ent=id=>[{l:'فتح المنشأة',f:()=>A.openEnt({dataset:{id}})},...(canManage()?[{l:'إلغاء الاشتراك وحذف المنشأة',red:true,f:()=>A.deleteEntity({dataset:{id}})}]:[])];
+A.deleteEntity=el=>{
+  const entity=ENTITIES.find(e=>e.id===el.dataset.id);if(!entity)return;
+  if(!canManage())return toast('هذا الإجراء متاح للإدارة',{info:true});
+  liveForm('إلغاء الاشتراك وحذف المنشأة',`<p><b>${esc(entity.name)}</b> — <span dir="ltr">${esc(entity.code)}</span></p><p class="danger-note">سيُحذف اشتراك المنشأة وطلباتها وسجلات استهلاكها نهائيًا من قاعدة البيانات المشتركة، ويظهر الحذف في المنصة الأصلية أيضًا. لا يمكن التراجع عن هذا الإجراء.</p><p>ستُزال قيمة اشتراكها من الإيراد الشهري المتكرر.</p>`+liveField('اكتب رمز المنشأة لتأكيد الحذف','deleteEntityCode')+`<label class="row gap8"><input type="checkbox" id="deleteEntityAgree">أؤكد حذف هذه المنشأة وبياناتها المرتبطة.</label>`,()=>{
+    const confirmation=val('deleteEntityCode'),agree=$('#deleteEntityAgree')?.checked;
+    if(!agree)return toast('أكد موافقتك على الحذف',{info:true});
+    return LIVE.run('entity-delete:'+entity.id,async()=>{
+      const result=await LIVE.store.deleteEntity(entity,confirmation);
+      if(!result.ok || String(result.entity_id)!==String(entity.id))throw new Error('لم يؤكد الخادم حذف المنشأة');
+      LIVE.businessVersion++;
+      replaceRows(ENTITIES,ENTITIES.filter(e=>e.id!==entity.id));
+      replaceRows(BIZ_REQUESTS,BIZ_REQUESTS.filter(r=>r.entity!==entity.id));
+      replaceRows(ACTIVATIONS,ACTIVATIONS.filter(a=>a.entity_code!==entity.code && a.metadata?.activated_entity_id!==entity.id));
+      closeDrawer();rebuildMetrics();return result;
+    },'حُذفت المنشأة وبيانات اشتراكها، وحُدّث الإيراد',{local:true});
+  },'إلغاء الاشتراك وحذف المنشأة');
+  $('#modal [data-a="liveSave"]')?.classList.add('btn-destructive');
+};
 A.stub=unavailable;
 function downloadCsv(name,rows){
   const cell=v=>'"'+String(v??'').replace(/^[=+@-]/,"'$&").replace(/"/g,'""')+'"';
@@ -3660,7 +3848,7 @@ reqPanel=function(id){const panel=panelWithAttachments(id),r=REQ(id);const label
     return /^https:\/\//i.test(url)?`<a class="li" target="_blank" rel="noopener noreferrer" href="${esc(url)}">${ic('file')}${esc(name)}</a>`:`<div class="li">${esc(name)} — رابط التنزيل غير متاح</div>`;
   }).join('')||'<p class="muted">لا مرفقات</p>'}</div>`+panel.body.slice(end);
   panel.foot+=`<button class="btn btn-s" data-a="payment" data-id="${esc(id)}">حالة الدفع</button>`;
-  const pending=LIVE.deletes.find(d=>d.request_id===id);if(pending)panel.foot+=`<button class="btn btn-s" data-a="reviewDelete" data-id="${esc(id)}">مراجعة طلب الحذف</button>`;
+  if(canManage() || pendingDelete(id))panel.foot+=`<button class="btn btn-s btn-danger" data-a="reviewDelete" data-id="${esc(id)}">${deleteActionLabel(id)}</button>`;
   return panel;
 };
 A.reviewDelete=el=>askDelete(REQ(el.dataset.id));

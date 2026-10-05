@@ -45,7 +45,7 @@ function bizEntities() {
         <div class="hbar" style="height:5px;margin-top:4px"><i class="growX" style="width:${q.pct}%;background:${q.c}"></i></div></div>`; }).join('')}</div>
       <div class="foot"><span class="row gap6">${av(e.manager, 'sm')}<span class="muted" style="font-size:12px">${esc(e.manager_name || (e.manager ? U(e.manager).short : 'لم يُعيّن'))}</span></span>
       <span class="muted" style="font-size:12px;margin-inline-start:auto">${open} طلبات جارية</span>
-      <span class="badge ${days <= 5 ? 'b-amber' : 'b-ghost'}">تجديد ${rel(e.cycle_end)}</span></div></article>`; }).join('')}</div>`;
+      <span class="badge ${days <= 5 ? 'b-amber' : 'b-ghost'}">تجديد ${rel(e.cycle_end)}</span></div>${canManage()?`<div class="ent-danger"><button class="btn btn-sm btn-danger" data-a="deleteEntity" data-id="${esc(e.id)}">${ic('x')}إلغاء الاشتراك وحذف المنشأة</button></div>`:''}</article>`; }).join('')}</div>`;
 }
 function bizActivation() {
   const L = ACTIVATIONS.filter((a) => S.bizF === 'all' ? true : S.bizF === 'pending' ? ['new', 'contacted'].includes(a.status) : a.status === S.bizF);
@@ -67,7 +67,7 @@ A.openEnt = (el) => {
       <p class="muted" style="font-size:12px;line-height:1.7;margin-top:10px">الخدمات غير المشمولة في الباقة تُسعَّر خارج الحصة، ولا يبدأ تنفيذها قبل موافقة المنشأة.</p></div>
     <div class="dsec"><h4>بيانات التواصل</h4><dl class="kv"><dt>جهة الاتصال</dt><dd>${esc(e.contact)}</dd><dt>الجوال</dt><dd class="ltr num">${esc(e.phone)}</dd><dt>السجل التجاري</dt><dd class="ltr num">${esc(e.cr)}</dd><dt>مدير الحساب</dt><dd class="row gap6">${av(e.manager, 'sm')}${esc(e.manager_name || (e.manager ? U(e.manager).name : 'لم يُعيّن'))}</dd><dt>بداية الاشتراك</dt><dd>${dmy(e.start)}</dd></dl></div>
     <div class="dsec"><h4>طلبات المنشأة</h4>${rs.map((b) => `<div class="li" data-a="openBiz" data-id="${esc(b.id)}"><div class="ic">${ic('file')}</div><div class="grow"><div class="t">${esc(b.subject)}</div><div class="m">${esc(BIZ_SERVICES[b.service])} — ${rel(b.created_at)}</div></div><span class="badge ${BIZ_ST[b.status].b}">${BIZ_ST[b.status].l}</span></div>`).join('') || '<p class="muted" style="font-size:13px">لا طلبات في هذه الدورة.</p>'}</div>`,
-    foot: `<button class="btn btn-p" data-a="stub" data-m="فُتحت محادثة مع ${esc(e.contact)}">${ic('msg')}مراسلة المنشأة</button>${e.sub === 'grace' ? `<button class="btn btn-g" data-a="stub" data-m="أُرسل تذكير سداد إلى ${esc(e.name)}">${ic('receipt')}تذكير سداد</button>` : ''}<button class="btn btn-q" data-a="stub" data-m="ستُتاح إدارة الباقة بعد الربط" style="margin-inline-start:auto">تغيير الباقة</button>` }), { wide: true });
+    foot: `${canManage()?`<button class="btn btn-s btn-danger" data-a="deleteEntity" data-id="${esc(e.id)}">إلغاء الاشتراك وحذف المنشأة</button>`:''}<button class="btn btn-p" data-a="stub" data-m="فُتحت محادثة مع ${esc(e.contact)}">${ic('msg')}مراسلة المنشأة</button>${e.sub === 'grace' ? `<button class="btn btn-g" data-a="stub" data-m="أُرسل تذكير سداد إلى ${esc(e.name)}">${ic('receipt')}تذكير سداد</button>` : ''}<button class="btn btn-q" data-a="stub" data-m="ستُتاح إدارة الباقة بعد الربط" style="margin-inline-start:auto">تغيير الباقة</button>` }), { wide: true });
 };
 A.openBiz = (el) => {
   const b = BIZ_REQUESTS.find((x) => x.id === el.dataset.id); const e = ENT(b.entity); const q = quotaState(e, b.service);
@@ -116,7 +116,7 @@ function openMember(id) {
     body: `<div class="kpi-strip" style="grid-template-columns:repeat(4,1fr)"><div><span>مفتوح</span><b>${open.length}</b></div><div><span>متأخر</span><b style="${open.filter(isLate).length ? 'color:var(--red)' : ''}">${open.filter(isLate).length}</b></div><div><span>مغلق</span><b>${closed.length}</b></div><div><span>متوسط الإغلاق</span><b>${avgH}<small style="font-size:12px"> س</small></b></div></div>
     <div class="dsec" style="margin-top:0"><h4>الطلبات المفتوحة</h4>${open.length ? open.map((r) => `<div class="li" data-a="openReq" data-id="${esc(r.id)}"><div class="ic">${ic(r.kind === 'cases' ? 'gavel' : 'file')}</div><div class="grow"><div class="t">${esc(r.customer)} — ${esc(svName(r))}</div><div class="m">${ST[r.status].l} — ${rel(r.created_at)}</div></div>${isLate(r) ? '<span class="badge b-red">متأخر</span>' : ''}</div>`).join('') : '<p class="muted" style="font-size:13px">لا طلبات مفتوحة.</p>'}</div>
     <div class="dsec"><h4>البيانات</h4><dl class="kv"><dt>البريد</dt><dd class="ltr">${esc(u.email)}</dd><dt>الجوال</dt><dd class="ltr num">${esc(u.phone)}</dd><dt>التخصص</dt><dd>${u.skills.join('، ')}</dd><dt>الطاقة الاستيعابية</dt><dd>${u.cap} طلبًا</dd><dt>آخر دخول</dt><dd>${ago(u.last)}</dd><dt>انضم في</dt><dd>${dmy(u.joined)}</dd></dl></div>`,
-    foot: `<button class="btn btn-p" data-a="stub" data-m="فُتحت محادثة مع ${esc(u.short)}">${ic('msg')}رسالة</button>${id !== ME ? `<button class="btn btn-s" data-a="stub" data-m="ستتاح إدارة الصلاحيات بعد الربط">${ic('lock')}الصلاحيات</button>` : ''}<span class="muted" style="font-size:12px;margin-inline-start:auto">${esc(u.email)}</span>` }), { wide: true });
+    foot: `<button class="btn btn-p" data-a="messageEmployee" data-id="${esc(id)}">${ic('msg')}رسالة</button>${id !== ME ? `<button class="btn btn-s" data-a="stub" data-m="ستتاح إدارة الصلاحيات بعد الربط">${ic('lock')}الصلاحيات</button>` : ''}<span class="muted" style="font-size:12px;margin-inline-start:auto">${esc(u.email)}</span>` }), { wide: true });
 }
 A.member = (el) => openMember(el.dataset.id);
 
@@ -312,7 +312,7 @@ const CTX = {
   req: (id) => { const r = REQ(id); return [{ h: `${esc(r.id)} — ${esc(r.customer)}` }, { l: 'فتح الطلب', ic: 'expand', k: 'Enter', f: () => openReq(id) },
     ...(isOpen(r) ? [{ l: r.assigned_to ? 'تغيير المسؤول' : 'إسناد', ic: 'user', k: 'Shift A', f: () => A.assign({ dataset: { id } }) }, { l: 'تغيير الحالة', ic: 'refresh', f: () => A.statusModal({ dataset: { id } }) }, { l: 'إغلاق الطلب', ic: 'check', f: () => A.closeReq({ dataset: { id } }) }] : [{ l: 'إعادة فتح', ic: 'refresh', f: () => A.reopen({ dataset: { id } }) }]),
     '-', { l: 'نسخ رقم الجوال', ic: 'copy', f: () => { navigator.clipboard?.writeText(r.phone); toast('نُسخ رقم الجوال'); } },
-    { l: 'طلب حذف الطلب', ic: 'x', red: true, f: () => askDelete(r) }]; },
+    ...(canManage() || pendingDelete(id) ? [{ l: deleteActionLabel(id), ic: 'x', red: true, f: () => askDelete(r) }] : [])]; },
   emp: (id) => [{ l: 'فتح الملف', ic: 'user', f: () => openMember(id) }, { l: 'إسناد طلب له', ic: 'plus', f: () => toast('اختر طلبًا من القائمة ثم «إسناد»', { info: true }) }],
   ent: (id) => [{ l: 'فتح المنشأة', ic: 'building', f: () => A.openEnt({ dataset: { id } }) }, { l: 'تذكير سداد', ic: 'receipt', f: () => toast('أُرسل تذكير السداد') }],
   biz: (id) => [{ l: 'فتح الطلب', ic: 'expand', f: () => A.openBiz({ dataset: { id } }) }],

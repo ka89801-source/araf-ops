@@ -1,5 +1,5 @@
 /* Shared backend bootstrap: never show demo data or report a failed load as zero. */
-const LIVE = { ready: false, pending: new Set(), errors: {}, deletes: [], refreshPromise: null };
+const LIVE = { ready: false, pending: new Set(), errors: {}, deletes: [], refreshPromise: null, requestVersion: 0, deleteVersion: 0, businessVersion: 0, messageVersion: 0, messagesPromise: null };
 const liveDate = (v) => v && Number.isFinite(new Date(v).getTime()) ? new Date(v) : null;
 const replaceRows = (target, rows) => target.splice(0, target.length, ...rows);
 const val = (id) => $('#' + id)?.value?.trim() || '';
@@ -83,12 +83,13 @@ LIVE.refresh = async function () {
   LIVE.refreshPromise = (async () => {
     const jobs = {
       team: async()=>{ const rows=await LIVE.store.all('employees'); replaceRows(TEAM, rows.map(mapEmployee)); if(!TEAM.some(t=>t.id===ME)) TEAM.push(mapEmployee({...LIVE.store.user,full_name:LIVE.store.user.name,status:'active'})); },
-      requests: async()=>{ const rows=await LIVE.store.requests(); LIVE.store.rows=Object.fromEntries(rows.map(r=>[String(r.id),r])); replaceRows(REQUESTS,rows.map(mapRequest)); },
+      requests: async()=>{ const version=LIVE.requestVersion; const rows=await LIVE.store.requests(); if(version!==LIVE.requestVersion || [...LIVE.pending].some(k=>k.startsWith('request:')))return; LIVE.store.rows=Object.fromEntries(rows.map(r=>[String(r.id),r])); replaceRows(REQUESTS,rows.map(mapRequest)); },
       support: async()=>replaceRows(TICKETS,(await LIVE.store.all('support_tickets')).map(t=>({...t,customer:t.name || t.customer_name || '',phone:t.phone || t.customer_phone || '',body:t.problem || t.message || t.details || '',subject:t.subject || 'رسالة دعم',channel:t.channel || 'نموذج الموقع',at:liveDate(t.created_at),status:t.status === 'new' ? 'open' : Object.hasOwn(TK_ST,t.status) ? t.status : 'open'}))),
       activity: async()=>replaceRows(LOG,(await LIVE.store.all('request_activity_log')).map(l=>({...l,at:liveDate(l.created_at),by:l.created_by,text:l.description || l.title || '',type:({assign:'assigned',close:'closed',status_change:'status',case_followup:'case'})[l.action] || l.action}))),
-      deletes: async()=>{ LIVE.deletes=await LIVE.store.all('request_delete_requests',{status:'pending'}); },
-      business: async()=>applyBusiness(await liveApi('ops-business-snapshot')),
-      activation: async()=>{ const data=await liveApi('ops-business-activation-requests'); replaceRows(ACTIVATIONS,(data.requests || []).map(a=>({...a,name:a.entity_name || '',type:a.entity_type || '',contact:a.contact_name || a.contact_details || '',phone:a.contact_phone || '',plan:knownPlan(a.requested_plan),at:liveDate(a.created_at),note:a.metadata?.closed_note || a.metadata?.contacted_note || '',cr:a.metadata?.commercial_registration || '',city:a.metadata?.city || '',email:a.metadata?.email || ''}))); }
+      deletes: async()=>{ const version=LIVE.deleteVersion,rows=await LIVE.store.all('request_delete_requests',{status:'pending'});if(version===LIVE.deleteVersion)LIVE.deletes=rows; },
+      business: async()=>{const version=LIVE.businessVersion,snapshot=await liveApi('ops-business-snapshot');if(version===LIVE.businessVersion)applyBusiness(snapshot);},
+      messages: async()=>{await LIVE.refreshMessages();if(LIVE.errors.messages)throw new Error(LIVE.errors.messages);},
+      activation: async()=>{ const version=LIVE.businessVersion,data=await liveApi('ops-business-activation-requests');if(version!==LIVE.businessVersion)return; replaceRows(ACTIVATIONS,(data.requests || []).map(a=>({...a,name:a.entity_name || '',type:a.entity_type || '',contact:a.contact_name || a.contact_details || '',phone:a.contact_phone || '',plan:knownPlan(a.requested_plan),at:liveDate(a.created_at),note:a.metadata?.closed_note || a.metadata?.contacted_note || '',cr:a.metadata?.commercial_registration || '',city:a.metadata?.city || '',email:a.metadata?.email || ''}))); }
     };
     await Promise.allSettled(Object.entries(jobs).map(async([key,fn])=>{ try {await fn();delete LIVE.errors[key];}catch(e){LIVE.errors[key]=e.message;} }));
     rebuildMetrics();
@@ -96,9 +97,22 @@ LIVE.refresh = async function () {
   })().finally(()=>LIVE.refreshPromise=null);
   return LIVE.refreshPromise;
 };
+LIVE.refreshMessages=async function(){
+  if(LIVE.messagesPromise)return LIVE.messagesPromise;
+  LIVE.messagesPromise=(async()=>{
+    const version=LIVE.messageVersion;
+    try{
+      const rows=await LIVE.store.messages();
+      if(version===LIVE.messageVersion)replaceRows(LETTERS,rows.map(mapLetter));
+      delete LIVE.errors.messages;
+    }catch(e){LIVE.errors.messages=e.message;}
+    if(LIVE.ready){refreshLettersQuiet();livePaintStatus();}
+  })().finally(()=>LIVE.messagesPromise=null);
+  return LIVE.messagesPromise;
+};
 function livePaintStatus() {
   const banner=$('#liveStatus'); if(!banner) return;
-  const names={team:'الفريق',requests:'الطلبات',support:'الدعم',activity:'النشاط',deletes:'طلبات الحذف',business:'المنشآت',activation:'التفعيل'};
+  const names={team:'الفريق',requests:'الطلبات',support:'الدعم',activity:'النشاط',deletes:'طلبات الحذف',business:'المنشآت',activation:'التفعيل',messages:'رسائل الفريق'};
   const failed=Object.keys(LIVE.errors);
   banner.innerHTML=`<span>${failed.length ? 'تعذر تحديث: '+failed.map(k=>names[k]).join('، ')+' — آخر بيانات متاحة قد تكون قديمة' : 'متصل ببيانات المنصة الحالية'}</span><button class="btn btn-sm btn-s" data-a="refreshLive">تحديث</button>`;
 }
@@ -113,6 +127,7 @@ async function bootLive() {
     shell(); try {setTheme(localStorage.getItem('araf-ops-theme') || 'light');}catch(_){setTheme('light');}
     $('#scroll').insertAdjacentHTML('afterbegin','<div id="liveStatus" class="row gap12" style="padding:10px 24px;font-size:12px"></div>');
     LIVE.ready=true; window.ARAF_READY=true; parseHash(); render(false); livePaintStatus();
+    setInterval(()=>{if(!document.hidden)LIVE.refreshMessages();},15000);
     setInterval(()=>{ if(!document.hidden && !LIVE.pending.size && !$('#modal')?.classList.contains('show') && !$('#drawer')?.classList.contains('show')) LIVE.refresh(); },30000);
     document.addEventListener('visibilitychange',()=>{if(!document.hidden && !LIVE.pending.size && !$('#modal')?.classList.contains('show') && !$('#drawer')?.classList.contains('show'))LIVE.refresh();});
     window.opsAuth.auth.onAuthStateChange((event)=>{ if(event==='SIGNED_OUT'){LIVE.ready=false;window.ARAF_READY=false;location.replace('login.html');} });

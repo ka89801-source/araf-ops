@@ -78,9 +78,9 @@ function slaCell(r) {
 }
 function reqTable(L) {
   return `<div class="clist"><div class="chead rq"><span></span><span>الطلب والعميل</span><span>الخدمة</span><span>القيمة والدفع</span><span>الحالة</span><span class="c-sla">المهلة</span><span>المسؤول</span><span class="c-date">تاريخ الوصول</span><span></span></div>
-  ${L.map((r) => `<div class="crow rq" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}" data-peek="${esc(r.id)}">
+  ${L.map((r) => `<div class="crow rq ${pendingDelete(r.id)?'delete-pending':''}" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}" data-peek="${esc(r.id)}">
     <span class="pri" style="background:${PRI[r.priority].c};${r.priority === 'normal' ? 'opacity:.35' : ''}" data-tip="أولوية ${PRI[r.priority].l}"></span>
-    <div style="min-width:0" class="row gap8">${custAv(r)}<div style="min-width:0"><div class="ttl ell">${esc(r.customer)}${lexBadge(r.id)}${isLate(r) ? `<span class="flagi" data-tip="تجاوز المهلة الداخلية">${ic('alert')}</span>` : ''}</div><div class="par ell"><span class="ltr num">${esc(r.id)}</span>${["direct_services","cases"].includes(r.source) ? "" : " — " + (SRC[r.source] || r.source)}</div></div></div>
+    <div style="min-width:0" class="row gap8">${custAv(r)}<div style="min-width:0"><div class="ttl ell">${esc(r.customer)}${lexBadge(r.id)}${isLate(r) ? `<span class="flagi" data-tip="تجاوز المهلة الداخلية">${ic('alert')}</span>` : ''}</div><div class="par ell"><span class="ltr num">${esc(r.id)}</span>${["direct_services","cases"].includes(r.source) ? "" : " — " + (SRC[r.source] || r.source)}</div>${deleteMarker(r.id)}</div></div>
     <div class="cell"><span class="st" style="--c:${SV(r.service).c}">${esc(svName(r))}</span></div>
     <div class="cell">${r.price ? `<b class="num" style="font-weight:600">${fmt(r.price)}</b> <small style="display:inline">ر.س</small>` : '<span class="muted">غير مسعّر</span>'}<small>${PAY[r.payment].l}</small></div>
     <div class="cell">${stBadge(r.status)}</div>
@@ -91,9 +91,9 @@ function reqTable(L) {
 }
 function caseTable(L) {
   return `<div class="clist"><div class="chead cs"><span></span><span>العميل والقضية</span><span>نوع القضية</span><span>الأتعاب</span><span>المرحلة</span><span class="c-sess">الجلسة القادمة</span><span>المحامي</span><span></span></div>
-  ${L.map((r) => `<div class="crow cs" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}" data-peek="${esc(r.id)}">
+  ${L.map((r) => `<div class="crow cs ${pendingDelete(r.id)?'delete-pending':''}" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}" data-peek="${esc(r.id)}">
     <span class="pri" style="background:${PRI[r.priority].c};${r.priority === 'normal' ? 'opacity:.35' : ''}"></span>
-    <div style="min-width:0" class="row gap8">${custAv(r)}<div style="min-width:0"><div class="ttl ell">${esc(r.customer)}${lexBadge(r.id)}</div><div class="par ell"><span class="ltr num">${esc(r.id)}</span> — ${esc(r.details.slice(0, 46))}…</div></div></div>
+    <div style="min-width:0" class="row gap8">${custAv(r)}<div style="min-width:0"><div class="ttl ell">${esc(r.customer)}${lexBadge(r.id)}</div><div class="par ell"><span class="ltr num">${esc(r.id)}</span> — ${esc(r.details.slice(0, 46))}…</div>${deleteMarker(r.id)}</div></div>
     <div class="cell"><span class="st" style="--c:${SV(r.service).c}">${esc(svName(r))}</span></div>
     <div class="cell">${r.price ? `<b class="num" style="font-weight:600">${fmt(r.price)}</b>` : `<span class="badge b-gold">بانتظار التسعير</span>`}<small>${r.price ? PAY[r.payment].l : ''}</small></div>
     <div class="cell"><b style="font-weight:500">${esc(r.stage || ST[r.status].l)}</b><small>${r.sessions ? `${r.sessions} جلسات محضورة` : 'لم تبدأ الجلسات'}</small></div>
@@ -102,18 +102,18 @@ function caseTable(L) {
     <button class="icon-btn more" data-a="reqMenu" data-id="${esc(r.id)}">${ic('more')}</button></div>`).join('')}</div>`;
 }
 function caseCards(L) {
-  return `<div class="cards">${L.map((r, i) => `<div class="ccard" style="animation:rbIn .5s var(--ease-out) ${i * 30}ms both" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}">
+  return `<div class="cards">${L.map((r, i) => `<div class="ccard ${pendingDelete(r.id)?'delete-pending':''}" style="animation:rbIn .5s var(--ease-out) ${i * 30}ms both" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}">
     <div class="row"><span class="st" style="--c:${SV(r.service).c}">${esc(svName(r))}</span><span style="margin-inline-start:auto">${stBadge(r.status)}</span></div>
-    <div class="row gap8">${custAv(r, 'lg')}<div style="min-width:0"><div class="ttl ell">${esc(r.customer)}</div><div class="muted" style="font-size:12px">${esc(r.id)}</div></div></div>
+    <div class="row gap8">${custAv(r, 'lg')}<div style="min-width:0"><div class="ttl ell">${esc(r.customer)}</div><div class="muted" style="font-size:12px">${esc(r.id)}</div>${deleteMarker(r.id)}</div></div>
     <div class="muted" style="font-size:12.5px;line-height:1.6">${esc(r.stage || 'لم تُحدد المرحلة بعد')}</div>
     <div class="foot">${ic('cal', 'width="14" height="14"')}<span class="grow">${r.next_session ? `${rel(r.next_session)} — ${hm(r.next_session)}` : 'لا جلسة محددة'}</span>${r.assigned_to ? av(r.assigned_to, 'sm') : '<span class="badge b-amber">بلا محامٍ</span>'}</div></div>`).join('')}</div>`;
 }
 function reqBoard(L, kind) {
   const cols = ['new', 'pending', 'assigned', 'contacted', 'waiting', 'progress', 'review', 'done', 'closed', 'cancelled', 'unknown'];
   return `<div class="kanban">${cols.map((k) => { const rs = L.filter((r) => r.status === k);
-    return `<div class="kcol" data-drop="req" data-v="${k}"><div class="kcol-h"><i style="background:${ST[k].c}"></i>${ST[k].l}<span class="n">${rs.length}</span></div><div class="kcards">${rs.map((r) => `<div class="kcard" draggable="true" data-drag="${esc(r.id)}" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}">
+    return `<div class="kcol" data-drop="req" data-v="${k}"><div class="kcol-h"><i style="background:${ST[k].c}"></i>${ST[k].l}<span class="n">${rs.length}</span></div><div class="kcards">${rs.map((r) => `<div class="kcard ${pendingDelete(r.id)?'delete-pending':''}" draggable="true" data-drag="${esc(r.id)}" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}">
       <div class="row" style="margin-bottom:6px"><span class="pri-dot" style="background:${PRI[r.priority].c}"></span><span class="m grow ell">${esc(svName(r))}</span>${isLate(r) ? `<span style="color:var(--red)" data-tip="تجاوز المهلة">${ic('alert', 'width="13" height="13"')}</span>` : ''}</div>
-      <div class="ttl">${esc(r.customer)}</div>
+      <div class="ttl">${esc(r.customer)}</div>${deleteMarker(r.id)}
       <div class="row" style="margin-top:10px"><span class="m grow">${r.price ? fmt(r.price) + ' ر.س' : 'غير مسعّر'} — ${rel(r.created_at)}</span>${r.assigned_to ? av(r.assigned_to, 'sm') : `<span class="badge b-amber" style="height:20px">بلا مسؤول</span>`}</div></div>`).join('') || '<div class="muted" style="font-size:12px;text-align:center;padding:20px 0">اسحب طلبًا إلى هنا</div>'}</div></div>`; }).join('')}</div>`;
 }
 window.PEEK = (el) => {
@@ -217,7 +217,7 @@ A.assign = (el, e) => {
     <div class="m-b" id="assignBody">${body()}</div>
     <div class="m-f"><button class="btn btn-q" data-a="mClose">إلغاء</button><button class="btn btn-g" data-a="autoAssign" data-id="${esc(r.id)}">${ic('sparkle')}توزيع تلقائي</button><button class="btn btn-p" data-a="doAssign" data-id="${esc(r.id)}">تأكيد الإسناد</button></div>`, 'lg');
   A.pickEmp = (b) => { pick = b.dataset.id; $('#assignBody').innerHTML = body(); };
-  A.doAssign = (b) => { if (!pick) return toast('اختر موظفًا أولًا', { info: true }); assignTo(b.dataset.id, pick); };
+  A.doAssign = (b) => { if (!pick) return toast('اختر موظفًا أولًا', { info: true }); return assignTo(b.dataset.id, pick); };
 };
 
 /* ---------- تغيير الحالة والإغلاق والتسعير ---------- */

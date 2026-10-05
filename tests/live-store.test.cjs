@@ -20,3 +20,30 @@ test('audit failure is reported separately after a successful save',async()=>{co
 test('deletion uses the existing approval RPC and forbids self approval',async()=>{const db=mockDB(()=>({data:true})),s=store(db);await assert.rejects(s.approveDelete({request_id:'r1',status:'pending',requested_by:'e1'}));assert.equal(db.calls.length,0);await s.approveDelete({request_id:'r1',status:'pending',requested_by:'e2'});assert.equal(db.calls[0].rpc,'approve_and_delete_service_request');});
 test('support conversion calls existing RPC and validates price',async()=>{const db=mockDB(()=>({data:'r1'})),s=store(db);await assert.rejects(s.convertTicket('t1','consultation','Consult',-1,'paid'));await s.convertTicket('t1','consultation','Consult',100,'paid');assert.equal(db.calls[0].rpc,'convert_support_ticket_to_request');assert.equal(db.calls[0].payload.p_converted_by,'e1');});
 test('new rows keep database-generated request IDs',async()=>{const db=mockDB(op=>({data:{...op.insert[0],id:'server-id'}})),s=store(db);const row=await s.insert('service_requests',{customer_name:'Test'});assert.equal(row.id,'server-id');assert.equal(db.calls[0].insert[0].id,undefined);});
+test('assignment returns the saved row without waiting for audit; audit errors still surface',async()=>{
+ let finishAudit;const waiting=new Promise(resolve=>finishAudit=resolve);
+ const db=mockDB(op=>op.table==='request_activity_log'?waiting:{data:{id:'r1',assigned_to:'e2',updated_at:'new'}}),s=store(db);s.rows.r1={id:'r1',updated_at:'old'};
+ const result=await s.patchRequest('r1',{assigned_to:'e2'},'assign','Assign',{deferAudit:true});
+ assert.equal(result.data.assigned_to,'e2');assert.ok(result.audit instanceof Promise);
+ finishAudit({error:{message:'audit unavailable'}});assert.match(await result.audit,/تعذر تسجيل النشاط/);
+});
+test('v2 messages use authenticated RPC and page through the private inbox',async()=>{
+ const calls=[],s=store(mockDB(()=>{throw new Error('anonymous client must not be used')}));
+ s.auth={rpc:async(name,payload)=>{calls.push({name,payload});return {data:payload.p_before?[]:Array.from({length:200},(_,i)=>({id:String(300-i)}))};}};
+ assert.equal((await s.messages()).length,200);assert.equal(calls[1].payload.p_before,'101');
+ s.auth.rpc=async(name,payload)=>({data:{id:'server-id',...payload}});
+ assert.equal((await s.sendMessage('e2',' Subject ',' Message ',true,'nonce')).p_body,'Message');
+ await assert.rejects(async()=>s.sendMessage('e1','x','x',false,'n'),/موظفًا آخر/);
+});
+test('v2 unavailable schema is explicit and message failures never look successful',async()=>{
+ const s=store(mockDB(()=>({})));s.auth={rpc:async()=>({error:{code:'PGRST202',message:'missing function'}})};
+ await assert.rejects(s.messages(),/بانتظار تفعيل/);
+ await assert.rejects(s.sendMessage('e2','Subject','Body',false,'nonce'),/بانتظار تفعيل/);
+});
+test('entity deletion requires admin role, exact confirmation and server response',async()=>{
+ const calls=[],s=store(mockDB(()=>{throw new Error('anonymous client must not be used')}));s.auth={rpc:async(name,payload)=>{calls.push({name,payload});return {data:{ok:true,entity_id:'org'}};}};
+ await assert.rejects(async()=>s.deleteEntity({id:'org',code:'TEST'},'WRONG'),/رمز المنشأة/);assert.equal(calls.length,0);
+ s.user={id:'e2',role:'employee'};await assert.rejects(async()=>s.deleteEntity({id:'org',code:'TEST'},'TEST'),/للإدارة/);
+ s.user=admin;await s.deleteEntity({id:'org',code:'TEST',updated_at:'version'},'TEST');
+ assert.equal(calls[0].name,'ops_v2_delete_entity');assert.equal(calls[0].payload.p_expected_updated_at,'version');
+});

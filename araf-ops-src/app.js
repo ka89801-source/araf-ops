@@ -180,6 +180,9 @@ window.addEventListener('resize', () => syncIndicators());
    ========================================================== */
 function attention() {
   const L = [];
+  const deletion=REQUESTS.filter(r=>pendingDelete(r.id));
+  if(deletion.length){const other=deletion.find(r=>String(pendingDelete(r.id).requested_by)!==String(ME)),first=other||deletion[0];L.push({id:'delete-pending',sev:'crit',ic:'alert',t:`${deletion.length} طلبات عليها إجراء حذف`,m:'تظهر علامة الحذف الحمراء في قوائم الطلبات حتى اعتماد الإجراء.',acts:[[deleteActionLabel(first.id),'reviewDelete',first.id,'p']]});}
+
   const unassigned = REQUESTS.filter((r) => !r.assigned_to && isOpen(r)).sort((a, b) => a.created_at - b.created_at);
   const over = unassigned.filter((r) => hoursSince(r.created_at) > SLA.assign);
   if (over.length) L.push({ id: 'x1', sev: 'crit', ic: 'alert', t: `${over.length === 1 ? 'طلب واحد تجاوز' : over.length + ' طلبات تجاوزت'} مهلة الإسناد (${SLA.assign} ساعات)`, m: `الأقدم: ${over[0].customer} — ${esc(svName(over[0]))} منذ ${Math.round(hoursSince(over[0].created_at))} ساعة`, acts: [['توزيع تلقائي', 'autoAll', '', 'p'], ['عرضها', 'goFilter', 'unassigned']] });
@@ -418,7 +421,7 @@ function topServices() {
 const TOUR = [
   { sel: '.earn', t: 'أين يقف المكتب ماليًا', p: 'قيمة المكتمل والاشتراكات النشطة هذا الشهر، موزعًا على الخدمات المباشرة وتوكيل القضايا واشتراكات المنشآت. تُحتسب الطلبات المكتملة فقط.' },
   { sel: '.kpis', t: 'أربعة أرقام تكفي لبداية اليوم', p: 'كل رقم زر: اضغطه لتصل مباشرة إلى الطلبات التي يمثلها بدل البحث في الجداول.' },
-  { sel: '#lettersSec', t: 'رسائل داخلية لفريقك', p: 'سجّل ملاحظات الفريق في ملف الطلب لتظهر في سجله المشترك.' },
+  { sel: '#lettersSec', t: 'رسائل داخلية لفريقك', p: 'أرسل رسالة لأي موظف وتابع الوارد والمرسل وحالة القراءة من هنا.' },
   { sel: '#pipeSec', t: 'مسار الطلبات مقروءًا ومرسومًا', p: 'التقرير يخبرك أين يتوقف العمل، والقُمع يريك كم طلبًا ينتقل من مرحلة لأخرى. اضغط أي مرحلة لفتح طلباتها.' },
   { sel: '#attList', t: 'ما يحتاج قرارك الآن', p: 'كل بند هنا له زر إجراء مباشر: توزيع، تذكير، تسعير، تفعيل. الإخفاء لا يحذف شيئًا ويمكن التراجع عنه.' },
   { sel: '.dl-panel', t: 'المهل الداخلية', p: 'إسناد خلال 4 ساعات، وتواصل خلال 24 ساعة. ما يتجاوزها يظهر هنا بالعدّاد وباللون الأحمر في الجداول.' },
@@ -478,7 +481,7 @@ function slaRow(x) {
   return `<div class="sla-row ${over ? 'over' : left <= 6 ? 'soon' : ''}" data-a="openReq" data-id="${esc(x.r.id)}">
     <span class="tag">${x.s.tag}</span>
     <div class="grow" style="min-width:0">
-      <b class="ell">${esc(x.r.customer)} — ${esc(svName(x.r))}</b>
+      <b class="ell">${esc(x.r.customer)} — ${esc(svName(x.r))}</b>${deleteMarker(x.r.id)}
       <small>${x.r.assigned_to ? U(x.r.assigned_to).short : 'بلا مسؤول'} · مضى ${hHuman(x.s.h)} · المهلة ${x.s.win} ساعة</small>
       <div class="sla-bar"><i style="width:${pct}%"></i></div>
     </div>
@@ -532,7 +535,7 @@ A.brief = () => openDrawer(() => {
   const byEmp = TEAM.filter((t) => t.status === 'active').map((t) => ({ t, n: empOpen(t.id).length, late: empOpen(t.id).filter(isLate).length }));
   return { head: `<div class="muted" style="font-size:12px">${wd(TODAY)}، ${dmy(TODAY)} — ${hijri(TODAY)}</div><h2 class="h-disp h2">موجز التشغيل</h2>`,
     body: `<div class="next-step" style="margin-bottom:18px"><div class="ic">${ic('alert')}</div><div><div class="lbl">أهم ما في اليوم</div><div class="t">${att[0] ? att[0].t : 'لا شيء عالق'}</div><div class="m">${att[0] ? att[0].m : ''}</div></div></div>
-    <div class="dsec" style="margin-top:0"><h4>${ic('clock', 'width="15" height="15"')}أقرب المهل</h4>${q.map((x) => `<div class="li" data-a="openReq" data-id="${esc(x.r.id)}"><div class="ic">${ic(x.s.k === 'assign' ? 'user' : x.s.k === 'contact' ? 'phone' : 'refresh')}</div><div class="grow"><div class="t">${esc(x.r.customer)} — ${esc(svName(x.r))}</div><div class="m">${x.s.l}</div></div><span class="badge ${x.s.over ? 'b-red' : 'b-gold'}">${x.s.over ? 'متأخر' : rel(x.s.due)}</span></div>`).join('')}</div>
+    <div class="dsec" style="margin-top:0"><h4>${ic('clock', 'width="15" height="15"')}أقرب المهل</h4>${q.map((x) => `<div class="li" data-a="openReq" data-id="${esc(x.r.id)}"><div class="ic">${ic(x.s.k === 'assign' ? 'user' : x.s.k === 'contact' ? 'phone' : 'refresh')}</div><div class="grow"><div class="t">${esc(x.r.customer)} — ${esc(svName(x.r))}</div>${deleteMarker(x.r.id)}<div class="m">${x.s.l}</div></div><span class="badge ${x.s.over ? 'b-red' : 'b-gold'}">${x.s.over ? 'متأخر' : rel(x.s.due)}</span></div>`).join('')}</div>
     <div class="dsec"><h4>${ic('team', 'width="15" height="15"')}الفريق اليوم</h4>${byEmp.map(({ t, n, late }) => `<div class="li" data-a="member" data-id="${esc(t.id)}">${av(t.id, '', true)}<div class="grow"><div class="t">${esc(t.name)}</div><div class="m">${n} طلبات مفتوحة${late ? ` — ${late} تجاوزت المهلة` : ''}</div></div></div>`).join('')}</div>
     <div class="dsec"><h4>${ic('building', 'width="15" height="15"')}المنشآت</h4><p style="font-size:13px;line-height:1.8;color:var(--ink-2)">${BIZ_REQUESTS.filter((b) => b.status === 'new').length} طلبات منشآت جديدة، و${ACTIVATIONS.filter((a) => a.status !== 'activated' && a.status !== 'closed').length} طلبات تفعيل قيد المعالجة. </p></div>`,
     foot: `<button class="btn btn-p" data-a="drClose">ابدأ اليوم</button><span class="muted" style="font-size:12px;margin-inline-start:auto">يُحدّث عند مزامنة البيانات</span>` };

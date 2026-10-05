@@ -1,16 +1,33 @@
 /* All mutations are confirmed by the existing backend before UI success. */
-LIVE.run = async function(key, task, message='حُفظ التغيير') {
+function liveBusy(button, label='جارٍ الحفظ…') {
+  const controls=$$('#modal.show button, #modal.show input, #modal.show textarea, #modal.show select');
+  if(button && !controls.includes(button)) controls.push(button);
+  const saved=controls.map(el=>[el,el.disabled]); const html=button?.innerHTML;
+  controls.forEach(el=>el.disabled=true);
+  if(button){button.setAttribute('aria-busy','true');button.innerHTML=ic('clock')+esc(label);}
+  return ()=>{saved.forEach(([el,disabled])=>el.disabled=disabled);if(button){button.removeAttribute('aria-busy');button.innerHTML=html;}};
+}
+LIVE.run = async function(key, task, message='حُفظ التغيير', options={}) {
   if(LIVE.pending.has(key)) return;
   LIVE.pending.add(key);
+  const resetBusy=liveBusy(options.button || $('#modal.show [data-a="liveSave"]') || $('#modal.show [data-a="doAssign"]'),options.busyLabel);
   try {
     await LIVE.store.verify();
     if (LIVE.store.user.id !== ME) throw new Error('تغير الحساب؛ أعد تحميل الصفحة');
     const result=await task();
-    await LIVE.refresh();
+    const requestSaved=key.startsWith('request:') && result?.data?.id;
+    if(requestSaved){
+      LIVE.requestVersion++;
+      const row=mapRequest(result.data),i=REQUESTS.findIndex(r=>r.id===row.id);
+      if(i<0) REQUESTS.push(row); else REQUESTS.splice(i,1,row);
+      rebuildMetrics();
+    } else if(!options.local) await LIVE.refresh();
     closeModal(); if(DR.stack.length) refreshDrawer(); rerender(); livePaintStatus();
-    toast(result?.warning || message,{info:!!result?.warning}); return result;
+    toast(result?.warning || message,{info:!!result?.warning});
+    if(result?.audit) result.audit.then(warning=>{if(warning)toast(warning,{info:true});});
+    return result;
   } catch(e) { toast(e.message || 'تعذر الحفظ. حدّث البيانات للتحقق قبل تكرار الإجراء',{info:true}); }
-  finally {LIVE.pending.delete(key);}
+  finally {LIVE.pending.delete(key);resetBusy();}
 };
 function liveForm(title,body,save,label='حفظ') {
   openModal(`<div class="m-h"><h3 class="h2 grow">${esc(title)}</h3><button class="icon-btn" data-a="mClose">${ic('x')}</button></div><div class="m-b">${body}</div><div class="m-f"><button class="btn btn-q" data-a="mClose">إلغاء</button><button class="btn btn-p" data-a="liveSave">${esc(label)}</button></div>`);
@@ -35,7 +52,7 @@ function assignTo(id,emp) {
     if(!TEAM.some(t=>t.id===emp && t.status==='active'))throw new Error('اختر موظفًا نشطًا');
     const row=LIVE.store.rows[id],now=new Date().toISOString();
     return LIVE.store.patchRequest(id,{assigned_to:emp,assigned_by:ME,assigned_at:now,
-      ...(['new','pending'].includes(row.status)?{status:'assigned'}:{})},'assign','إسناد الطلب');
+      ...(['new','pending'].includes(row.status)?{status:'assigned'}:{})},'assign','إسناد الطلب',{deferAudit:true});
   },'حُفظ إسناد الطلب');
 };
 A.autoAssign=el=>{
@@ -124,18 +141,37 @@ A.tkClose=el=>LIVE.run('ticket:'+el.dataset.id,async()=>{
   const {data,error}=await window.sb.from('support_tickets').update({status:'closed',updated_at:new Date().toISOString()}).eq('id',el.dataset.id).select('id').single();
   if(error||!data)throw new Error(error?.message||'تعذر إغلاق التذكرة');closeDrawer();
 },'أُغلقت التذكرة. لم تُرسل رسالة للعميل');
+const canManage=()=>['admin','manager'].includes(LIVE.store?.user?.role);
+const pendingDelete=id=>LIVE.deletes.find(d=>String(d.request_id)===String(id));
+function deleteActionLabel(id){const p=pendingDelete(id);return !p?'حذف الطلب':String(p.requested_by)===String(ME)?'بانتظار اعتماد الحذف':canManage()?'اعتماد الحذف':'طلب حذف معلّق';}
+function deleteMarker(id){
+  const p=pendingDelete(id);if(!p)return '';
+  return `<button class="delete-marker" data-a="reviewDelete" data-id="${esc(id)}" aria-label="${esc(deleteActionLabel(id))}">${ic('alert','width="14" height="14"')}<span>${deleteActionLabel(id)}</span></button>`;
+}
 function askDelete(r){
-  const pending=LIVE.deletes.find(d=>d.request_id===r.id);
+  const pending=pendingDelete(r.id);
   if(pending){
-    liveForm('طلب حذف بانتظار الاعتماد',`<p>طلبه: ${esc(pending.requested_by_name || '')}</p>`,()=>LIVE.run('delete:'+r.id,async()=>{
-      await LIVE.store.approveDelete(pending); closeDrawer();
-    },'اعتُمد الحذف'),'اعتماد الحذف');return;
+    const own=String(pending.requested_by)===String(ME);
+    if(own || !canManage()){
+      openModal(`<div class="m-h"><h3 class="h2">بانتظار اعتماد الحذف</h3></div><div class="m-b"><p>طلبه: ${esc(pending.requested_by_name || '')}</p><p>يلزم اعتماد الحذف من مستخدم إداري آخر. لم يُحذف الطلب بعد.</p></div><div class="m-f"><button class="btn btn-s" data-a="mClose">إغلاق</button></div>`);return;
+    }
+    liveForm('اعتماد الحذف',`<p>طلبه: ${esc(pending.requested_by_name || '')}</p><p class="danger-note">سيُحذف طلب ${esc(r.customer)} نهائيًا من قاعدة البيانات المشتركة. لا يمكن التراجع عن الحذف.</p>`,()=>LIVE.run('delete:'+r.id,async()=>{
+      await LIVE.store.approveDelete(pending);
+      LIVE.requestVersion++;LIVE.deleteVersion++;delete LIVE.store.rows[r.id];
+      replaceRows(REQUESTS,REQUESTS.filter(x=>x.id!==r.id));
+      LIVE.deletes=LIVE.deletes.filter(d=>String(d.request_id)!==String(r.id));
+      closeDrawer();rebuildMetrics();
+    },'اعتُمد الحذف',{local:true}),'اعتماد الحذف');
+  }else{
+    if(!canManage())return toast('هذا الإجراء متاح للإدارة',{info:true});
+    liveForm('حذف الطلب',`<p>سيُرسل طلب الحذف للاعتماد من مستخدم إداري آخر.</p>`+liveNote('سبب الحذف','liveDeleteReason'),()=>LIVE.run('delete:'+r.id,async()=>{
+      LIVE.store.requireUser(true); const reason=val('liveDeleteReason');if(!reason)throw new Error('اكتب سبب الحذف');
+      const row=await LIVE.store.insert('request_delete_requests',{request_id:r.id,requested_by:ME,requested_by_name:LIVE.store.user.name,status:'pending'},true);
+      LIVE.deleteVersion++;LIVE.deletes.push(row);
+      return {warning:await LIVE.store.audit(r.id,'delete_request','طلب حذف: '+reason)};
+    },'سُجّل طلب الحذف وينتظر اعتماد مستخدم آخر'),'حذف الطلب');
   }
-  liveForm('طلب حذف '+r.id,liveNote('سبب الحذف','liveDeleteReason'),()=>LIVE.run('delete:'+r.id,async()=>{
-    LIVE.store.requireUser(true); const reason=val('liveDeleteReason');if(!reason)throw new Error('اكتب سبب الحذف');
-    await LIVE.store.insert('request_delete_requests',{request_id:r.id,requested_by:ME,requested_by_name:LIVE.store.user.name,status:'pending'},true);
-    return {warning:await LIVE.store.audit(r.id,'delete_request','طلب حذف: '+reason)};
-  },'سُجّل طلب الحذف وينتظر اعتماد مستخدم آخر'),'إرسال طلب الحذف');
+  $('#modal [data-a="liveSave"]')?.classList.add('btn-destructive');
 };
 function resetRequests(){liveForm('طلب تصفير العداد','<p>يسجل هذا الإجراء طلبًا للإدارة وفق الآلية الحالية.</p>',()=>LIVE.run('reset-request',()=>LIVE.store.insert('ops_reset_requests',{requested_by:ME,requested_by_name:LIVE.store.user.name,status:'pending'},true),'سُجّل طلب التصفير'),'إرسال الطلب');};
 A.resetReview=resetRequests;
@@ -163,7 +199,25 @@ A.remindOne=el=>{
   const r=REQ(el.dataset.id);let phone=r.phone.replace(/\D/g,'');if(phone.startsWith('05'))phone='966'+phone.slice(1);
   if(!phone)return;window.open('https://wa.me/'+phone,'_blank','noopener,noreferrer');
 };
-CTX.ent=id=>[{l:'فتح المنشأة',f:()=>A.openEnt({dataset:{id}})}];
+CTX.ent=id=>[{l:'فتح المنشأة',f:()=>A.openEnt({dataset:{id}})},...(canManage()?[{l:'إلغاء الاشتراك وحذف المنشأة',red:true,f:()=>A.deleteEntity({dataset:{id}})}]:[])];
+A.deleteEntity=el=>{
+  const entity=ENTITIES.find(e=>e.id===el.dataset.id);if(!entity)return;
+  if(!canManage())return toast('هذا الإجراء متاح للإدارة',{info:true});
+  liveForm('إلغاء الاشتراك وحذف المنشأة',`<p><b>${esc(entity.name)}</b> — <span dir="ltr">${esc(entity.code)}</span></p><p class="danger-note">سيُحذف اشتراك المنشأة وطلباتها وسجلات استهلاكها نهائيًا من قاعدة البيانات المشتركة، ويظهر الحذف في المنصة الأصلية أيضًا. لا يمكن التراجع عن هذا الإجراء.</p><p>ستُزال قيمة اشتراكها من الإيراد الشهري المتكرر.</p>`+liveField('اكتب رمز المنشأة لتأكيد الحذف','deleteEntityCode')+`<label class="row gap8"><input type="checkbox" id="deleteEntityAgree">أؤكد حذف هذه المنشأة وبياناتها المرتبطة.</label>`,()=>{
+    const confirmation=val('deleteEntityCode'),agree=$('#deleteEntityAgree')?.checked;
+    if(!agree)return toast('أكد موافقتك على الحذف',{info:true});
+    return LIVE.run('entity-delete:'+entity.id,async()=>{
+      const result=await LIVE.store.deleteEntity(entity,confirmation);
+      if(!result.ok || String(result.entity_id)!==String(entity.id))throw new Error('لم يؤكد الخادم حذف المنشأة');
+      LIVE.businessVersion++;
+      replaceRows(ENTITIES,ENTITIES.filter(e=>e.id!==entity.id));
+      replaceRows(BIZ_REQUESTS,BIZ_REQUESTS.filter(r=>r.entity!==entity.id));
+      replaceRows(ACTIVATIONS,ACTIVATIONS.filter(a=>a.entity_code!==entity.code && a.metadata?.activated_entity_id!==entity.id));
+      closeDrawer();rebuildMetrics();return result;
+    },'حُذفت المنشأة وبيانات اشتراكها، وحُدّث الإيراد',{local:true});
+  },'إلغاء الاشتراك وحذف المنشأة');
+  $('#modal [data-a="liveSave"]')?.classList.add('btn-destructive');
+};
 A.stub=unavailable;
 function downloadCsv(name,rows){
   const cell=v=>'"'+String(v??'').replace(/^[=+@-]/,"'$&").replace(/"/g,'""')+'"';
@@ -182,7 +236,7 @@ reqPanel=function(id){const panel=panelWithAttachments(id),r=REQ(id);const label
     return /^https:\/\//i.test(url)?`<a class="li" target="_blank" rel="noopener noreferrer" href="${esc(url)}">${ic('file')}${esc(name)}</a>`:`<div class="li">${esc(name)} — رابط التنزيل غير متاح</div>`;
   }).join('')||'<p class="muted">لا مرفقات</p>'}</div>`+panel.body.slice(end);
   panel.foot+=`<button class="btn btn-s" data-a="payment" data-id="${esc(id)}">حالة الدفع</button>`;
-  const pending=LIVE.deletes.find(d=>d.request_id===id);if(pending)panel.foot+=`<button class="btn btn-s" data-a="reviewDelete" data-id="${esc(id)}">مراجعة طلب الحذف</button>`;
+  if(canManage() || pendingDelete(id))panel.foot+=`<button class="btn btn-s btn-danger" data-a="reviewDelete" data-id="${esc(id)}">${deleteActionLabel(id)}</button>`;
   return panel;
 };
 A.reviewDelete=el=>askDelete(REQ(el.dataset.id));
