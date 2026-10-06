@@ -1,56 +1,51 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');
-const {prepareQuery,research,researchFallback,runOne,PREFIX,LIMIT}=require('../server/automatic-legal');
+const {brief,runOne,runBatch,FAST_QUERY}=require('../server/automatic-legal');
 const handler=require('../api/legal-worker');
 const input={kind:'req',service:'استشارة',subject:'',details:'مطالبة مالية على عقد توريد',stage:'',attachments_count:2};
 const response=data=>({ok:true,status:200,json:async()=>data});
-test('short requests preserve their complete facts and do not call the summarizer',async()=>{
- const query=await prepareQuery(input,{fetcher:()=>{throw new Error('unneeded summarizer')}});assert.ok(query.length<=1000);assert.ok(query.startsWith(PREFIX));assert.match(query,/مطالبة مالية على عقد توريد/);assert.match(query,/لم تُقرأ/);
+const modelOutput={status:'completed',output:[{type:'message',content:[{type:'output_text',text:'فهم الطلب\nمطالبة مرتبطة بعقد.\nأسئلة ومستندات\nاطلب العقد وإثبات التنفيذ والمراسلات.'}]}]};
+
+// No live customer data or paid model calls in the tests.
+test('brief uses one short generation with full facts, no tools, and safe text',async()=>{
+ const calls=[];const details='وصف كامل '.repeat(300)+'آخر واقعة';
+ const result=await brief({...input,details},{openaiKey:'server-only',fetcher:async(url,options)=>{calls.push({url,options});return response({...modelOutput,output:[{type:'message',content:[{type:'output_text',text:'موجز الطلب <script>alert(1)</script>\nاسأل عن المستندات وتاريخ الوقائع.'}]}]})}});
+ assert.equal(calls.length,1);assert.equal(calls[0].url,'https://api.openai.com/v1/responses');
+ const body=JSON.parse(calls[0].options.body);assert.equal(body.store,false);assert.equal(body.tools,undefined);assert.equal(body.max_output_tokens,1000);assert.ok(body.input[0].content[0].text.endsWith('المرفقات: 2 (لم تُقرأ)'));assert.match(body.input[0].content[0].text,/آخر واقعة/);
+ assert.match(body.instructions,/100 إلى 160/);assert.match(body.instructions,/لا تذكر أرقام مواد/);
+ assert.doesNotMatch(result.content,/<script>/);assert.match(result.content,/&lt;script&gt;/);assert.equal(result.provider,'openai-quick-brief');assert.deepEqual(result.sources,[]);
 });
-test('long requests send all text to summarization, preserve the original assistant limit, and disable response storage',async()=>{
- let call;const query=await prepareQuery({...input,details:'وصف طويل '.repeat(250)+'نهاية مهمة'},{openaiKey:'server-only',fetcher:async(url,options)=>{
-  call={url,options};return response({status:'completed',output:[{type:'message',content:[{type:'output_text',text:'ملخص الوقائع القانونية والمطالبة والوقائع الأخيرة المهمة'}]}]});
- }});const body=JSON.parse(call.options.body);assert.equal(body.store,false);assert.match(body.input[0].content[0].text,/نهاية مهمة/);assert.equal(call.url,'https://api.openai.com/v1/responses');assert.ok(query.length<=1000);assert.match(query,/الوقائع الأخيرة/);
+test('missing key, oversized facts and incomplete generation never masquerade as a report',async()=>{
+ await assert.rejects(brief(input),e=>e.permanent && /OPENAI/.test(e.message));
+ await assert.rejects(brief({...input,details:'x'.repeat(60001)},{openaiKey:'test'}),e=>e.permanent);
+ await assert.rejects(brief(input,{openaiKey:'test',fetcher:async()=>response({...modelOutput,status:'incomplete'})}),/لم يكتمل/);
 });
-test('missing credentials, incomplete summaries and overlong summaries never silently truncate facts',async()=>{
- const long={...input,details:'تفاصيل '.repeat(300)};await assert.rejects(prepareQuery(long),/OPENAI_API_KEY/);
- for(const [status,text] of [['incomplete','ملخص الطلب'],['completed','س'.repeat(LIMIT+1)]])await assert.rejects(prepareQuery(long,{openaiKey:'test',fetcher:async()=>response({status,output:[{type:'message',content:[{type:'output_text',text}]}]})}),/لم يكتمل/);
+test('quota and bad credentials stop retries, rate limits remain temporary, provider details stay private',async()=>{
+ for(const [status,code,permanent] of [[429,'insufficient_quota',true],[401,'invalid_api_key',true],[429,'rate_limit_exceeded',false]]){
+  await assert.rejects(brief(input,{openaiKey:'test',fetcher:async()=>({ok:false,status,json:async()=>({error:{code,message:'private key details'}})})}),e=>e.permanent===permanent && !e.message.includes('private'));
+ }
 });
-test('research uses only the original assistant without forwarding worker/database/model credentials',async()=>{
- let call;const result=await research(PREFIX+'وقائع الطلب',{fetcher:async(url,options)=>{call={url,options};return response({content:'<h2>التقرير</h2><p>تحتاج الوقائع إلى مراجعة</p>',sources:[{url:'https://laws.boe.gov.sa',title:'نظام'},{url:'javascript:alert(1)'},{url:'https://user:pass@example.test'}],confidenceLevel:'متوسط'});}});
- assert.equal(call.url,'https://www.araf.online/api/free-ask');assert.deepEqual(Object.keys(call.options.headers),['Content-Type']);assert.deepEqual(Object.keys(JSON.parse(call.options.body)),['query']);assert.equal(result.sources.length,1);assert.equal(result.provider,'araf-original-assistant');assert.equal(result.limitations.length,3);
+test('preparation is local and the existing phases use one brief call with leased completion',async()=>{
+ for(const phase of ['prepare','research','fallback']){
+  const calls=[];let modelCalls=0;const job={id:'j',lease_token:'token',revision:3,phase,input};
+  const result=await runOne({rpc:async(name,payload)=>{calls.push({name,payload});return name==='ops_v2_legal_claim'?job:true},openaiKey:'test',fetcher:async()=>{modelCalls++;return response(modelOutput)}});
+  assert.equal(modelCalls,phase==='prepare'?0:1);assert.equal(result.state,phase==='prepare'?'prepared':'ready');assert.equal(calls[1].payload.p_token,'token');assert.equal(calls[1].payload.p_revision,3);
+  if(phase==='prepare')assert.equal(calls[1].payload.p_query,FAST_QUERY);else assert.equal(calls[1].payload.p_report.provider,'openai-quick-brief');
+ }
 });
-test('failed upstream and invalid reports are failures rather than ready reports',async()=>{
- await assert.rejects(research('ملخص طلب قانوني',{fetcher:async()=>({ok:false,status:429})}),/المساعد مشغول/);
- await assert.rejects(research('ملخص طلب قانوني',{fetcher:async()=>response({content:null})}),/غير مكتمل/);
- await assert.rejects(research('ملخص طلب قانوني',{fetcher:async()=>response({content:'لم أتمكن من العثور على مصادر قانونية كافية',sources:[]})}),/مصادر يمكن مراجعتها/);
- await assert.rejects(research('ملخص طلب قانوني',{fetcher:async()=>response({content:'مصادر لا تكفي لاستخلاص الحكم',sources:[{url:'https://laws.boe.gov.sa'}],confidenceLevel:'منخفض'})}),/غير كافية/);
+test('batch advances prepare and generation without waiting for another cron tick',async()=>{
+ let phase='prepare',done=false,modelCalls=0;const events=[];
+ const rpc=async(name,p)=>{events.push(name);if(name==='ops_v2_legal_claim')return done?null:{id:'j',lease_token:phase,revision:1,phase,input};if(p.p_query)phase='research';else if(p.p_report)done=true;return true};
+ const result=await runBatch({rpc,openaiKey:'test',fetcher:async()=>{modelCalls++;return response(modelOutput)}});
+ assert.equal(result.completed,1);assert.equal(modelCalls,1);assert.equal(events.length,5);assert.equal(result.state,'idle');
 });
-test('unavailable original assistant schedules a separate fallback phase, without running both providers in one lease',async()=>{
- let finish,calls=0;const result=await runOne({openaiKey:'test',rpc:async(name,payload)=>name==='ops_v2_legal_claim'?{id:'j',lease_token:'t',revision:2,phase:'research',prepared_query:'طلب قانوني'}:(finish=payload,true),fetcher:async()=>{calls++;return response({content:'لا توجد مصادر كافية',sources:[]});}});
- assert.equal(result.state,'fallback_queued');assert.equal(finish.p_fallback,true);assert.equal(finish.p_report,undefined);assert.equal(calls,1);
-});
-test('fallback searches official domains, includes full facts and builds clickable citations from actual annotations',async()=>{
- let call;const result=await researchFallback({...input,details:'تفاصيل '.repeat(300)+'آخر واقعة'},{openaiKey:'test',fetcher:async(url,options)=>{
-  call={url,options};const text='التكييف الأولي يحتاج مراجعة المستندات والمصدر الرسمي [1]';return response({status:'completed',output:[{type:'web_search_call',status:'completed'},{type:'message',content:[{type:'output_text',text,annotations:[{type:'url_citation',start_index:text.length-3,end_index:text.length,url:'https://laws.boe.gov.sa/law',title:'مصدر رسمي'}]}]}]});
- }});const body=JSON.parse(call.options.body);assert.equal(body.tool_choice,'required');assert.ok(body.tools[0].filters.allowed_domains.includes('boe.gov.sa'));assert.match(body.input[0].content[0].text,/آخر واقعة/);assert.equal(body.store,false);assert.match(result.content,/<a href="https:\/\/laws.boe.gov.sa\/law">\[1\]<\/a>/);assert.equal(result.sources.length,1);assert.equal(result.input_mode,'full_text');
-});
-test('fallback cannot succeed with invented links or without completed source search',async()=>{
- const output=[{type:'web_search_call',status:'completed'},{type:'message',content:[{type:'output_text',text:'An answer with a fake official citation [1]',annotations:[{type:'url_citation',start_index:39,end_index:42,url:'https://boe.gov.sa.evil.test',title:'False'}]}]}];
- await assert.rejects(researchFallback(input,{openaiKey:'test',fetcher:async()=>response({status:'completed',output})}),/تقريرًا موثقًا/);
- await assert.rejects(researchFallback(input,{openaiKey:'test',fetcher:async()=>response({status:'completed',output:output.slice(1)})}),/لم يكتمل البحث/);
-});
-test('worker persists each stage using its lease and revision, never accepting a request-body prompt',async()=>{
- const calls=[],job={id:'j',lease_token:'token',revision:3,phase:'prepare',input};
- const result=await runOne({rpc:async(name,payload)=>{calls.push({name,payload});return name==='ops_v2_legal_claim'?job:true;}});
- assert.equal(result.state,'prepared');assert.equal(calls[1].payload.p_revision,3);assert.equal(calls[1].payload.p_token,'token');assert.ok(calls[1].payload.p_query);assert.equal(calls[1].payload.p_report,undefined);
-});
-test('worker returns idle without assistant use and rejects late results through lease completion',async()=>{
- assert.equal((await runOne({rpc:async()=>null,fetcher:()=>{throw new Error('unexpected network')}})).state,'idle');
- const result=await runOne({rpc:async(name)=>name==='ops_v2_legal_claim'?{id:'j',lease_token:'x',revision:1,phase:'prepare',input}:false});assert.equal(result.state,'superseded');
-});
-test('network errors are recorded without secrets or customer content and the queue controls retry timing',async()=>{
- let failure;const result=await runOne({rpc:async(name,payload)=>name==='ops_v2_legal_claim'?{id:'j',lease_token:'x',revision:1,phase:'research',prepared_query:'ملخص قانوني'}:(failure=payload,true),fetcher:async()=>{throw new Error('PRIVATE secret and customer details')}});
- assert.equal(result.state,'retry');assert.match(failure.p_error,/انقطع اتصال/);assert.doesNotMatch(failure.p_error,/PRIVATE|secret/);
+test('batch respects time budget, stale leases, idle queues and failure backoff',async()=>{
+ let clock=0,claims=0;
+ const result=await runBatch({now:()=>clock,rpc:async(name)=>{if(name==='ops_v2_legal_claim'){claims++;return {id:'j',lease_token:'x',revision:1,phase:'research',input}}return false},openaiKey:'test',fetcher:async()=>{clock+=56000;return response(modelOutput)}});
+ assert.equal(claims,1);assert.equal(result.state,'superseded');assert.equal(result.completed,0);
+ assert.equal((await runBatch({rpc:async()=>null})).state,'idle');
+ let failure;claims=0;
+ const failed=await runBatch({rpc:async(name,p)=>name==='ops_v2_legal_claim'?(claims++,{id:'j',lease_token:'x',revision:1,phase:'research',input}):(failure=p,true),openaiKey:'test',fetcher:async()=>{throw new Error('private customer text')}});
+ assert.equal(claims,1);assert.equal(failed.state,'retry');assert.doesNotMatch(failure.p_error,/private/);
 });
 function res(){return {setHeader(){},status(code){this.code=code;return this},json(data){this.data=data;return this}};}
 test('HTTP worker requires a private credential and configured server-only database access',async()=>{
