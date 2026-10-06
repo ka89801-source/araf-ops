@@ -1489,3 +1489,25 @@ button[aria-busy=true]{cursor:progress;opacity:.7}
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
 }
+
+/* Keep request actions accessible inside the drawer at every viewport width. */
+.drawer .dr-h,.drawer .dr-f{flex-shrink:0;min-width:0}
+.drawer .dr-b{min-width:0;min-height:0;overflow-wrap:anywhere}
+.drawer .dr-h .row,.drawer .dr-b .row,.drawer .dr-f{flex-wrap:wrap}
+.drawer .dr-f{max-height:36dvh;overflow-y:auto}
+.drawer .dr-f>.btn{flex:1 1 135px;margin-inline-start:0!important}
+.drawer .btn{max-width:100%;height:auto;min-height:36px;white-space:normal;overflow-wrap:anywhere;padding-block:7px}
+.drawer .btn-sm{min-height:30px;padding-block:5px}
+.drawer .grow,.drawer .kv dd,.drawer .meta-strip>div{min-width:0}
+.drawer .meta-strip b{flex-wrap:wrap;overflow-wrap:anywhere}
+.drawer .badge{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.drawer .dsec h4{flex-wrap:wrap}
+@media(max-width:480px){
+  .drawer .dr-h{padding:16px 14px 12px}
+  .drawer .dr-b{padding:14px 14px 20px}
+  .drawer .dr-f{padding:10px 14px max(10px,env(safe-area-inset-bottom))}
+  .drawer .meta-strip{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .drawer .meta-strip>div{padding-inline:10px}
+  .drawer .kv{grid-template-columns:minmax(70px,100px) minmax(0,1fr)!important}
+}
+.legal-auto>.row>svg{width:18px;height:18px}

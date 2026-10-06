@@ -1,3 +1,16 @@
 {
-  "functions": { "api/legal-check.js": { "maxDuration": 120 }, "api/legal-worker.js": { "maxDuration": 120 }, "api/ops/[route].js": { "maxDuration": 60 } }
+  "functions": {
+    "api/legal-check.js": {
+      "maxDuration": 120
+    },
+    "api/legal-worker.js": {
+      "maxDuration": 120
+    },
+    "api/ops/[route].js": {
+      "maxDuration": 60
+    },
+    "api/legal-wake.js": {
+      "maxDuration": 120
+    }
+  }
 }

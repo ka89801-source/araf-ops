@@ -8,7 +8,7 @@ test('automatic report UI exposes persisted states and escapes report text and r
  vm.runInContext(`LEGAL.rows['req:r']={status:'ready'};LEGAL.full['req:r']={text:'<img src=x onerror=x>',query:'<script>query</script>',completed_at:'2026-10-05',report:{sources:[{url:'javascript:alert(1)',title:'Unsafe'},{url:'https://laws.boe.gov.sa',title:'Source'}]}}`,c);
  const html=vm.runInContext("legalPanel('req:r').body",c);assert.match(html,/تقرير|للمراجعة/);assert.doesNotMatch(html,/<script>|<img|javascript:/);assert.match(html,/https:\/\/laws.boe.gov.sa/);
 });
-test('opening a request only reads report status, without queueing or sending data to the assistant',async()=>{
+test('already queued requests are read without duplicate enrollment',async()=>{
  const c=context();c.calls=[];vm.runInContext(`LIVE.ready=true;LIVE.store={v2Rpc:async(name,payload)=>{calls.push({name,payload});return [{key:'req:r',status:'queued'}]}}`,c);
  await vm.runInContext("lexAuto('req:r')",c);assert.equal(c.calls.length,1);assert.equal(c.calls[0].name,'ops_v2_legal_status');assert.equal(vm.runInContext("LEGAL.rows['req:r'].status",c),'queued');
 });
@@ -75,4 +75,31 @@ test('refresh started before a saved mutation cannot replace its confirmed row',
  const refreshing=vm.runInContext('LIVE.refresh()',c);
  vm.runInContext(`LIVE.requestVersion++;REQUESTS.splice(0,1,mapRequest({id:'r',status:'assigned',assigned_to:'e2'}));`,c);
  finish([{id:'r',status:'new'}]);await refreshing;assert.equal(vm.runInContext('REQ("r").status',c),'assigned');
+});
+
+test('unexamined requests automatically enqueue without a button; ready and failed jobs are not repeated',async()=>{
+ const c=context();c.calls=[];
+ vm.runInContext(`LIVE.ready=true;LIVE.store={v2Rpc:async(name,p)=>{calls.push({name,p});return name==='ops_v2_legal_status'?[{key:'req:old',status:'not_queued'},{key:'req:done',status:'ready'},{key:'req:failed',status:'failed'}]:{key:'req:old',status:'queued'}}}`,c);
+ await vm.runInContext("legalRefresh(['req:old','req:done','req:failed'])",c);
+ assert.equal(c.calls.filter(x=>x.name==='ops_v2_legal_retry').length,1);assert.equal(c.calls[1].p.p_request_id,'old');
+ assert.equal(vm.runInContext("LEGAL.rows['req:old'].status",c),'queued');
+ await vm.runInContext("legalRefresh(['req:old','req:done','req:failed'])",c);
+ assert.equal(c.calls.filter(x=>x.name==='ops_v2_legal_retry').length,1);
+ assert.doesNotMatch(vm.runInContext("lexSection('req:old')",c),/data-a="lexQueue"/);
+ assert.match(vm.runInContext("lexSection('req:failed')",c),/إعادة المحاولة/);
+});
+test('automatic enrollment failure remains visible and is throttled, never reported as queued',async()=>{
+ const c=context();c.count=0;vm.runInContext(`LEGAL.rows['biz:old']={status:'not_queued'};LIVE.store={v2Rpc:async()=>{count++;throw new Error('الفاحص متوقف مؤقتًا')}}`,c);
+ await vm.runInContext("legalEnsureQueued(['biz:old'])",c);await vm.runInContext("legalEnsureQueued(['biz:old'])",c);
+ assert.equal(c.count,1);assert.equal(vm.runInContext("LEGAL.rows['biz:old'].status",c),'not_queued');assert.match(vm.runInContext("lexSection('biz:old')",c),/الفاحص متوقف/);
+});
+
+test('queue wake uses the signed-in session, stays single-flight, and shows server setup errors',async()=>{
+ const c=context();c.AbortSignal=AbortSignal;c.calls=[];let finish;c.pending=new Promise(resolve=>finish=resolve);
+ vm.runInContext(`LIVE.ready=true;window.opsAuth={auth:{getSession:async()=>({data:{session:{access_token:'caller-token'}}})}};LEGAL.rows['req:r']={status:'queued'};fetch=async(url,options)=>{calls.push({url,options});return pending}`,c);
+ const first=vm.runInContext('legalWake()',c);await new Promise(r=>setImmediate(r));await vm.runInContext('legalWake()',c);
+ assert.equal(c.calls.length,1);assert.equal(c.calls[0].options.headers.Authorization,'Bearer caller-token');assert.equal(c.calls[0].options.body,'{}');
+ finish({ok:false,json:async()=>({error:'تحقق من إعدادات الخادم'})});await first;
+ assert.match(vm.runInContext("lexSection('req:r')",c),/تحقق من إعدادات الخادم/);
+ await vm.runInContext('legalWake()',c);assert.equal(c.calls.length,1);
 });
