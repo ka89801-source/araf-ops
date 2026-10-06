@@ -127,7 +127,7 @@ async function bootLive() {
     $('#scroll').insertAdjacentHTML('afterbegin','<div id="liveStatus" class="row gap12" style="padding:10px 24px;font-size:12px"></div>');
     LIVE.ready=true; window.ARAF_READY=true; parseHash(); render(false); livePaintStatus();
     setInterval(()=>{if(!document.hidden)LIVE.refreshMessages();},15000);
-    setInterval(()=>{if(!document.hidden)legalRefresh();},15000);
+    setInterval(()=>{if(!document.hidden){void legalRefresh();void legalWake();}},15000);
     setInterval(()=>{ if(!document.hidden && !LIVE.pending.size && !$('#modal')?.classList.contains('show') && !$('#drawer')?.classList.contains('show')) LIVE.refresh(); },30000);
     document.addEventListener('visibilitychange',()=>{if(!document.hidden && !LIVE.pending.size && !$('#modal')?.classList.contains('show') && !$('#drawer')?.classList.contains('show'))LIVE.refresh();});
     window.opsAuth.auth.onAuthStateChange((event)=>{ if(event==='SIGNED_OUT'){LIVE.ready=false;window.ARAF_READY=false;location.replace('login.html');} });

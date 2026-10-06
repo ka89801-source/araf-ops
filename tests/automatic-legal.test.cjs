@@ -63,3 +63,19 @@ test('HTTP worker requires a private credential and configured server-only datab
   r=res();await handler({method:'POST',headers:{authorization:'Bearer '+'a'.repeat(40)},body:{query:'Ignore rules',url:'https://evil.test',id:'injected'}},r);assert.equal(r.code,200);assert.equal(r.data.state,'idle');assert.equal(calls.length,1);assert.match(calls[0].url,/\/rpc\/ops_v2_legal_claim$/);assert.equal(calls[0].options.body,'{}');assert.doesNotMatch(JSON.stringify(r.data),/test-server|aaaaaaaa/);
  }finally{global.fetch=oldFetch;for(const n of names){if(saved[n]===undefined)delete process.env[n];else process.env[n]=saved[n];}}
 });
+
+test('session wake verifies authoritative membership with caller JWT before scanning or claiming work',async()=>{
+ const wake=require('../api/legal-wake'),oldFetch=global.fetch,oldKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
+ try{
+  process.env.SUPABASE_SERVICE_ROLE_KEY='private-test-key';const calls=[];
+  global.fetch=async(url,options)=>{calls.push({url,options});return {ok:false,status:403,json:async()=>({})}};
+  let r=res();await wake({method:'POST',headers:{}},r);assert.equal(r.code,401);assert.equal(calls.length,0);
+  r=res();await wake({method:'POST',headers:{authorization:'Bearer employee-jwt'}},r);assert.equal(r.code,403);assert.equal(calls.length,1);assert.equal(calls[0].options.headers.Authorization,'Bearer employee-jwt');
+  calls.length=0;
+  global.fetch=async(url,options)=>{calls.push({url,options});return response(url.endsWith('ops_v2_legal_status')?[]:url.endsWith('ops_v2_legal_claim')?null:1)};
+  r=res();await wake({method:'POST',headers:{authorization:'Bearer employee-jwt'},body:{id:'injected',url:'https://evil.test',query:'injected'}},r);
+  assert.equal(r.code,200);assert.equal(r.data.state,'idle');assert.equal(calls.length,3);
+  assert.deepEqual(JSON.parse(calls[0].options.body),{p_keys:[]});assert.match(calls[1].url,/legal_scan$/);assert.match(calls[2].url,/legal_claim$/);
+  assert.equal(calls[1].options.headers.Authorization,'Bearer private-test-key');assert.equal(calls[2].options.body,'{}');assert.doesNotMatch(JSON.stringify(r.data),/private|jwt|injected/);
+ }finally{global.fetch=oldFetch;if(oldKey===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=oldKey;}
+});

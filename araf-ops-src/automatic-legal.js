@@ -1,6 +1,6 @@
-/* Reads persisted background reports; opening a request never starts AI work. */
-const LEGAL={rows:{},full:{},error:'',poll:null,timer:null,queueing:new Set()};
-const LEGAL_STATES={queued:'بانتظار الفحص',processing:'جارٍ إعداد التقرير',ready:'التقرير جاهز',failed:'يحتاج إعادة المحاولة',outdated:'تغيّرت بيانات الطلب',not_queued:'لم يُفحص بعد'};
+/* Reports are persisted by the background worker; the UI also wakes a stalled queue. */
+const LEGAL={rows:{},full:{},error:'',poll:null,timer:null,queueing:new Set(),autoAttempts:{},wake:null,lastWake:0,wakeError:''};
+const LEGAL_STATES={queued:'بانتظار الفحص',processing:'جارٍ إعداد التقرير',ready:'التقرير جاهز',failed:'يحتاج إعادة المحاولة',outdated:'تغيّرت بيانات الطلب',not_queued:'بانتظار الإدراج التلقائي'};
 function legalKey(key){const at=key.indexOf(':');return {kind:key.slice(0,at),id:key.slice(at+1)};}
 function lexNew(){}
 function lexLive(){return `<button class="btn btn-sm btn-s" data-a="lexPanel">${ic('shieldCheck')}الفاحص القانوني التلقائي</button>`;}
@@ -10,8 +10,8 @@ function lexSection(key){
   const row=LEGAL.rows[key],state=row?.status;
   const waiting=['queued','processing'].includes(state);
   return `<section class="lex legal-auto" data-lex="${esc(key)}"><div class="row gap8">${ic('shieldCheck')}<b class="grow">التقرير القانوني التحضيري</b><span class="badge ${state==='ready'?'b-green':state==='failed'?'b-red':'b-gold'}">${esc(LEGAL.error?'تعذر تحديث الفحص':LEGAL_STATES[state] || 'التحقق من الفحص…')}</span></div>
-    <p class="muted legal-caption">${esc(LEGAL.error || (waiting?'يُجهّز في الخلفية ويظهر هنا تلقائيًا؛ يمكنك متابعة العمل على الطلب.':state==='ready'?'تقرير محفوظ يساعدك في تجهيز الأسئلة والمستندات قبل التواصل مع العميل.':state==='outdated'?'التقرير السابق لا يطابق الوصف الحالي؛ يجري تجهيز نسخة محدثة.':row?.error || 'الطلبات الجديدة تدخل الفحص تلقائيًا بعد تفعيله. يمكنك طلب فحص لهذا الطلب.'))}</p>
-    <div class="row gap8 wrap">${state==='ready'?`<button class="btn btn-sm btn-p" data-a="lexOpenK" data-k="${esc(key)}">${ic('file')}عرض التقرير</button>`:!waiting?`<button class="btn btn-sm btn-s" data-a="lexQueue" data-k="${esc(key)}">${ic('refresh')}${state==='failed'?'إعادة المحاولة':'طلب فحص'}</button>`:''}<button class="btn btn-sm btn-q" data-a="lexManual" data-k="${esc(key)}">سؤال إضافي للمساعد</button></div></section>`;
+    <p class="muted legal-caption">${esc(LEGAL.error || (waiting && LEGAL.wakeError) || (waiting?'يُجهّز في الخلفية ويظهر هنا تلقائيًا؛ يمكنك متابعة العمل على الطلب.':state==='ready'?'تقرير محفوظ يساعدك في تجهيز الأسئلة والمستندات قبل التواصل مع العميل.':state==='outdated'?'التقرير السابق لا يطابق الوصف الحالي؛ يجري تجهيز نسخة محدثة.':row?.error || 'يُدرج الطلب تلقائيًا ويظهر تقريره هنا عند اكتماله، دون الحاجة إلى طلب الفحص.'))}</p>
+    <div class="row gap8 wrap">${state==='ready'?`<button class="btn btn-sm btn-p" data-a="lexOpenK" data-k="${esc(key)}">${ic('file')}عرض التقرير</button>`:state==='failed'?`<button class="btn btn-sm btn-s" data-a="lexQueue" data-k="${esc(key)}">${ic('refresh')}${state==='failed'?'إعادة المحاولة':'طلب فحص'}</button>`:''}<button class="btn btn-sm btn-q" data-a="lexManual" data-k="${esc(key)}">سؤال إضافي للمساعد</button></div></section>`;
 }
 function legalPaint(){
   $$('[data-lex]').forEach(el=>{el.outerHTML=lexSection(el.dataset.lex);});
@@ -30,6 +30,8 @@ async function legalRefresh(keys){
         for(const key of batch){const row=rows.find(r=>r.key===key);if(!row || row.status!=='ready' || LEGAL.full[key]?.revision!==row.revision)delete LEGAL.full[key];if(row)LEGAL.rows[key]=row;else delete LEGAL.rows[key];}
       }
       LEGAL.error='';
+      await legalEnsureQueued(requested);
+      void legalWake();
       const top=DR.stack.at(-1)?.render,key=top?._legalKey;
       if(key && requested.includes(key)){
         if(LEGAL.rows[key]?.status==='ready')await legalLoadReport(key);
@@ -39,6 +41,36 @@ async function legalRefresh(keys){
     legalPaint();
   })().finally(()=>LEGAL.poll=null);
   return LEGAL.poll;
+}
+async function legalEnsureQueued(keys){
+  let count=0;
+  for(const key of keys){
+    if(!['not_queued','outdated'].includes(LEGAL.rows[key]?.status) || LEGAL.queueing.has(key))continue;
+    if(Date.now()-(LEGAL.autoAttempts[key] || 0)<60000 || count>=5)continue;
+    count++;LEGAL.autoAttempts[key]=Date.now();LEGAL.queueing.add(key);
+    try{const {kind,id}=legalKey(key);LEGAL.rows[key]=await LIVE.store.v2Rpc('ops_v2_legal_retry',{p_kind:kind,p_request_id:id});}
+    catch(e){LEGAL.error=e.message;}
+    finally{LEGAL.queueing.delete(key);}
+  }
+}
+async function legalWake(){
+  if(!LIVE.ready || !window.opsAuth?.auth || document.hidden || LEGAL.wake)return;
+  const pending=Object.values(LEGAL.rows).some(r=>['queued','processing'].includes(r.status));
+  if(Date.now()-LEGAL.lastWake<(LEGAL.wakeError || !pending?60000:15000))return;
+  LEGAL.lastWake=Date.now();
+  LEGAL.wake=(async()=>{
+    try{
+      const {data,error}=await window.opsAuth.auth.getSession();
+      if(error || !data.session?.access_token)throw new Error('انتهت جلسة الدخول؛ سجّل الدخول لاستكمال متابعة الفحص');
+      const response=await fetch('api/legal-wake',{method:'POST',cache:'no-store',signal:AbortSignal.timeout(125000),
+        headers:{Authorization:'Bearer '+data.session.access_token,'Content-Type':'application/json'},body:'{}'});
+      const result=await response.json();
+      if(!response.ok)throw new Error(result.error || 'تعذر تشغيل الفاحص');
+      LEGAL.wakeError='';
+    }catch(e){LEGAL.wakeError=e.name==='TimeoutError'?'استغرقت خدمة الفحص وقتًا أطول؛ ستُستكمل المحاولة تلقائيًا':e.message;}
+    finally{legalPaint();}
+  })().finally(()=>{LEGAL.wake=null;if(!document.hidden)void legalRefresh();});
+  return LEGAL.wake;
 }
 function lexAuto(key){return legalRefresh([key]);}
 async function legalLoadReport(key){
@@ -88,7 +120,7 @@ A.lexPanel=()=>openDrawer(()=>({head:'<h2 class="h2">الفاحص القانون
 A.lexQueue=async el=>{
   const key=el.dataset.k;if(LEGAL.queueing.has(key))return;
   LEGAL.queueing.add(key);el.disabled=true;
-  try{const {kind,id}=legalKey(key);LEGAL.rows[key]=await LIVE.store.v2Rpc('ops_v2_legal_retry',{p_kind:kind,p_request_id:id});delete LEGAL.full[key];LEGAL.error='';legalPaint();if(DR.stack.at(-1)?.render?._legalKey===key)refreshDrawer();toast('أُضيف الطلب إلى طابور الفحص');}
+  try{const {kind,id}=legalKey(key);LEGAL.rows[key]=await LIVE.store.v2Rpc('ops_v2_legal_retry',{p_kind:kind,p_request_id:id});delete LEGAL.full[key];LEGAL.error='';legalPaint();if(DR.stack.at(-1)?.render?._legalKey===key)refreshDrawer();toast('أُضيف الطلب إلى طابور الفحص');void legalWake();}
   catch(e){toast(e.message,{info:true});}
   finally{LEGAL.queueing.delete(key);el.disabled=false;}
 };
