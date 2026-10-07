@@ -362,7 +362,7 @@ loginForm.addEventListener('submit', async function (e) {
 
     const profile = await loadAdminProfile(auth.data.session.access_token);
     saveOpsSession(profile);
-    window.location.href = 'index.html';
+    window.location.href = 'home.html';
   } catch (err) {
     console.error(err);
     await window.opsAuth.auth.signOut();
@@ -384,7 +384,7 @@ loginForm.addEventListener('submit', async function (e) {
     }
     const profile = await loadAdminProfile(session.access_token);
     saveOpsSession(profile);
-    window.location.replace('index.html');
+    window.location.replace('home.html');
   } catch (error) {
     console.error('ops-session-restore', error);
     await window.opsAuth.auth.signOut();

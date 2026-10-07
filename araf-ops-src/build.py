@@ -1,4 +1,4 @@
-"""Build the supplied preview without dependencies or machine-specific paths."""
+"""Build the welcome page and operations app without external dependencies."""
 
 import argparse
 from pathlib import Path
@@ -21,15 +21,20 @@ def build():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", type=Path, default=SOURCE.parent / "index.html")
+    parser.add_argument("--output", type=Path, help="Build only the operations app to a custom path")
     parser.add_argument("--check", action="store_true", help="Check the existing output without writing it")
     args = parser.parse_args()
-    content = build().encode("utf-8")
-    if args.check:
-        if not args.output.is_file() or args.output.read_bytes() != content:
-            parser.exit(1, "Preview HTML is missing or out of date. Run build.py.\n")
-        print("OK: preview HTML matches its sources byte for byte")
-    else:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_bytes(content)
-        print(f"Built {args.output} ({len(content)} bytes)")
+    outputs = {args.output: build()} if args.output else {
+        SOURCE.parent / "index.html": (SOURCE / "welcome.src.html").read_text(encoding="utf-8"),
+        SOURCE.parent / "home.html": build(),
+    }
+    for output, html in outputs.items():
+        content = html.encode("utf-8")
+        if args.check:
+            if not output.is_file() or output.read_bytes() != content:
+                parser.exit(1, f"{output.name} is missing or out of date. Run build.py.\n")
+            print(f"OK: {output.name} matches its sources byte for byte")
+        else:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(content)
+            print(f"Built {output} ({len(content)} bytes)")
