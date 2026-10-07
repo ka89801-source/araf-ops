@@ -7,11 +7,16 @@ function lexLive(){return `<button class="btn btn-sm btn-s" data-a="lexPanel">${
 function lexBadge(id){const key='req:'+id,state=LEGAL.rows[key]?.status;return `<span class="legal-request-marker" data-legal-key="${esc(key)}" data-tip="${esc(LEGAL_STATES[state] || 'الفحص القانوني')}">${state==='ready'?ic('shieldCheck'):['queued','processing'].includes(state)?ic('clock'):state==='failed'?ic('alert'):''}</span>`;}
 function lexSection(key){
   if(key.startsWith('tk:'))return `<div class="lex"><b>المساعد القانوني</b><button class="btn btn-sm btn-s" data-a="lexManual" data-k="${esc(key)}">طرح سؤال</button></div>`;
-  const row=LEGAL.rows[key],state=row?.status;
+  const row=LEGAL.rows[key],state=row?.status,full=LEGAL.full[key];
   const waiting=['queued','processing'].includes(state);
-  return `<section class="lex legal-auto" data-lex="${esc(key)}"><div class="row gap8">${ic('shieldCheck')}<b class="grow">التقرير القانوني التحضيري</b><span class="badge ${state==='ready'?'b-green':state==='failed'?'b-red':'b-gold'}">${esc(LEGAL.error?'تعذر تحديث الفحص':LEGAL_STATES[state] || 'التحقق من الفحص…')}</span></div>
-    <p class="muted legal-caption">${esc(LEGAL.error || (waiting && LEGAL.wakeError) || (waiting?'يُجهّز في الخلفية ويظهر هنا تلقائيًا؛ يمكنك متابعة العمل على الطلب.':state==='ready'?'تقرير محفوظ يساعدك في تجهيز الأسئلة والمستندات قبل التواصل مع العميل.':state==='outdated'?'التقرير السابق لا يطابق الوصف الحالي؛ يجري تجهيز نسخة محدثة.':row?.error || 'يُدرج الطلب تلقائيًا ويظهر تقريره هنا عند اكتماله، دون الحاجة إلى طلب الفحص.'))}</p>
-    <div class="row gap8 wrap">${state==='ready'?`<button class="btn btn-sm btn-p" data-a="lexOpenK" data-k="${esc(key)}">${ic('file')}عرض التقرير</button>`:state==='failed'?`<button class="btn btn-sm btn-s" data-a="lexQueue" data-k="${esc(key)}">${ic('refresh')}${state==='failed'?'إعادة المحاولة':'طلب فحص'}</button>`:''}<button class="btn btn-sm btn-q" data-a="lexManual" data-k="${esc(key)}">سؤال إضافي للمساعد</button></div></section>`;
+  return `<section class="lex legal-auto" data-lex="${esc(key)}"><div class="row gap8">${ic('shieldCheck')}<b class="grow">موجز يساعد المحامي</b><span class="badge ${state==='ready'?'b-green':state==='failed'?'b-red':'b-gold'}">${esc(LEGAL.error?'تعذر تحديث الفحص':LEGAL_STATES[state] || 'التحقق من الفحص…')}</span></div>
+    <p class="muted legal-caption">${esc(LEGAL.error || (waiting && LEGAL.wakeError) || (waiting?'يُعد موجز الطلب ويظهر نصه هنا تلقائيًا؛ يمكنك متابعة العمل.':state==='ready'?(full?'موجز أولي للمراجعة؛ المرفقات والمصادر النظامية تحتاج مراجعة المحامي.':'جارٍ تحميل الموجز المحفوظ…'):state==='outdated'?'التقرير السابق لا يطابق الوصف الحالي؛ يجري تجهيز نسخة محدثة.':row?.error || 'يُدرج الطلب تلقائيًا ويظهر تقريره هنا عند اكتماله، دون الحاجة إلى طلب الفحص.'))}</p>
+    ${state==='ready' && full?legalInline(full):''}
+    <div class="row gap8 wrap">${state==='ready' && full?`<button class="btn btn-sm btn-s" data-a="lexAutoCopy" data-k="${esc(key)}">${ic('copy')}نسخ الموجز</button>`:state==='failed'?`<button class="btn btn-sm btn-s" data-a="lexQueue" data-k="${esc(key)}">${ic('refresh')}${state==='failed'?'إعادة المحاولة':'طلب فحص'}</button>`:''}<button class="btn btn-sm btn-q" data-a="lexManual" data-k="${esc(key)}">سؤال إضافي للمساعد</button></div></section>`;
+}
+function legalInline(row){
+  const sources=(row.report.sources || []).filter(s=>/^https?:\/\//i.test(s.url || ''));
+  return `<div class="legal-inline legal-report-text">${row.html || esc(row.text)}</div>${sources.length?`<details class="legal-inline-sources"><summary>المصادر المرفقة</summary>${sources.map(s=>`<a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">${esc(s.title || s.url)}</a>`).join('')}</details>`:''}`;
 }
 function legalPaint(){
   $$('[data-lex]').forEach(el=>{el.outerHTML=lexSection(el.dataset.lex);});
@@ -30,14 +35,20 @@ async function legalRefresh(keys){
         for(const key of batch){const row=rows.find(r=>r.key===key);if(!row || row.status!=='ready' || LEGAL.full[key]?.revision!==row.revision)delete LEGAL.full[key];if(row)LEGAL.rows[key]=row;else delete LEGAL.rows[key];}
       }
       LEGAL.error='';
-      await legalEnsureQueued(requested);
+      // Do not fill the queue with historic list rows. New arrivals are already
+      // enrolled by the server; older requests enroll when their detail opens.
+      const visible=[...new Set($$('[data-lex]').map(el=>el.dataset.lex))];
+      await legalEnsureQueued(keys || visible);
+      for(const key of visible){
+        if(LEGAL.rows[key]?.status==='ready' && !LEGAL.full[key])await legalLoadReport(key);
+      }
       void legalWake();
       const top=DR.stack.at(-1)?.render,key=top?._legalKey;
       if(key && requested.includes(key)){
         if(LEGAL.rows[key]?.status==='ready')await legalLoadReport(key);
         if(DR.stack.at(-1)?.render===top)refreshDrawer();
       }
-    }catch(e){LEGAL.error=e.message.includes('بانتظار تفعيل')?'الفاحص التلقائي بانتظار إعداد خدمة الخلفية في Supabase.':e.message;}
+    }catch(e){for(const key of requested)delete LEGAL.full[key];LEGAL.error=e.message.includes('بانتظار تفعيل')?'الفاحص التلقائي بانتظار إعداد خدمة الخلفية في Supabase.':e.message;}
     legalPaint();
   })().finally(()=>LEGAL.poll=null);
   return LEGAL.poll;
@@ -116,7 +127,7 @@ async function lexOpenKey(key){
 }
 A.lexOpenK=el=>lexOpenKey(el.dataset.k || el.dataset.id);
 A.lexManual=el=>lexManualOpenKey(el.dataset.k);
-A.lexPanel=()=>openDrawer(()=>({head:'<h2 class="h2">الفاحص القانوني التلقائي</h2>',body:'<p>تدخل طلبات الخدمات والقضايا وطلبات المنشآت الجديدة طابور الفحص في الخلفية. يحضّر مساعد أعراف تقريرًا محفوظًا مع المصادر والأسئلة والمستندات المقترحة، ويظهر داخل الطلب عند اكتماله.</p><p class="muted" style="margin-top:12px">التقرير لمراجعة المحامي. الفحص يشمل النص المتاح وملخصه؛ المرفقات تحتاج مراجعة منفصلة. لا تُرسل النتيجة إلى العميل تلقائيًا.</p>'}));
+A.lexPanel=()=>openDrawer(()=>({head:'<h2 class="h2">الفاحص القانوني التلقائي</h2>',body:'<p>تدخل طلبات الخدمات والقضايا وطلبات المنشآت الجديدة طابور الفحص في الخلفية. يحضّر الفاحص موجزًا قصيرًا عن فهم الطلب ونقاط المراجعة والأسئلة والمستندات والخطوة التالية، ويظهر نصه داخل الطلب عند اكتماله.</p><p class="muted" style="margin-top:12px">التقرير لمراجعة المحامي. الفحص يشمل الوصف النصي الكامل. الموجز أولي دون بحث خارجي؛ المرفقات والمراجع النظامية يراجعها المحامي. لا تُرسل النتيجة إلى العميل تلقائيًا.</p>'}));
 A.lexQueue=async el=>{
   const key=el.dataset.k;if(LEGAL.queueing.has(key))return;
   LEGAL.queueing.add(key);el.disabled=true;

@@ -1,5 +1,5 @@
 'use strict';
-const {rpcClient,runOne}=require('../server/automatic-legal');
+const {rpcClient,runBatch}=require('../server/automatic-legal');
 // An authenticated operations session can advance the existing durable queue.
 // The database lease serializes this with cron; no request body selects a job.
 module.exports=async function handler(req,res){
@@ -21,7 +21,7 @@ module.exports=async function handler(req,res){
     if(!Array.isArray(allowed))return res.status(403).json({error:'تعذر التحقق من صلاحيات الحساب'});
     const rpc=rpcClient(key);
     await rpc('ops_v2_legal_scan');
-    const result=await runOne({rpc,openaiKey:process.env.OPENAI_API_KEY});
+    const result=await runBatch({rpc,openaiKey:process.env.OPENAI_API_KEY});
     return res.status(200).json(result);
   }catch{
     return res.status(502).json({error:'تعذر تشغيل طابور الفحص؛ تحقق من مفتاح Supabase وإضافات SQL في مشروع araf-ops'});

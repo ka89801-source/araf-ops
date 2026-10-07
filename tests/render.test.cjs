@@ -103,3 +103,12 @@ test('queue wake uses the signed-in session, stays single-flight, and shows serv
  assert.match(vm.runInContext("lexSection('req:r')",c),/تحقق من إعدادات الخادم/);
  await vm.runInContext('legalWake()',c);assert.equal(c.calls.length,1);
 });
+
+test('ready brief renders inside the request without an extra report button and escapes plain text',()=>{
+ const c=context();vm.runInContext(`LEGAL.rows['req:r']={status:'ready',revision:2};LEGAL.full['req:r']={text:'فهم الطلب <script>bad</script>',report:{sources:[]}}`,c);
+ const html=vm.runInContext("lexSection('req:r')",c);assert.match(html,/legal-inline/);assert.match(html,/فهم الطلب &lt;script&gt;/);assert.doesNotMatch(html,/data-a="lexOpenK"|<script>/);assert.match(html,/نسخ الموجز/);
+});
+test('revoked report access removes the inline cache on the next refresh',async()=>{
+ const c=context();vm.runInContext(`LIVE.ready=true;LEGAL.rows['req:r']={status:'ready',revision:2};LEGAL.full['req:r']={text:'private report',revision:2,report:{sources:[]}};LIVE.store={v2Rpc:async()=>[]}`,c);
+ await vm.runInContext("legalRefresh(['req:r'])",c);assert.equal(vm.runInContext("LEGAL.full['req:r']",c),undefined);assert.doesNotMatch(vm.runInContext("lexSection('req:r')",c),/private report/);
+});

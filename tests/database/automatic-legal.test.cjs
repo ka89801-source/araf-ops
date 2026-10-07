@@ -28,6 +28,14 @@ test('automatic legal queue on isolated PostgreSQL',async t=>{
   await db.exec(sql);await db.exec(sql);assert.deepEqual((await db.query('select to_jsonb(r) as row from public.service_requests r order by id')).rows,before);
   assert.equal((await db.query('select count(*)::int as n from public.ops_v2_legal_jobs')).rows[0].n,0);
  });
+ await t.test('fast batch completes and persists a brief with the installed SQL in one invocation',async()=>{
+  await reset();await retry(employee);
+  const {runBatch}=require('../../server/automatic-legal');let calls=0;
+  const rpc=(name,payload={})=>asRole('service_role',null,`select public.${name}(${Object.keys(payload).map((k,i)=>k+'=> $'+(i+1)).join(',')}) as result`,Object.values(payload));
+  const result=await runBatch({rpc,openaiKey:'test',fetcher:async()=>{calls++;return {ok:true,json:async()=>({status:'completed',output:[{type:'message',content:[{type:'output_text',text:'فهم الطلب: مطالبة مالية. أسئلة ومستندات: اطلب العقد وإثبات التنفيذ.'}]}]})}}});
+  assert.equal(calls,1);assert.equal(result.completed,1);assert.equal((await read(employee)).report.provider,'openai-quick-brief');
+  assert.equal((await read(employee)).status,'ready');await reset();
+ });
  await t.test('private helpers and queue cannot be accessed directly by callers',async()=>{
   for(const role of ['anon','authenticated','service_role']){
    await assert.rejects(asRole(role,admin,'select * from public.ops_v2_legal_jobs'),/permission denied/);

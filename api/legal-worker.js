@@ -1,6 +1,6 @@
 'use strict';
 const {timingSafeEqual}=require('node:crypto');
-const {rpcClient,runOne}=require('../server/automatic-legal');
+const {rpcClient,runBatch}=require('../server/automatic-legal');
 module.exports=async function handler(req,res){
   res.setHeader('Cache-Control','no-store');
   if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'});
@@ -10,7 +10,7 @@ module.exports=async function handler(req,res){
   if(provided.length!==expected.length || !timingSafeEqual(provided,expected))return res.status(401).json({error:'Unauthorized'});
   try {
     // The incoming body is never used as a prompt, URL, job id, or credential.
-    const result=await runOne({rpc:rpcClient(key),openaiKey:process.env.OPENAI_API_KEY});
+    const result=await runBatch({rpc:rpcClient(key),openaiKey:process.env.OPENAI_API_KEY});
     return res.status(200).json(result);
   } catch { return res.status(502).json({error:'Legal worker unavailable; the queue retains the job'}); }
 };
