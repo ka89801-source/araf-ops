@@ -91,14 +91,14 @@ A.closeReq=el=>{
   const id=el.dataset.id;
   liveForm('إغلاق الطلب',liveSelect('النتيجة','liveState',[['done','مكتمل'],['closed','مغلق'],['cancelled','ملغي']],'done')+liveNote('ملاحظة الإغلاق','liveComment'),()=>LIVE.run('request:'+id,()=>{
     const note=val('liveComment');if(!note)throw new Error('اكتب ملاحظة الإغلاق');
-    return LIVE.store.patchRequest(id,{...statusChanges(LIVE.store.rows[id],val('liveState')),closing_note:note},'close','إغلاق الطلب');
+    return LIVE.store.closeRequest(id,val('liveState'),note);
   }));
 };
 A.quote=el=>{
   const id=el.dataset.id || el.dataset.v;
   liveForm('حفظ قيمة الطلب',liveField('القيمة النهائية بالريال','livePrice',REQ(id).price,'number')+'<p class="muted">تُحفظ القيمة في الطلب. إرسال عرض للعميل إجراء مستقل.</p>',()=>LIVE.run('request:'+id,()=>{
     const price=Number(val('livePrice'));if(!val('livePrice') || !Number.isFinite(price)||price<0)throw new Error('أدخل قيمة صحيحة');
-    return LIVE.store.patchRequest(id,{price,payment_status:'manual_pending'});
+    return LIVE.store.patchRequest(id,{price,...(LIVE.store.rows[id].payment_status==='pending_quote'?{payment_status:'manual_pending'}:{})},'status_change','تسعير الطلب',{deferAudit:true});
   }));
 };
 A.saveCase=el=>LIVE.run('request:'+el.dataset.id,async()=>{

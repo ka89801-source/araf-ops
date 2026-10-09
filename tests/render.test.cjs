@@ -112,3 +112,15 @@ test('revoked report access removes the inline cache on the next refresh',async(
  const c=context();vm.runInContext(`LIVE.ready=true;LEGAL.rows['req:r']={status:'ready',revision:2};LEGAL.full['req:r']={text:'private report',revision:2,report:{sources:[]}};LIVE.store={v2Rpc:async()=>[]}`,c);
  await vm.runInContext("legalRefresh(['req:r'])",c);assert.equal(vm.runInContext("LEGAL.full['req:r']",c),undefined);assert.doesNotMatch(vm.runInContext("lexSection('req:r')",c),/private report/);
 });
+
+test('unrecognized pricing workflow states retain closure action and explicit terminal states do not',()=>{
+ const c=context();vm.runInContext(`ME='e1';LIVE.store={user:{id:'e1',role:'admin'}};REQUESTS.push(mapRequest({id:'quoted',customer_name:'Priced request',status:'quoted',price:875,payment_status:'manual_pending',created_at:'2026-10-01'}))`,c);
+ assert.equal(vm.runInContext('isOpen(REQ("quoted"))',c),true);
+ assert.match(vm.runInContext('reqPanel("quoted").foot',c),/data-a="closeReq"/);
+ for(const state of ['done','closed','cancelled']){vm.runInContext(`REQ('quoted').status='${state}'`,c);assert.doesNotMatch(vm.runInContext('reqPanel("quoted").foot',c),/data-a="closeReq"/);}
+});
+test('message delete action is offered only on messages sent by the current member',()=>{
+ const c=context();vm.runInContext(`ME='e1';LETTERS.push(mapLetter({id:'1',from_id:'e1',to_id:'e2',from_name:'A',to_name:'B',subject:'Subject',body:'Body',created_at:'2026-10-01'}))`,c);
+ assert.match(vm.runInContext('letterPanel("1")().foot',c),/data-a="deleteLetter"/);
+ vm.runInContext("ME='e2'",c);assert.doesNotMatch(vm.runInContext('letterPanel("1")().foot',c),/data-a="deleteLetter"/);
+});
