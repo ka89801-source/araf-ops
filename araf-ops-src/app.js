@@ -22,7 +22,8 @@ const NAV = [
 const TITLES = { home: 'اليوم', flow: 'خريطة التدفق', requests: 'الخدمات المباشرة', cases: 'طلبات التوكيل', business: 'المنشآت', team: 'الفريق', activity: 'سجل النشاط', support: 'الدعم الفني' };
 
 /* ---------- مشتقات ---------- */
-const isOpen = (r) => OPEN_ST.includes(r.status);
+// Only an explicit terminal state closes a request; pricing/custom states stay actionable.
+const isOpen = (r) => !['done', 'closed', 'cancelled'].includes(r.status) && !r.closed_at;
 const hoursSince = (d) => (nowDate() - d) / 36e5;
 const reqList = (kind) => REQUESTS.filter((r) => r.kind === kind);
 const openList = (kind) => reqList(kind).filter(isOpen);

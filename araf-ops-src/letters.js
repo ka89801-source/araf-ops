@@ -33,16 +33,16 @@ function inboxPanel(){
 }
 function letterPanel(id){
   const fn=()=>{
-    const l=LETTERS.find(x=>x.id===id);if(!l)return {head:'الرسالة',body:'حدّث صندوق الرسائل'};
+    const l=LETTERS.find(x=>x.id===id);if(!l)return {head:'الرسالة',body:'هذه الرسالة لم تعد متاحة؛ ربما حذفها المرسل.'};
     const mine=l.from_id===String(ME);
-    return {head:`<div class="row gap12">${av(letterOther(l),'lg',true)}<div><h2 class="h2">${esc(l.subject)}</h2><div class="muted">${mine?'إلى':'من'} ${esc(letterName(l))}</div></div>`,body:`<div class="row gap8" style="margin-bottom:18px"><time class="muted">${dmy(l.at)} — ${hm(l.at)}</time>${l.urgent?'<span class="badge b-red">عاجلة</span>':''}${mine?`<span class="badge ${l.read_at?'b-green':'b-ghost'}">${l.read_at?'قُرئت '+ago(l.readAt):'أُرسلت'}</span>`:''}</div><div class="note letter-body">${esc(l.body)}</div>`,foot:`<button class="btn btn-p" data-a="replyLetter" data-id="${esc(l.id)}">${ic('send')}${mine?'رسالة أخرى':'رد على الرسالة'}</button><button class="btn btn-q" data-a="inbox">صندوق الرسائل</button>`};
+    return {head:`<div class="row gap12">${av(letterOther(l),'lg',true)}<div><h2 class="h2">${esc(l.subject)}</h2><div class="muted">${mine?'إلى':'من'} ${esc(letterName(l))}</div></div>`,body:`<div class="row gap8" style="margin-bottom:18px"><time class="muted">${dmy(l.at)} — ${hm(l.at)}</time>${l.urgent?'<span class="badge b-red">عاجلة</span>':''}${mine?`<span class="badge ${l.read_at?'b-green':'b-ghost'}">${l.read_at?'قُرئت '+ago(l.readAt):'أُرسلت'}</span>`:''}</div><div class="note letter-body">${esc(l.body)}</div>`,foot:`${mine?`<button class="btn btn-s btn-danger" data-a="deleteLetter" data-id="${esc(l.id)}">${ic('trash')}حذف الرسالة</button>`:''}<button class="btn btn-p" data-a="replyLetter" data-id="${esc(l.id)}">${ic('send')}${mine?'رسالة أخرى':'رد على الرسالة'}</button><button class="btn btn-q" data-a="inbox">صندوق الرسائل</button>`};
   };fn._message=id;return fn;
 }
 A.openLetter=async el=>{
   const l=LETTERS.find(x=>x.id===el.dataset.id);if(!l)return;
   openDrawer(letterPanel(l.id),{wide:true});
   if(isUnread(l)){
-    try{upsertLetter(await LIVE.store.readMessage(l.id));refreshLettersQuiet();}
+    try{const version=LIVE.messageVersion,row=await LIVE.store.readMessage(l.id);if(version===LIVE.messageVersion&&LETTERS.some(x=>x.id===l.id))upsertLetter(row);refreshLettersQuiet();}
     catch(e){toast('تعذر تسجيل قراءة الرسالة: '+e.message,{info:true});}
   }
 };
@@ -71,3 +71,19 @@ A.refreshLetters=()=>LIVE.refreshMessages();
 A.replyLetter=el=>{const l=LETTERS.find(x=>x.id===el.dataset.id);if(l)composeLetter(letterOther(l),('رد: '+l.subject).slice(0,120));};
 
 A.messageEmployee=el=>composeLetter(el.dataset.id);
+
+A.deleteLetter=el=>{
+  const id=el.dataset.id,l=LETTERS.find(x=>x.id===id);
+  if(!l || l.from_id!==String(ME))return;
+  openModal(`<div class="m-h"><h3 class="h2">حذف الرسالة</h3></div><div class="m-b"><p>هل تريد حذف رسالة «${esc(l.subject)}»؟</p><p class="muted">ستُحذف نهائيًا من صندوقك وصندوق المستلم، ولا يمكن التراجع عن الحذف.</p><p id="deleteLetterError" role="alert" class="lt-err"></p></div><div class="m-f"><button class="btn btn-q" data-a="mClose">إلغاء</button><button class="btn btn-s btn-danger" data-a="confirmDeleteLetter">حذف الرسالة</button></div>`);
+  A.confirmDeleteLetter=async button=>{
+    const key='delete-letter:'+id;if(LIVE.pending.has(key))return;
+    LIVE.pending.add(key);const restore=liveBusy(button,'جارٍ الحذف…');
+    try{
+      await LIVE.store.deleteMessage(id);
+      const index=LETTERS.findIndex(x=>x.id===id);if(index>=0)LETTERS.splice(index,1);
+      LIVE.messageVersion++;closeModal();closeDrawer();refreshLettersQuiet();toast('حُذفت الرسالة');
+    }catch(e){$('#deleteLetterError').textContent=e.message;}
+    finally{LIVE.pending.delete(key);restore();}
+  };
+};

@@ -79,3 +79,34 @@ test('entity deletion requires admin role, exact confirmation and server respons
  s.user=admin;await s.deleteEntity({id:'org',code:'TEST',updated_at:'version'},'TEST');
  assert.equal(calls[0].name,'ops_v2_delete_entity');assert.equal(calls[0].payload.p_expected_updated_at,'version');
 });
+
+test('priced request closes without waiting for audit and preserves price/payment',async()=>{
+ const row={id:'r1',status:'progress',price:875,payment_status:'manual_pending',updated_at:'priced'};
+ const db=mockDB(op=>op.table==='request_activity_log'?new Promise(()=>{}):{data:{...row,...op.update[0]}}),s=store(db);s.rows.r1={...row};
+ const result=await s.closeRequest('r1','done','تم تنفيذ الخدمة');
+ assert.equal(result.data.status,'done');assert.equal(result.data.price,875);assert.equal(result.data.payment_status,'manual_pending');
+ assert.equal(result.data.closed_by,'e1');assert.equal(result.data.closing_note,'تم تنفيذ الخدمة');assert.ok(result.audit instanceof Promise);
+ assert.deepEqual(db.calls[0].filters,[['eq','id','r1'],['eq','updated_at','priced']]);
+});
+test('closing retries only an unrelated concurrent edit with current version and notes',async()=>{
+ let writes=0;const row={id:'r1',status:'progress',price:875,payment_status:'manual_pending',updated_at:'old'};
+ const latest={...row,updated_at:'new',notes:[{text:'new note'}]};
+ const db=mockDB(op=>op.table==='request_activity_log'?{}:!op.update?{data:latest}:++writes===1?{data:null}:{data:{...latest,...op.update[0]}}),s=store(db);s.rows.r1=row;
+ const result=await s.closeRequest('r1','closed','تم الإغلاق');assert.equal(writes,2);assert.equal(result.data.notes[0].text,'new note');
+ assert.deepEqual(db.calls[2].filters,[['eq','id','r1'],['eq','updated_at','new']]);
+});
+test('closing never overwrites another price, payment, assignment or outcome',async()=>{
+ for(const changes of [{price:999},{payment_status:'paid'},{assigned_to:'e2'},{status:'cancelled'},{closing_note:'another closure'}]){
+  const row={id:'r1',status:'progress',price:875,payment_status:'manual_pending',updated_at:'old'};
+  const db=mockDB(op=>op.update?{data:null}:{data:{...row,...changes,updated_at:'new'}}),s=store(db);s.rows.r1=row;
+  await assert.rejects(s.closeRequest('r1','done','تم'),/تغيّرت حالة/);assert.equal(db.calls.filter(c=>c.update).length,1);
+ }
+ const db=mockDB(()=>({error:{message:'denied'}})),s=store(db);s.rows.r1={id:'r1'};
+ await assert.rejects(s.closeRequest('r1','done','تم'),/denied/);assert.equal(db.calls.length,1);
+});
+test('message deletion requires explicit server confirmation and keeps bigint IDs as strings',async()=>{
+ const s=store(mockDB(()=>{throw Error('no anonymous DB deletion')}));let called;
+ s.api=async(route,body)=>{called={route,body};return {ok:true,id:body.id}};
+ await s.deleteMessage('9223372036854775807');assert.deepEqual(called,{route:'ops-delete-message',body:{id:'9223372036854775807'}});
+ s.api=async()=>({ok:false});await assert.rejects(s.deleteMessage('1'),/لم يؤكد/);
+});

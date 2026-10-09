@@ -54,6 +54,28 @@
       const audit = this.audit(id, action, description).catch(() => 'حُفظ التغيير، لكن تعذر تسجيل النشاط');
       return options.deferAudit ? { data, audit } : { data, warning: await audit };
     }
+    async closeRequest(id, status, note) {
+      this.requireUser();
+      if (!['done','closed','cancelled'].includes(status) || !note.trim()) throw new Error('اختر نتيجة الإغلاق واكتب ملاحظة');
+      const original = this.rows[id];
+      if (!original) throw new Error('حدّث القائمة ثم أعد المحاولة');
+      const save = () => this.patchRequest(id, {status, closing_note: note.trim(),
+        closed_at: new Date().toISOString(), closed_by: this.user.id}, 'close', 'إغلاق الطلب', {deferAudit:true});
+      try { return await save(); }
+      catch (error) {
+        if (error.code !== 'REQUEST_CONFLICT') throw error;
+        const {data:latest,error:readError} = await this.db.from('service_requests').select('*').eq('id',id).maybeSingle();
+        if (readError || !latest) throw error;
+        // Keep notes and other unrelated updates, but never close over a change
+        // to the outcome, assigned employee, price, payment or closure itself.
+        const protectedFields = ['status','assigned_to','assigned_by','assigned_at','price','payment_status','closed_at','closed_by','closing_note'];
+        if (protectedFields.some(key => (latest[key] ?? null) !== (original[key] ?? null))) {
+          throw new Error('تغيّرت حالة الطلب أو قيمته أو إسناده؛ حدّث الطلب وراجعه قبل الإقفال');
+        }
+        this.rows[id] = latest;
+        return save();
+      }
+    }
     async assignRequest(id, employeeId) {
       this.requireUser(true);
       const original = this.rows[id];
@@ -127,6 +149,12 @@
       if (!to || to === this.user.id) throw new Error('اختر موظفًا آخر');
       if (!body.trim() || body.trim().length > 4000 || subject.trim().length > 120) throw new Error('اكتب رسالة حتى ٤٠٠٠ حرف وموضوعًا حتى ١٢٠ حرفًا');
       return this.v2Rpc('ops_v2_send_message', { p_recipient: to, p_subject: subject.trim() || 'رسالة', p_body: body.trim(), p_urgent: !!urgent, p_nonce: nonce });
+    }
+    async deleteMessage(id) {
+      this.requireUser();
+      const result = await this.api('ops-delete-message', {id:String(id)});
+      if (!result?.ok || String(result.id) !== String(id)) throw new Error('لم يؤكد الخادم حذف الرسالة');
+      return result;
     }
     readMessage(id) { return this.v2Rpc('ops_v2_read_message', { p_id: id }); }
     deleteEntity(entity, confirmation) {

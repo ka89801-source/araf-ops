@@ -11,6 +11,7 @@ const ROUTES = {
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   const route = req.query?.route;
+  if (route === 'ops-delete-message') return require('../../server/ops-messages')(req,res);
   if (!Object.hasOwn(ROUTES, route || '')) return res.status(404).json({ error: 'مسار غير متاح' });
   if (req.method !== ROUTES[route]) return res.status(405).json({ error: 'طريقة غير مسموحة' });
   const token = req.headers.authorization || '';
