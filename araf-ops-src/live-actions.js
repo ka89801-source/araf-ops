@@ -103,21 +103,25 @@ A.quote=el=>{
 };
 A.changeService=el=>{
   const id=el.dataset.id,row=LIVE.store.rows[id];if(!row)return;
-  const choices=[...SERVICES.map(s=>({value:'direct:'+s.key,type:s.key,name:s.name,category:'الخدمات المباشرة'})),
-    ...CASE_TYPES.map(s=>({value:'case:'+s.key,type:'case_representation',name:s.name,category:'التوكيل في القضايا'})),
-    {value:'other',type:'custom_service',name:'خدمة أخرى',category:'الخدمات المباشرة'}];
+  const choices=[...SERVICES.map(s=>({value:'direct:'+s.key,type:s.key,name:s.name,price:s.price})),
+    ...CASE_TYPES.map(s=>({value:'case:'+s.key,type:'case_representation',name:s.name,price:s.price})),
+    {value:'other',type:'custom_service',name:'خدمة أخرى',price:null}];
   const current=choices.find(s=>s.type===row.service_type && (s.type!=='case_representation'||s.name===row.service_name));
-  liveForm('تغيير نوع الطلب',`<p class="muted" style="margin-bottom:14px">النوع الحالي: ${esc(row.service_name||row.service_type)}. لا يتغير السعر أو حالة الدفع عند تغيير النوع.</p>`+
-    liveSelect('الخدمة المقدمة فعليًا','liveService',choices.map(s=>[s.value,s.name]),current?.value || 'other')+
+  liveForm('تغيير نوع الطلب',`<p class="muted" style="margin-bottom:14px">النوع الحالي: ${esc(row.service_name||row.service_type)}. سيُحفظ سعر الخدمة الجديدة مع نوع الطلب. حالة الدفع المسجلة لا تتغير، عدا الطلب الذي كان بانتظار التسعير.</p>`+
+    liveSelect('الخدمة المقدمة فعليًا','liveService',choices.map(s=>[s.value,s.name+(s.price===null?' — تسعير يدوي':' — '+fmt(s.price)+' ر.س')]),current?.value || 'other')+
     liveField('اسم الخدمة عند اختيار خدمة أخرى','liveServiceName',current?'':row.service_name||'')+
+    liveField('السعر الجديد بالريال','liveServicePrice',current?.price ?? '', 'number')+
     liveNote('سبب تغيير النوع','liveServiceReason'),()=>LIVE.run('request:'+id,async()=>{
       const selected=choices.find(s=>s.value===val('liveService'));if(!selected)throw new Error('اختر نوع الطلب');
-      const service={...selected,name:selected.value==='other'?val('liveServiceName'):selected.name};
+      if(selected.value==='other'&&!val('liveServicePrice'))throw new Error('أدخل سعر الخدمة المخصصة');
+      const service={...selected,name:selected.value==='other'?val('liveServiceName'):selected.name,price:selected.value==='other'?Number(val('liveServicePrice')):selected.price};
       const result=await LIVE.store.changeService(id,service,val('liveServiceReason'));
       // A report for the old service must not remain visible after reclassification.
       delete LEGAL.full['req:'+id];LEGAL.rows['req:'+id]={status:'outdated',key:'req:'+id};
       return result;
-    },'حُفظ نوع الطلب الجديد'),'حفظ نوع الطلب');
+    },'حُفظ نوع الطلب وسعر الخدمة الجديدة'),'حفظ النوع والسعر');
+  const updatePrice=()=>{const item=choices.find(s=>s.value===val('liveService')),input=$('#liveServicePrice');input.readOnly=item?.value!=='other';input.value=item?.price ?? '';};
+  $('#liveService').onchange=updatePrice;updatePrice();
 };
 A.saveCase=el=>LIVE.run('request:'+el.dataset.id,async()=>{
   const count=Number(val('cSess'));if(!Number.isInteger(count)||count<0)throw new Error('عدد الجلسات غير صالح');

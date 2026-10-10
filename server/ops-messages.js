@@ -2,14 +2,14 @@
 const SUPABASE_URL='https://yuoforvbxpwislmdrvvb.supabase.co';
 // A narrow server action over the existing table. Membership comes from
 // business_admins and ownership from sender_auth_id, never editable UI identity.
-module.exports=async function deleteMessage(req,res){
+async function messageAction(req,res,listSent=false){
   if(req.method!=='POST')return res.status(405).json({error:'طريقة غير مسموحة'});
   const token=req.headers.authorization || '';
   if(!/^Bearer \S+$/.test(token))return res.status(401).json({error:'سجّل الدخول أولًا'});
   let body=req.body;
   try{if(typeof body==='string')body=JSON.parse(body);}catch{return res.status(400).json({error:'بيانات غير صالحة'});}
-  const id=body?.id;
-  if(typeof id!=='string' || !/^[1-9][0-9]{0,18}$/.test(id) || BigInt(id)>9223372036854775807n)
+  const id=listSent?body?.before:body?.id;
+  if(!(listSent&&id==null) && (typeof id!=='string' || !/^[1-9][0-9]{0,18}$/.test(id) || BigInt(id)>9223372036854775807n))
     return res.status(400).json({error:'معرّف الرسالة غير صالح'});
   const key=process.env.SUPABASE_SERVICE_ROLE_KEY;
   if(!key)return res.status(503).json({error:'يلزم إعداد مفتاح خدمة Supabase في خادم المنصة لتفعيل حذف الرسائل'});
@@ -24,6 +24,14 @@ module.exports=async function deleteMessage(req,res){
     const actors=await membership.json();
     if(!Array.isArray(actors)||actors.length!==1||!['admin','manager','employee'].includes(actors[0].admin_role))
       return res.status(403).json({error:'حساب العمليات غير مفعّل'});
+    if(listSent){
+      const query=new URLSearchParams({select:'id::text,from_id,to_id,from_name,to_name,subject,body,urgent,created_at,read_at',sender_auth_id:'eq.'+user.id,order:'id.desc',limit:'200'});
+      if(id!=null)query.set('id','lt.'+id);
+      const result=await fetch(SUPABASE_URL+'/rest/v1/ops_v2_messages?'+query,{headers,redirect:'error',signal:AbortSignal.timeout(8000)});
+      if(!result.ok)throw new Error('list failed');
+      const rows=await result.json();if(!Array.isArray(rows))throw new Error('invalid list');
+      return res.status(200).json({messages:rows.map(row=>({...row,id:String(row.id),is_mine:true}))});
+    }
     const removed=await fetch(SUPABASE_URL+'/rest/v1/ops_v2_messages?'+new URLSearchParams({id:'eq.'+id,sender_auth_id:'eq.'+user.id,select:'sender_auth_id'}),{
       method:'DELETE',headers:{...headers,Prefer:'return=representation'},redirect:'error',signal:AbortSignal.timeout(8000)
     });
@@ -32,5 +40,8 @@ module.exports=async function deleteMessage(req,res){
     if(!Array.isArray(rows))throw new Error('invalid result');
     if(rows.length!==1)return res.status(404).json({error:'الرسالة غير موجودة أو لست مرسلها؛ حدّث صندوق الرسائل'});
     return res.status(200).json({ok:true,id});
-  }catch{return res.status(502).json({error:'تعذر تأكيد حذف الرسالة؛ حدّث صندوق الرسائل ثم أعد المحاولة'});}
+  }catch{return res.status(502).json({error:listSent?'تعذر تحميل الرسائل المرسلة؛ أعد المحاولة':'تعذر تأكيد حذف الرسالة؛ حدّث صندوق الرسائل ثم أعد المحاولة'});}
 };
+
+module.exports=(req,res)=>messageAction(req,res);
+module.exports.listSent=(req,res)=>messageAction(req,res,true);

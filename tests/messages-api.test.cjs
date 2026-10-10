@@ -30,3 +30,12 @@ test('another sender or missing message returns no success, and network failures
  await fixture({},[{id:UID},[{admin_role:'admin'}],[]],r=>assert.equal(r.code,404));
  await fixture({},[{id:UID},[{admin_role:'admin'}],new Error('private upstream error')],r=>{assert.equal(r.code,502);assert.doesNotMatch(JSON.stringify(r.body),/private|server-test/)});
 });
+
+test('sent-message list uses authenticated ownership, explicit fields and text bigint IDs',async()=>{
+ await fixture({query:{route:'ops-sent-messages'},body:{before:'9223372036854775807',sender_auth_id:'other'}},[{id:UID},[{admin_role:'employee'}],[{id:'9223372036854775806',from_id:'old-id',subject:'Sent'}]],(r,c)=>{
+  assert.equal(r.code,200);assert.equal(r.body.messages[0].is_mine,true);assert.equal(r.body.messages[0].id,'9223372036854775806');
+  const query=new URL(c[2].url).searchParams;assert.equal(query.get('sender_auth_id'),'eq.'+UID);assert.equal(query.get('id'),'lt.9223372036854775807');assert.equal(query.get('limit'),'200');assert.ok(query.get('select').startsWith('id::text,'));assert.doesNotMatch(query.get('select'),/nonce|sender_auth_id/);assert.equal(c[2].options.method,undefined);
+ });
+ await fixture({query:{route:'ops-sent-messages'},body:{before:'bad&filter'}},[],r=>assert.equal(r.code,400));
+ await fixture({query:{route:'ops-sent-messages'},body:{}},[{id:UID},[]],(r,c)=>{assert.equal(r.code,403);assert.equal(c.length,2)});
+});

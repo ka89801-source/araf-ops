@@ -41,7 +41,7 @@
       if (!['admin', 'manager'].includes(this.user.role) && row.assigned_to !== this.user.id) throw new Error('الطلب غير مسند إليك');
       if (['assigned_to','assigned_by','assigned_at'].some(key => Object.hasOwn(changes, key))) this.requireUser(true);
       const allowed = new Set(['status','priority','price','payment_status','assigned_to','assigned_by','assigned_at',
-        'service_type','service_name','service_category','contacted_at','closed_at','closed_by','closing_note','notes','case_current_stage','case_last_session_summary',
+        'service_type','service_name','contacted_at','closed_at','closed_by','closing_note','notes','case_current_stage','case_last_session_summary',
         'case_sessions_count','case_next_action','case_next_session_at','case_followup_updated_at','case_followup_updated_by','case_followup_updated_by_name']);
       for (const key of Object.keys(changes)) if (!allowed.has(key)) throw new Error('حقل غير مسموح');
       let q = this.db.from('service_requests').update({ ...changes, updated_at: new Date().toISOString() }).eq('id', id);
@@ -60,10 +60,10 @@
       if (!row) throw new Error('حدّث الطلب ثم أعد المحاولة');
       if (!service || typeof service.type !== 'string' || !service.type.trim() || service.type.length>120 ||
         typeof service.name !== 'string' || !service.name.trim() || service.name.length>160 ||
-        !['الخدمات المباشرة','التوكيل في القضايا'].includes(service.category) || !reason?.trim() || reason.length>1000)
+        !Number.isFinite(service.price) || service.price<0 || !reason?.trim() || reason.length>1000)
         throw new Error('اختر نوع الطلب واكتب سبب التغيير');
-      return this.patchRequest(id, {service_type:service.type,service_name:service.name.trim(),service_category:service.category},
-        'status_change', 'تغيير نوع الطلب من «'+(row.service_name || row.service_type || '')+'» إلى «'+service.name.trim()+'» — '+reason.trim(), {deferAudit:true});
+      return this.patchRequest(id, {service_type:service.type,service_name:service.name.trim(),price:service.price,...(row.payment_status==='pending_quote'?{payment_status:'manual_pending'}:{})},
+        'status_change', 'تغيير نوع الطلب من «'+(row.service_name || row.service_type || '')+'» إلى «'+service.name.trim()+'»؛ السعر '+row.price+' ← '+service.price+' ر.س — '+reason.trim(), {deferAudit:true});
     }
     async closeRequest(id, status, note) {
       this.requireUser();
@@ -160,6 +160,18 @@
       if (!to || to === this.user.id) throw new Error('اختر موظفًا آخر');
       if (!body.trim() || body.trim().length > 4000 || subject.trim().length > 120) throw new Error('اكتب رسالة حتى ٤٠٠٠ حرف وموضوعًا حتى ١٢٠ حرفًا');
       return this.v2Rpc('ops_v2_send_message', { p_recipient: to, p_subject: subject.trim() || 'رسالة', p_body: body.trim(), p_urgent: !!urgent, p_nonce: nonce });
+    }
+    async sentMessages() {
+      this.requireUser();const rows=[];let before=null;
+      for (;;) {
+        const result=await this.api('ops-sent-messages',{before});
+        if (!Array.isArray(result?.messages)) throw new Error('تعذر قراءة رسائلك المرسلة');
+        rows.push(...result.messages);
+        if(result.messages.length<200)return rows;
+        const next=String(result.messages.at(-1).id);
+        if(next===before)throw new Error('تعذر متابعة تحميل الرسائل');
+        before=next;
+      }
     }
     async deleteMessage(id) {
       this.requireUser();
