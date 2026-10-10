@@ -9,12 +9,12 @@ const letterName=l=>l.from_id===String(ME)?l.to_name:l.from_name;
 function messageIssue(){return LIVE.errors.messages?`<div class="letters-error" role="status">${esc(LIVE.errors.messages)}${LETTERS.length?' — تظهر آخر الرسائل المحمّلة.':''}<button class="btn btn-sm btn-q" data-a="refreshLetters">إعادة المحاولة</button></div>`:'';}
 function lettersSec(){
   const count=unreadLetters(),rows=LETTERS.slice().sort((a,b)=>Number(isUnread(b))-Number(isUnread(a)) || b.at-a.at).slice(0,3);
-  return `<div class="sec-h"><div class="sec-t">رسائل الفريق${count?`<span class="badge b-red">${count} غير مقروءة</span>`:'<small>اترك رسالة لأي موظف</small>'}</div><div class="act"><button class="btn btn-sm btn-q" data-a="inbox">كل الرسائل</button><button class="btn btn-sm btn-p" data-a="compose">${ic('pen')}رسالة جديدة</button></div></div>
+  return `<div class="sec-h"><div class="sec-t">رسائل الفريق${count?`<span class="badge b-red">${count} غير مقروءة</span>`:'<small>اترك رسالة لأي موظف</small>'}</div><div class="act"><button class="btn btn-sm btn-q" data-a="sentLetters">رسائلي المرسلة</button><button class="btn btn-sm btn-q" data-a="inbox">كل الرسائل</button><button class="btn btn-sm btn-p" data-a="compose">${ic('pen')}رسالة جديدة</button></div></div>
   ${messageIssue()}<div class="msg-grid">${rows.map(msgCard).join('')}<button class="msg-card msg-new" data-a="compose"><span class="mn-ic">${ic('send')}</span><b>رسالة جديدة</b><small>لأي عضو في الفريق</small></button></div>`;
 }
 function msgCard(l){
   const mine=l.from_id===String(ME),unread=isUnread(l);
-  return `<button class="msg-card ${unread?'unread':''}" data-a="openLetter" data-id="${esc(l.id)}"><div class="mc-top">${av(letterOther(l),'',true)}<div class="grow" style="min-width:0"><div class="mc-who"><span class="dir ${mine?'out':'in'}">${ic(mine?'send':'inbox','width="12" height="12"')}${mine?'إلى':'من'}</span><b class="ell">${esc(letterName(l))}</b></div></div><time>${ago(l.at)}</time></div><div class="mc-subj">${unread?'<i class="udot"></i>':''}<span class="ell">${esc(l.subject)}</span></div><p class="mc-prev">${esc(l.body)}</p><div class="mc-foot">${l.urgent?'<span class="badge b-red">عاجلة</span>':''}${mine?`<span class="rc ${l.read_at?'read':''}" style="margin-inline-start:auto">${ic(l.read_at?'checks':'check','width="14" height="14"')}${l.read_at?'قُرئت':'أُرسلت'}</span>`:unread?'<span class="mc-new">جديدة</span>':''}</div></button>`;
+  return `<article class="msg-card ${unread?'unread':''}"><button class="msg-open" data-a="openLetter" data-id="${esc(l.id)}"><div class="mc-top">${av(letterOther(l),'',true)}<div class="grow" style="min-width:0"><div class="mc-who"><span class="dir ${mine?'out':'in'}">${ic(mine?'send':'inbox','width="12" height="12"')}${mine?'إلى':'من'}</span><b class="ell">${esc(letterName(l))}</b></div></div><time>${ago(l.at)}</time></div><div class="mc-subj">${unread?'<i class="udot"></i>':''}<span class="ell">${esc(l.subject)}</span></div><p class="mc-prev">${esc(l.body)}</p></button><div class="mc-foot">${l.urgent?'<span class="badge b-red">عاجلة</span>':''}${mine?`<span class="rc ${l.read_at?'read':''}" style="margin-inline-start:auto">${ic(l.read_at?'checks':'check','width="14" height="14"')}${l.read_at?'قُرئت':'أُرسلت'}</span>`:unread?'<span class="mc-new">جديدة</span>':''}${mine?`<button class="btn btn-sm btn-s btn-danger msg-delete" data-a="deleteLetter" data-id="${esc(l.id)}">${ic('trash')}حذف الرسالة</button>`:''}</div></article>`;
 }
 function refreshLettersQuiet(){
   const section=$('#lettersSec');if(section){section.innerHTML=lettersSec();after(section);}
@@ -65,6 +65,7 @@ function composeLetter(to='',subject=''){
   $('#modal').onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();$('#modal [data-a="sendLetter"]')?.click();}};
 }
 A.compose=()=>composeLetter();
+A.sentLetters=()=>{letterTab='out';A.inbox();};
 A.inbox=()=>{openDrawer(inboxPanel);LIVE.refreshMessages();};
 A.letterTab=el=>{letterTab=el.dataset.v;refreshDrawer();};
 A.refreshLetters=()=>LIVE.refreshMessages();

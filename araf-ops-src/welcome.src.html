@@ -15,7 +15,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta name="description" content="أعراف — منصة إدارة الطلبات.">
 <title>أعراف — منصة إدارة الطلبات</title>
 
-<link rel="prefetch" href="home.html">
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -380,6 +380,10 @@ body{
 @media (max-width:380px){
   .rings{width:150%}
 }
+/* The parent keeps this welcome visible until authentication and data are ready. */
+.skip{display:none}
+.progress span{animation:fill 1.8s ease-in-out infinite alternate}
+@media(prefers-reduced-motion:reduce){.progress span{animation:none}}
 </style>
 </head>
 <body>
@@ -431,45 +435,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <script>
 (function(){
-  var DEST = 'home.html' + window.location.search + window.location.hash;
-  var root = document.documentElement;
-  var body = document.body;
-
-  /* صورة الشعار كقناع للّمعة */
   var img = document.querySelector('.logo img');
-  if (img) root.style.setProperty('--logo-url', 'url("' + img.getAttribute('src') + '")');
-
-  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  /* الجدول الزمني — كل خطوة بعد سابقتها، والتبديل يسبق المغادرة بوقت كافٍ للقراءة */
-  var T = reduced
-    ? { leave: 1800, go: 2150 }
-    : { leave: 5200, go: 5850 };
-
-  root.style.setProperty('--total', (T.leave / 1000) + 's');
-
-  var timers = [];
-  var done = false;
-
-  timers.push(setTimeout(leave, T.leave));
-
-  function leave(){
-    if (done) return;
-    done = true;
-    timers.forEach(clearTimeout);
-    body.classList.add('leaving');
-    setTimeout(function(){ window.location.replace(DEST); }, reduced ? 350 : (T.go - T.leave));
-  }
-
-  /* التخطي: زر، أو نقرة في أي مكان، أو مفاتيح Enter / Space / Esc */
-  document.getElementById('skip').addEventListener('click', function(e){ e.stopPropagation(); leave(); });
-  document.addEventListener('click', leave);
-  document.addEventListener('keydown', function(e){
-    if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') { e.preventDefault(); leave(); }
-  });
-
-  /* إن عاد المستخدم من ذاكرة المتصفح المؤقتة، انتقل مباشرة */
-  window.addEventListener('pageshow', function(e){ if (e.persisted) window.location.replace(DEST); });
+  if (img) document.documentElement.style.setProperty('--logo-url', 'url("' + img.getAttribute('src') + '")');
 })();
 </script>
 </body>

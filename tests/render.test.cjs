@@ -124,3 +124,14 @@ test('message delete action is offered only on messages sent by the current memb
  assert.match(vm.runInContext('letterPanel("1")().foot',c),/data-a="deleteLetter"/);
  vm.runInContext("ME='e2'",c);assert.doesNotMatch(vm.runInContext('letterPanel("1")().foot',c),/data-a="deleteLetter"/);
 });
+test('home sent-message cards expose a separate direct delete button, incoming cards do not',()=>{
+ const c=context();vm.runInContext(`ME='e1';LETTERS.push(mapLetter({id:'5',from_id:'e1',to_id:'e2',subject:'Sent',body:'Body',created_at:'2026-10-10'}))`,c);
+ const html=vm.runInContext('lettersSec()',c);assert.match(html,/<article class="msg-card/);assert.match(html,/data-a="deleteLetter" data-id="5"/);assert.match(html,/data-a="sentLetters"/);
+ vm.runInContext("ME='e2'",c);assert.doesNotMatch(vm.runInContext('lettersSec()',c),/data-a="deleteLetter"/);
+});
+test('reclassified cases move to direct services while retaining historical source and show service edit action',()=>{
+ const c=context();vm.runInContext(`ME='e1';LIVE.store={user:{role:'admin'}};REQUESTS.push(mapRequest({id:'r',service_type:'official_letter',service_name:'صياغة خطاب رسمي',service_category:'الخدمات المباشرة',source:'custom_case',status:'new',payment_status:'paid',price:450}))`,c);
+ assert.equal(vm.runInContext('REQ("r").kind',c),'direct');assert.equal(vm.runInContext('REQ("r").source',c),'custom_case');
+ assert.match(vm.runInContext('reqPanel("r").foot',c),/data-a="changeService"/);
+ assert.equal(vm.runInContext("mapRequest({service_type:'case_representation',service_category:'التوكيل في القضايا',source:'direct_services'}).kind",c),'cases');
+});

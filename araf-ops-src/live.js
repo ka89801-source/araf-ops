@@ -22,8 +22,8 @@ function mapEmployee(row) {
 function mapRequest(row) {
   let service = row.service_type === 'أعراف تحقّق' ? row.service_name : row.service_type;
   service = SERVICES.find(s => s.name === service)?.key || service || 'general';
-  const cases = ['case_representation','التوكيل في القضايا'].includes(row.service_type) ||
-    ['التوكيل في القضايا','case_representation'].includes(row.service_category) || ['cases','custom_case'].includes(row.source);
+  const cases = row.service_category !== 'الخدمات المباشرة' && (['case_representation','التوكيل في القضايا'].includes(row.service_type) ||
+    ['التوكيل في القضايا','case_representation'].includes(row.service_category) || ['cases','custom_case'].includes(row.source));
   return { ...row, id: String(row.id), customer: row.customer_name || '', phone: row.customer_phone || '',
     service, service_name: row.service_name || SV(service).name || 'خدمة', kind: cases ? 'cases' : 'direct',
     status: Object.hasOwn(ST, row.status) ? row.status : 'unknown',

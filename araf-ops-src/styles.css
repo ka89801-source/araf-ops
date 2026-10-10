@@ -1514,3 +1514,7 @@ button[aria-busy=true]{cursor:progress;opacity:.7}
 
 .legal-inline{position:relative;margin:12px 0;padding:14px;background:var(--sheet);border:1px solid var(--line);border-radius:12px;font-size:13px;line-height:1.95;overflow-wrap:anywhere}
 .legal-inline-sources{position:relative;margin-block:10px;font-size:12px}.legal-inline-sources a{display:block;overflow-wrap:anywhere}
+
+.msg-open{display:flex;flex-direction:column;gap:8px;width:100%;min-width:0;padding:0;border:0;background:none;color:inherit;text-align:start;font:inherit;cursor:pointer}
+.msg-open:focus-visible{outline:2px solid var(--gold);outline-offset:4px;border-radius:6px}
+.msg-delete{margin-inline-start:auto}.msg-delete svg{width:14px;height:14px}
