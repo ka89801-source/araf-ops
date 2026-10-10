@@ -110,3 +110,19 @@ test('message deletion requires explicit server confirmation and keeps bigint ID
  await s.deleteMessage('9223372036854775807');assert.deepEqual(called,{route:'ops-delete-message',body:{id:'9223372036854775807'}});
  s.api=async()=>({ok:false});await assert.rejects(s.deleteMessage('1'),/لم يؤكد/);
 });
+test('service correction persists type/name/category, keeps price/payment/source and records the reason',async()=>{
+ const original={id:'r1',service_type:'consultation',service_name:'استشارة',service_category:'الخدمات المباشرة',source:'custom_case',price:450,payment_status:'paid',updated_at:'version'};
+ const db=mockDB(op=>op.table==='request_activity_log'?{}:{data:{...original,...op.update[0]}}),s=store(db);s.rows.r1=original;
+ const result=await s.changeService('r1',{type:'official_letter',name:'صياغة خطاب رسمي',category:'الخدمات المباشرة'},'الخدمة المناسبة بعد التواصل');
+ assert.equal(result.data.service_type,'official_letter');assert.equal(result.data.service_name,'صياغة خطاب رسمي');
+ assert.equal(result.data.price,450);assert.equal(result.data.payment_status,'paid');assert.equal(result.data.source,'custom_case');
+ await result.audit;assert.match(db.calls[1].insert[0].description,/استشارة.*صياغة خطاب رسمي.*بعد التواصل/);
+ assert.deepEqual(db.calls[0].filters,[['eq','id','r1'],['eq','updated_at','version']]);
+});
+test('service correction validates input, respects assignment and does not overwrite a concurrent edit',async()=>{
+ const db=mockDB(()=>({data:null})),s=store(db);s.rows.r1={id:'r1',assigned_to:'e2',updated_at:'version'};
+ await assert.rejects(s.changeService('r1',{type:'',name:'',category:'bad'},''));assert.equal(db.calls.length,0);
+ const service={type:'memo',name:'مذكرة',category:'الخدمات المباشرة'};
+ s.user={id:'e3',role:'employee'};await assert.rejects(s.changeService('r1',service,'تصحيح'),/غير مسند/);assert.equal(db.calls.length,0);
+ s.user=admin;await assert.rejects(s.changeService('r1',service,'تصحيح'),/تغيّر/);assert.equal(db.calls.length,1);
+});
