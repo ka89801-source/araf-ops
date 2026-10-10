@@ -135,3 +135,11 @@ test('reclassified cases move to direct services while retaining historical sour
  assert.match(vm.runInContext('reqPanel("r").foot',c),/data-a="changeService"/);
  assert.equal(vm.runInContext("mapRequest({service_type:'case_representation',service_category:'التوكيل في القضايا',source:'direct_services'}).kind",c),'cases');
 });
+
+test('message management button remains visible without locally recognized sent rows',()=>{
+ const c=context();vm.runInContext("ME='new-employee'",c);assert.match(vm.runInContext('lettersSec()',c),/btn-danger.*data-a="sentLetters".*حذف رسائلي/);
+ vm.runInContext(`LETTERS.push(mapLetter({id:'7',from_id:'old-employee',to_id:'other',subject:'Sent',body:'Body',created_at:'2026-10-10'}))`,c);
+ assert.doesNotMatch(vm.runInContext('msgCard(LETTERS[0])',c),/data-a="deleteLetter"/);
+ vm.runInContext("OWN_MESSAGE_IDS.add('7')",c);assert.match(vm.runInContext('msgCard(LETTERS[0])',c),/data-a="deleteLetter"/);
+ assert.match(vm.runInContext("letterPanel('7')().foot",c),/data-a="deleteLetter"/);
+});

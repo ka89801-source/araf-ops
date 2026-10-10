@@ -1,19 +1,21 @@
 /* Private employee messages persisted by authenticated v2 RPCs. */
 const LETTERS=[];
+const OWN_MESSAGE_IDS=new Set();
+const isMyLetter=l=>OWN_MESSAGE_IDS.has(String(l.id)) || l.is_mine===true || String(l.from_id)===String(ME);
 let letterTab='in';
 const mapLetter=row=>({...row,id:String(row.id),at:liveDate(row.created_at),readAt:liveDate(row.read_at)});
 const isUnread=l=>l.to_id===String(ME) && !l.read_at;
 const unreadLetters=()=>LETTERS.filter(isUnread).length;
-const letterOther=l=>l.from_id===String(ME)?l.to_id:l.from_id;
-const letterName=l=>l.from_id===String(ME)?l.to_name:l.from_name;
+const letterOther=l=>isMyLetter(l)?l.to_id:l.from_id;
+const letterName=l=>isMyLetter(l)?l.to_name:l.from_name;
 function messageIssue(){return LIVE.errors.messages?`<div class="letters-error" role="status">${esc(LIVE.errors.messages)}${LETTERS.length?' — تظهر آخر الرسائل المحمّلة.':''}<button class="btn btn-sm btn-q" data-a="refreshLetters">إعادة المحاولة</button></div>`:'';}
 function lettersSec(){
   const count=unreadLetters(),rows=LETTERS.slice().sort((a,b)=>Number(isUnread(b))-Number(isUnread(a)) || b.at-a.at).slice(0,3);
-  return `<div class="sec-h"><div class="sec-t">رسائل الفريق${count?`<span class="badge b-red">${count} غير مقروءة</span>`:'<small>اترك رسالة لأي موظف</small>'}</div><div class="act"><button class="btn btn-sm btn-q" data-a="sentLetters">رسائلي المرسلة</button><button class="btn btn-sm btn-q" data-a="inbox">كل الرسائل</button><button class="btn btn-sm btn-p" data-a="compose">${ic('pen')}رسالة جديدة</button></div></div>
+  return `<div class="sec-h"><div class="sec-t">رسائل الفريق${count?`<span class="badge b-red">${count} غير مقروءة</span>`:'<small>اترك رسالة لأي موظف</small>'}</div><div class="act"><button class="btn btn-sm btn-s btn-danger" data-a="sentLetters">${ic('trash')}حذف رسائلي</button><button class="btn btn-sm btn-q" data-a="inbox">كل الرسائل</button><button class="btn btn-sm btn-p" data-a="compose">${ic('pen')}رسالة جديدة</button></div></div>
   ${messageIssue()}<div class="msg-grid">${rows.map(msgCard).join('')}<button class="msg-card msg-new" data-a="compose"><span class="mn-ic">${ic('send')}</span><b>رسالة جديدة</b><small>لأي عضو في الفريق</small></button></div>`;
 }
 function msgCard(l){
-  const mine=l.from_id===String(ME),unread=isUnread(l);
+  const mine=isMyLetter(l),unread=isUnread(l);
   return `<article class="msg-card ${unread?'unread':''}"><button class="msg-open" data-a="openLetter" data-id="${esc(l.id)}"><div class="mc-top">${av(letterOther(l),'',true)}<div class="grow" style="min-width:0"><div class="mc-who"><span class="dir ${mine?'out':'in'}">${ic(mine?'send':'inbox','width="12" height="12"')}${mine?'إلى':'من'}</span><b class="ell">${esc(letterName(l))}</b></div></div><time>${ago(l.at)}</time></div><div class="mc-subj">${unread?'<i class="udot"></i>':''}<span class="ell">${esc(l.subject)}</span></div><p class="mc-prev">${esc(l.body)}</p></button><div class="mc-foot">${l.urgent?'<span class="badge b-red">عاجلة</span>':''}${mine?`<span class="rc ${l.read_at?'read':''}" style="margin-inline-start:auto">${ic(l.read_at?'checks':'check','width="14" height="14"')}${l.read_at?'قُرئت':'أُرسلت'}</span>`:unread?'<span class="mc-new">جديدة</span>':''}${mine?`<button class="btn btn-sm btn-s btn-danger msg-delete" data-a="deleteLetter" data-id="${esc(l.id)}">${ic('trash')}حذف الرسالة</button>`:''}</div></article>`;
 }
 function refreshLettersQuiet(){
@@ -28,13 +30,13 @@ function upsertLetter(row){
   LIVE.messageVersion++;return l;
 }
 function inboxPanel(){
-  const rows=LETTERS.filter(l=>letterTab==='all'||(letterTab==='in'?l.to_id===String(ME):letterTab==='out'?l.from_id===String(ME):isUnread(l))).slice().sort((a,b)=>b.at-a.at);
+  const rows=LETTERS.filter(l=>letterTab==='all'||(letterTab==='in'?l.to_id===String(ME):letterTab==='out'?isMyLetter(l):isUnread(l))).slice().sort((a,b)=>b.at-a.at);
   return {head:`<div class="row gap8"><h2 class="h2 grow">رسائل الفريق</h2><button class="btn btn-sm btn-p" data-a="compose">${ic('pen')}رسالة جديدة</button></div>`,body:`${messageIssue()}<div class="ntabs">${[['in','الواردة'],['out','المرسلة'],['unread','غير المقروءة'],['all','الكل']].map(([key,label])=>`<button class="${letterTab===key?'on':''}" data-a="letterTab" data-v="${key}">${label}${key==='unread'&&unreadLetters()?`<span class="n hot">${unreadLetters()}</span>`:''}</button>`).join('')}</div>${rows.length?`<div class="msg-list">${rows.map(msgCard).join('')}</div>`:empty('لا توجد رسائل هنا','أرسل رسالة إلى أحد أعضاء الفريق.','رسالة جديدة','compose')}`};
 }
 function letterPanel(id){
   const fn=()=>{
     const l=LETTERS.find(x=>x.id===id);if(!l)return {head:'الرسالة',body:'هذه الرسالة لم تعد متاحة؛ ربما حذفها المرسل.'};
-    const mine=l.from_id===String(ME);
+    const mine=isMyLetter(l);
     return {head:`<div class="row gap12">${av(letterOther(l),'lg',true)}<div><h2 class="h2">${esc(l.subject)}</h2><div class="muted">${mine?'إلى':'من'} ${esc(letterName(l))}</div></div>`,body:`<div class="row gap8" style="margin-bottom:18px"><time class="muted">${dmy(l.at)} — ${hm(l.at)}</time>${l.urgent?'<span class="badge b-red">عاجلة</span>':''}${mine?`<span class="badge ${l.read_at?'b-green':'b-ghost'}">${l.read_at?'قُرئت '+ago(l.readAt):'أُرسلت'}</span>`:''}</div><div class="note letter-body">${esc(l.body)}</div>`,foot:`${mine?`<button class="btn btn-s btn-danger" data-a="deleteLetter" data-id="${esc(l.id)}">${ic('trash')}حذف الرسالة</button>`:''}<button class="btn btn-p" data-a="replyLetter" data-id="${esc(l.id)}">${ic('send')}${mine?'رسالة أخرى':'رد على الرسالة'}</button><button class="btn btn-q" data-a="inbox">صندوق الرسائل</button>`};
   };fn._message=id;return fn;
 }
@@ -59,13 +61,20 @@ function composeLetter(to='',subject=''){
     LIVE.pending.add('send-letter');const restore=liveBusy(button,'جارٍ الإرسال…');errorBox.textContent='';
     try{
       const row=await LIVE.store.sendMessage(pick,subject,body,urgent,nonce);
-      upsertLetter(row);closeModal();refreshLettersQuiet();toast('أُرسلت الرسالة إلى '+U(pick).name);
+      OWN_MESSAGE_IDS.add(String(row.id));upsertLetter({...row,is_mine:true});closeModal();refreshLettersQuiet();toast('أُرسلت الرسالة إلى '+U(pick).name);
     }catch(e){errorBox.textContent=e.message;}finally{LIVE.pending.delete('send-letter');restore();}
   };
   $('#modal').onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();$('#modal [data-a="sendLetter"]')?.click();}};
 }
 A.compose=()=>composeLetter();
-A.sentLetters=()=>{letterTab='out';A.inbox();};
+A.sentLetters=async()=>{
+  let rows=null,error='';
+  const panel=()=>({head:'<h2 class="h2">رسائلي المرسلة — حذف الرسائل</h2>',body:error?`<p role="alert">${esc(error)}</p><button class="btn btn-s" data-a="sentLetters">إعادة المحاولة</button>`:rows===null?'<p role="status">جارٍ تحميل رسائلك المرسلة…</p>':rows.length?`<p class="muted" style="margin-bottom:14px">اضغط «حذف الرسالة» تحت الرسالة المطلوبة. الحذف يشمل صندوقك وصندوق المستلم.</p><div class="msg-list">${rows.map(msgCard).join('')}</div>`:'<p>لا توجد رسائل أرسلتها من هذا الحساب.</p>'});
+  openDrawer(panel,{wide:true});
+  try{rows=(await LIVE.store.sentMessages()).map(mapLetter);for(const row of rows){OWN_MESSAGE_IDS.add(String(row.id));upsertLetter({...row,is_mine:true});}refreshLettersQuiet();}
+  catch(e){error=e.message;}
+  if(DR.stack.at(-1)?.render===panel)refreshDrawer();
+};
 A.inbox=()=>{openDrawer(inboxPanel);LIVE.refreshMessages();};
 A.letterTab=el=>{letterTab=el.dataset.v;refreshDrawer();};
 A.refreshLetters=()=>LIVE.refreshMessages();
@@ -75,7 +84,7 @@ A.messageEmployee=el=>composeLetter(el.dataset.id);
 
 A.deleteLetter=el=>{
   const id=el.dataset.id,l=LETTERS.find(x=>x.id===id);
-  if(!l || l.from_id!==String(ME))return;
+  if(!l || !isMyLetter(l))return;
   openModal(`<div class="m-h"><h3 class="h2">حذف الرسالة</h3></div><div class="m-b"><p>هل تريد حذف رسالة «${esc(l.subject)}»؟</p><p class="muted">ستُحذف نهائيًا من صندوقك وصندوق المستلم، ولا يمكن التراجع عن الحذف.</p><p id="deleteLetterError" role="alert" class="lt-err"></p></div><div class="m-f"><button class="btn btn-q" data-a="mClose">إلغاء</button><button class="btn btn-s btn-danger" data-a="confirmDeleteLetter">حذف الرسالة</button></div>`);
   A.confirmDeleteLetter=async button=>{
     const key='delete-letter:'+id;if(LIVE.pending.has(key))return;

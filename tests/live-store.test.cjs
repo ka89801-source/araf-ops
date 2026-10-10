@@ -110,19 +110,31 @@ test('message deletion requires explicit server confirmation and keeps bigint ID
  await s.deleteMessage('9223372036854775807');assert.deepEqual(called,{route:'ops-delete-message',body:{id:'9223372036854775807'}});
  s.api=async()=>({ok:false});await assert.rejects(s.deleteMessage('1'),/لم يؤكد/);
 });
-test('service correction persists type/name/category, keeps price/payment/source and records the reason',async()=>{
- const original={id:'r1',service_type:'consultation',service_name:'استشارة',service_category:'الخدمات المباشرة',source:'custom_case',price:450,payment_status:'paid',updated_at:'version'};
- const db=mockDB(op=>op.table==='request_activity_log'?{}:{data:{...original,...op.update[0]}}),s=store(db);s.rows.r1=original;
- const result=await s.changeService('r1',{type:'official_letter',name:'صياغة خطاب رسمي',category:'الخدمات المباشرة'},'الخدمة المناسبة بعد التواصل');
+test('service correction uses existing columns only, replaces the price atomically and keeps payment/source',async()=>{
+ const original={id:'r1',service_type:'consultation',service_name:'استشارة',source:'custom_case',price:450,payment_status:'paid',updated_at:'version'};
+ const db=mockDB(op=>{if(op.table==='request_activity_log')return {};assert.equal(Object.hasOwn(op.update[0],'service_category'),false);assert.deepEqual(Object.keys(op.update[0]).sort(),['price','service_name','service_type','updated_at']);return {data:{...original,...op.update[0]}}}),s=store(db);s.rows.r1=original;
+ const result=await s.changeService('r1',{type:'official_letter',name:'صياغة خطاب رسمي',price:150},'الخدمة المناسبة بعد التواصل');
  assert.equal(result.data.service_type,'official_letter');assert.equal(result.data.service_name,'صياغة خطاب رسمي');
- assert.equal(result.data.price,450);assert.equal(result.data.payment_status,'paid');assert.equal(result.data.source,'custom_case');
+ assert.equal(result.data.price,150);assert.equal(result.data.payment_status,'paid');assert.equal(result.data.source,'custom_case');
  await result.audit;assert.match(db.calls[1].insert[0].description,/استشارة.*صياغة خطاب رسمي.*بعد التواصل/);
  assert.deepEqual(db.calls[0].filters,[['eq','id','r1'],['eq','updated_at','version']]);
 });
 test('service correction validates input, respects assignment and does not overwrite a concurrent edit',async()=>{
  const db=mockDB(()=>({data:null})),s=store(db);s.rows.r1={id:'r1',assigned_to:'e2',updated_at:'version'};
  await assert.rejects(s.changeService('r1',{type:'',name:'',category:'bad'},''));assert.equal(db.calls.length,0);
- const service={type:'memo',name:'مذكرة',category:'الخدمات المباشرة'};
+ const service={type:'memo',name:'مذكرة',price:300};
  s.user={id:'e3',role:'employee'};await assert.rejects(s.changeService('r1',service,'تصحيح'),/غير مسند/);assert.equal(db.calls.length,0);
  s.user=admin;await assert.rejects(s.changeService('r1',service,'تصحيح'),/تغيّر/);assert.equal(db.calls.length,1);
+});
+
+test('service repricing resolves pending quotation and rejects missing/negative prices',async()=>{
+ const db=mockDB(op=>op.table==='request_activity_log'?{}:{data:{id:'r',...op.update[0]}}),s=store(db);s.rows.r={id:'r',payment_status:'pending_quote',updated_at:'old'};
+ for(const price of [undefined,NaN,-1])await assert.rejects(s.changeService('r',{type:'official_letter',name:'خطاب',price},'تصحيح'));
+ assert.equal(db.calls.length,0);
+ const r=await s.changeService('r',{type:'official_letter',name:'خطاب',price:150},'تصحيح');assert.equal(r.data.price,150);assert.equal(r.data.payment_status,'manual_pending');
+});
+test('sent-message management uses the authenticated endpoint and retains server ownership',async()=>{
+ const s=store(mockDB(()=>{throw Error('no anon messages')}));const calls=[];
+ s.api=async(route,payload)=>{calls.push({route,payload});return {messages:[{id:'9223372036854775807',from_id:'old-employee',is_mine:true}]}};
+ const rows=await s.sentMessages();assert.equal(rows[0].is_mine,true);assert.equal(rows[0].id,'9223372036854775807');assert.equal(calls[0].route,'ops-sent-messages');
 });
