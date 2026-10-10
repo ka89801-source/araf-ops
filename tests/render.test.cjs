@@ -143,3 +143,11 @@ test('message management button remains visible without locally recognized sent 
  vm.runInContext("OWN_MESSAGE_IDS.add('7')",c);assert.match(vm.runInContext('msgCard(LETTERS[0])',c),/data-a="deleteLetter"/);
  assert.match(vm.runInContext("letterPanel('7')().foot",c),/data-a="deleteLetter"/);
 });
+
+test('closure note survives reload through existing notes and supersedes legacy text',()=>{
+ const c=context();vm.runInContext(`ME='e1';LIVE.store={user:{id:'e1',role:'admin'}};REQUESTS.push(mapRequest({id:'closed',status:'done',closed_at:'2026-10-10',notes:[{text:'ordinary note'},{kind:'closure',text:'older closure'},{kind:'closure',text:'ملاحظة الإقفال <script>bad</script>',closure_status:'done'}]}))`,c);
+ assert.equal(vm.runInContext('REQ("closed").close_note',c),'ملاحظة الإقفال <script>bad</script>');
+ const panel=vm.runInContext('reqPanel("closed")',c);assert.match(panel.body,/ملاحظة الإغلاق/);assert.match(panel.body,/ملاحظة الإقفال &lt;script&gt;/);assert.doesNotMatch(panel.body,/<script>bad/);
+ assert.equal(vm.runInContext("mapRequest({closing_note:'legacy',notes:[{kind:'closure',text:'latest'}]}).close_note",c),'latest');
+ assert.equal(vm.runInContext("mapRequest({closing_note:'legacy'}).close_note",c),'legacy');
+});
