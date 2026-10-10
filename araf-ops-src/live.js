@@ -26,6 +26,7 @@ function mapRequest(row) {
   const direct = SERVICES.some(s=>s.key===service) || row.service_type==='custom_service';
   const cases = ['case_representation','التوكيل في القضايا'].includes(row.service_type) ||
     (!direct && ['cases','custom_case'].includes(row.source));
+  const closure = (Array.isArray(row.notes) ? row.notes : []).slice().reverse().find(n => n.kind === 'closure');
   return { ...row, id: String(row.id), customer: row.customer_name || '', phone: row.customer_phone || '',
     service, service_name: row.service_name || SV(service).name || 'خدمة', kind: cases ? 'cases' : 'direct',
     status: Object.hasOwn(ST, row.status) ? row.status : 'unknown',
@@ -37,7 +38,7 @@ function mapRequest(row) {
     notes: (Array.isArray(row.notes) ? row.notes : []).map(n => ({ ...n, by: n.by_id || n.by, name: n.by, at: liveDate(n.at) })),
     created_at: liveDate(row.created_at), updated_at: liveDate(row.updated_at || row.created_at),
     assigned_at: liveDate(row.assigned_at), contacted_at: liveDate(row.contacted_at), closed_at: liveDate(row.closed_at),
-    close_note: row.closing_note || '', stage: row.case_current_stage || '', last_session: row.case_last_session_summary || '',
+    close_note: closure?.text || row.closing_note || '', stage: row.case_current_stage || '', last_session: row.case_last_session_summary || '',
     next_action: row.case_next_action || '', sessions: Number(row.case_sessions_count) || 0,
     next_session: liveDate(row.case_next_session_at), followup_by: row.case_followup_updated_by,
     followup_at: liveDate(row.case_followup_updated_at) };

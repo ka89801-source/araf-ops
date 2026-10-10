@@ -41,7 +41,7 @@
       if (!['admin', 'manager'].includes(this.user.role) && row.assigned_to !== this.user.id) throw new Error('الطلب غير مسند إليك');
       if (['assigned_to','assigned_by','assigned_at'].some(key => Object.hasOwn(changes, key))) this.requireUser(true);
       const allowed = new Set(['status','priority','price','payment_status','assigned_to','assigned_by','assigned_at',
-        'service_type','service_name','contacted_at','closed_at','closed_by','closing_note','notes','case_current_stage','case_last_session_summary',
+        'service_type','service_name','contacted_at','closed_at','closed_by','notes','case_current_stage','case_last_session_summary',
         'case_sessions_count','case_next_action','case_next_session_at','case_followup_updated_at','case_followup_updated_by','case_followup_updated_by_name']);
       for (const key of Object.keys(changes)) if (!allowed.has(key)) throw new Error('حقل غير مسموح');
       let q = this.db.from('service_requests').update({ ...changes, updated_at: new Date().toISOString() }).eq('id', id);
@@ -70,8 +70,13 @@
       if (!['done','closed','cancelled'].includes(status) || !note.trim()) throw new Error('اختر نتيجة الإغلاق واكتب ملاحظة');
       const original = this.rows[id];
       if (!original) throw new Error('حدّث القائمة ثم أعد المحاولة');
-      const save = () => this.patchRequest(id, {status, closing_note: note.trim(),
-        closed_at: new Date().toISOString(), closed_by: this.user.id}, 'close', 'إغلاق الطلب', {deferAudit:true});
+      const save = () => {
+        const at = new Date().toISOString();
+        const notes = Array.isArray(this.rows[id].notes) ? this.rows[id].notes : [];
+        return this.patchRequest(id, {status,
+          notes: [...notes, {by:this.user.name, by_id:this.user.id, at, text:note.trim(), kind:'closure', closure_status:status}],
+          closed_at:at, closed_by:this.user.id}, 'close', 'إغلاق الطلب', {deferAudit:true});
+      };
       try { return await save(); }
       catch (error) {
         if (error.code !== 'REQUEST_CONFLICT') throw error;

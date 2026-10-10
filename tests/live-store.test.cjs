@@ -82,10 +82,13 @@ test('entity deletion requires admin role, exact confirmation and server respons
 
 test('priced request closes without waiting for audit and preserves price/payment',async()=>{
  const row={id:'r1',status:'progress',price:875,payment_status:'manual_pending',updated_at:'priced'};
- const db=mockDB(op=>op.table==='request_activity_log'?new Promise(()=>{}):{data:{...row,...op.update[0]}}),s=store(db);s.rows.r1={...row};
+ row.notes=[{text:'existing note',extra:true}];
+ const db=mockDB(op=>{if(op.table==='request_activity_log')return new Promise(()=>{});if(Object.hasOwn(op.update[0],'closing_note'))return {error:{message:"Could not find the 'closing_note' column of 'service_requests' in the schema cache"}};return {data:{...row,...op.update[0]}}}),s=store(db);s.rows.r1={...row};
  const result=await s.closeRequest('r1','done','تم تنفيذ الخدمة');
  assert.equal(result.data.status,'done');assert.equal(result.data.price,875);assert.equal(result.data.payment_status,'manual_pending');
- assert.equal(result.data.closed_by,'e1');assert.equal(result.data.closing_note,'تم تنفيذ الخدمة');assert.ok(result.audit instanceof Promise);
+ assert.equal(result.data.closed_by,'e1');assert.equal(result.data.closing_note,undefined);assert.ok(result.audit instanceof Promise);
+ assert.deepEqual(result.data.notes[0],row.notes[0]);assert.equal(result.data.notes.length,2);
+ assert.deepEqual(result.data.notes[1],{by:'Operator',by_id:'e1',at:result.data.closed_at,text:'تم تنفيذ الخدمة',kind:'closure',closure_status:'done'});
  assert.deepEqual(db.calls[0].filters,[['eq','id','r1'],['eq','updated_at','priced']]);
 });
 test('closing retries only an unrelated concurrent edit with current version and notes',async()=>{
@@ -93,6 +96,7 @@ test('closing retries only an unrelated concurrent edit with current version and
  const latest={...row,updated_at:'new',notes:[{text:'new note'}]};
  const db=mockDB(op=>op.table==='request_activity_log'?{}:!op.update?{data:latest}:++writes===1?{data:null}:{data:{...latest,...op.update[0]}}),s=store(db);s.rows.r1=row;
  const result=await s.closeRequest('r1','closed','تم الإغلاق');assert.equal(writes,2);assert.equal(result.data.notes[0].text,'new note');
+ assert.equal(result.data.notes.length,2);assert.equal(result.data.notes[1].text,'تم الإغلاق');assert.equal(result.data.notes[1].closure_status,'closed');
  assert.deepEqual(db.calls[2].filters,[['eq','id','r1'],['eq','updated_at','new']]);
 });
 test('closing never overwrites another price, payment, assignment or outcome',async()=>{
