@@ -70,6 +70,14 @@ const CASE_TYPES = [
   { key: 'financial', name: 'مطالبة مالية', price: 400, c: '#3D7759' },
 ];
 const SV = (k) => SERVICES.find((s) => s.key === k) || CASE_TYPES.find((s) => s.key === k) || { name: k, price: 0, c: '#A3ADB3' };
+// Historical intake labels, preserved without changing stored request data.
+const SERVICE_ALIASES = {'استشارة قانونية هاتفية':'consultation','خدمات ناجز':'najiz','رفع دعوى':'lawsuit_draft',
+  'الاعتراض على مخالفة حكومية':'gov_violation','حضور جلسة قضائية نيابة عن العميل':'court_session','طلب تنفيذ عبر ناجز':'execution_request',
+  'التوكيل في القضايا':'case_representation','طلب دراسة قضية والتوكيل فيها':'case_study','دراسة قضية والتوكيل':'case_study'};
+const serviceKey = value => {const text=String(value || '').trim();return [...SERVICES,...CASE_TYPES].find(s=>s.key===text || s.name===text)?.key || SERVICE_ALIASES[text] || text;};
+const SERVICE_FALLBACK_NAMES = {custom_service:'خدمة مخصصة — الاسم غير محدد',general:'خدمة غير محددة',
+  direct_services:'خدمة مباشرة — الاسم غير محدد','الخدمات المباشرة':'خدمة مباشرة — الاسم غير محدد',
+  case_representation:'توكيل قضية — النوع غير محدد',case_study:'دراسة قضية والتوكيل فيها',ai_assistant:'المساعد القانوني'};
 
 /* اتفاقية مستوى الخدمة الداخلية (مقترحة في هذا النموذج) */
 const SLA = { assign: 4, contact: 24, close: 72, remind: 48 };

@@ -48,12 +48,18 @@ const hHuman = (h) => {
 };
 const isLate = (r) => { const s = sla(r); return !!(s && s.over); };
 const payWaiting = (r) => ['pending', 'manual_pending', 'unpaid'].includes(r.payment) && isOpen(r);
-const earned = (kind) => reqList(kind).filter((r) => r.status === 'done').reduce((a, b) => a + (+b.price || 0), 0);
+const earned = (kind) => reqList(kind).filter((r) => r.status === 'done').reduce((a, b) => a + Math.round((Number.isFinite(+b.price) ? +b.price : 0)*100), 0)/100;
 const REQ = (id) => REQUESTS.find((r) => r.id === id);
 const ENT = (id) => ENTITIES.find((e) => e.id === id) || {id, name:'منشأة غير متاحة', plan:'unknown', sub:'unknown', usage:{}};
 const custAv = (r, cls = '') => orgAv(r.customer, cls, !!r.org);
 const payBadge = (r) => `<span class="badge ${PAY[r.payment].b}">${PAY[r.payment].l}</span>`;
 const svName = (r) => r.service_name || SV(r.service).name;
+const serviceGroupKey = r => JSON.stringify([r.kind,svName(r)]);
+function serviceGroups() {
+  const groups=new Map();
+  REQUESTS.forEach(r=>{const key=serviceGroupKey(r);if(!groups.has(key))groups.set(key,{key,name:svName(r),kind:r.kind,color:SV(r.service).c,count:0});groups.get(key).count++;});
+  return [...groups.values()].sort((a,b)=>b.count-a.count || a.name.localeCompare(b.name,'ar') || a.kind.localeCompare(b.kind));
+}
 
 /* ---------- الهيكل ---------- */
 function shell() {
@@ -257,7 +263,7 @@ VIEWS.home = () => {
       <button class="btn-link" data-a="nav" data-to="activity" style="margin-top:10px">السجل الكامل${ic('chevL')}</button>
     </section>
     <section class="s5">
-      <div class="sec-h"><div class="sec-t">الأكثر طلبًا<small>اضغط لعرض طلبات الخدمة</small></div></div>
+      <div class="sec-h"><div class="sec-t">الأكثر طلبًا<small>أعلى ٧ خدمات من جميع الطلبات والحالات — اضغط لمراجعتها</small></div></div>
       ${topServices()}
     </section>
   </div>`;
@@ -285,7 +291,7 @@ function miniArea(vals, labels, w = 420, h = 116) {
   const pts = vals.map((v, i) => [xRTL(i, vals.length, w, 8, 8), padT + (h - padT - padB) * (1 - (v - mn) / (mx - mn))]);
   const d = smooth(pts);
   let hits = ''; const step = (w - 16) / Math.max(1, vals.length - 1);
-  labels.forEach((l, i) => { hits += `<rect class="hit" x="${pts[i][0] - step / 2}" y="0" width="${step}" height="${h - padB}" data-tip="${esc(l + ': ' + fmt(vals[i] * 1000) + ' ر.س')}"/><circle cx="${pts[i][0]}" cy="${pts[i][1]}" r="2.6" fill="rgba(201,169,110,.55)"/>`; });
+  labels.forEach((l, i) => { hits += `<rect class="hit" x="${pts[i][0] - step / 2}" y="0" width="${step}" height="${h - padB}" data-tip="${esc(l + ': ' + revenueAmount(vals[i] * 1000) + ' ر.س')}"/><circle cx="${pts[i][0]}" cy="${pts[i][1]}" r="2.6" fill="rgba(201,169,110,.55)"/>`; });
   const last = pts[pts.length - 1];
   return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;overflow:visible">
     <defs><linearGradient id="gArea" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#C9A96E" stop-opacity=".32"/><stop offset="1" stop-color="#C9A96E" stop-opacity="0"/></linearGradient></defs>
@@ -300,46 +306,52 @@ function revenueTotals(asOf = nowDate()) {
   const parts = new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Riyadh',year:'numeric',month:'numeric'}).formatToParts(asOf);
   const year=+parts.find(p=>p.type==='year').value,month=+parts.find(p=>p.type==='month').value;
   const start=Date.UTC(year,month-1,1)-3*3600000,previous=Date.UTC(year,month-2,1)-3*3600000;
-  return REQUESTS.reduce((totals,r)=>{
+  const totals=REQUESTS.reduce((totals,r)=>{
     if(r.status!=='done')return totals;
     const price=Number(r.price);if(!Number.isFinite(price))return totals;
-    totals.total+=price;
+    const amount=Math.round(price*100);totals.total+=amount;
     const closed=r.closed_at ? new Date(r.closed_at).getTime() : NaN;
-    if(closed>=start && closed<=asOf.getTime())totals.month+=price;
-    if(closed>=previous && closed<start)totals.previousMonth+=price;
+    if(closed>=start && closed<=asOf.getTime())totals.month+=amount;
+    if(closed>=previous && closed<start)totals.previousMonth+=amount;
+    if(!Number.isFinite(closed))totals.undated++;
+    if(Number.isFinite(closed) && closed<=asOf.getTime()){
+      const saudi=new Date(closed+3*3600000);
+      if(saudi.getUTCFullYear()===year && saudi.getUTCMonth()<month)totals.monthly[saudi.getUTCMonth()]+=amount;
+    }
     return totals;
-  },{month:0,total:0,previousMonth:0});
+  },{month:0,total:0,previousMonth:0,monthly:Array(month).fill(0),undated:0});
+  return {...totals,month:totals.month/100,total:totals.total/100,previousMonth:totals.previousMonth/100,monthly:totals.monthly.map(v=>v/100)};
 }
+const revenueAmount = n => n.toLocaleString('en-US',{maximumFractionDigits:2});
 function earnHero() {
   const revenue=revenueTotals();
   const d = earned('direct'), c = earned('cases');
   const subs = ENTITIES.filter((e) => e.sub === 'active').reduce((a, b) => a + PLANS[b.plan].price, 0);
-  const t = d + c + subs;
   const dn = reqList('direct').filter((r) => r.status === 'done').length, cn = reqList('cases').filter((r) => r.status === 'done').length;
   const pend = REQUESTS.filter((r) => payWaiting(r)).reduce((a, b) => a + (+b.price || 0), 0);
-  const segs = [{ v: d, c: '#C9A96E', l: 'الخدمات المباشرة' }, { v: c, c: '#7FA3B8', l: 'توكيل القضايا' }, { v: subs, c: '#4D8A6A', l: 'اشتراكات المنشآت' }];
+  const segs = [{ v: d, c: '#C9A96E', l: 'الخدمات المباشرة' }, { v: c, c: '#7FA3B8', l: 'توكيل القضايا' }];
   return `<section class="earn">
     <div class="earn-glow"></div><div class="earn-mark"></div>
     <div class="earn-main">
       <div class="earn-eyebrow">${ic('wallet', 'width="15" height="15"')}إيرادات المنصة</div>
       <div class="earn-label">الإيرادات منذ بداية الشهر</div>
-      <div class="earn-value" data-revenue="month">${counter(revenue.month)}<small>ر.س</small></div>
+      <div class="earn-value" data-revenue="month"><span class="num">${revenueAmount(revenue.month)}</span><small>ر.س</small></div>
       <div class="row gap8" style="margin-top:2px">${delta(revenue.month, revenue.previousMonth)}<span style="font-size:12.5px;color:rgba(233,230,221,.6)">مقارنة بإجمالي الشهر السابق</span></div>
-      <div class="earn-total"><span>إجمالي إيرادات المنصة</span><div data-revenue="total"><b class="num">${fmt(revenue.total)}</b><small>ر.س</small></div><span class="earn-total-caption">جميع الطلبات المكتملة منذ البداية</span></div>
+      <div class="earn-total"><span>إجمالي إيرادات المنصة</span><div data-revenue="total"><b class="num">${revenueAmount(revenue.total)}</b><small>ر.س</small></div><span class="earn-total-caption">جميع الطلبات المكتملة منذ البداية</span></div>
       <div class="earn-mini">
-        <div><span>قيمة الطلبات المكتملة</span><b class="num">${fmt(d + c)}</b></div>
-        <div><span>طلبات بانتظار الدفع</span><b class="num" style="color:#E9C98B">${fmt(pend)}</b></div>
-        <div><span>متكرر شهريًا</span><b class="num">${fmt(subs)}</b></div>
+        <div><span>قيمة الطلبات المكتملة</span><b class="num">${revenueAmount(revenue.total)}</b></div>
+        <div><span>طلبات بانتظار الدفع</span><b class="num" style="color:#E9C98B">${revenueAmount(pend)}</b></div>
+        <div><span>القيمة الشهرية للباقات النشطة</span><b class="num">${revenueAmount(subs)}</b></div>
       </div>
     </div>
     <div class="earn-split">
-      ${donut(segs, 138, 14, `<b class="num">${Math.round((subs / (t || 1)) * 100)}%</b><span>من الإيراد<br>متكرر</span>`)}
-      <div class="earn-legend">${segs.map((s, i) => `<div><i style="background:${s.c}"></i><div><b>${s.l}</b><span class="num">${fmt(s.v)} ر.س${i === 0 ? ` — ${dn} طلبات` : i === 1 ? ` — ${cn} طلبات` : ` — ${ENTITIES.filter((e) => e.sub === 'active').length} منشآت`}</span></div></div>`).join('')}</div>
+      ${donut(segs, 138, 14, `<b class="num">${dn+cn}</b><span>طلبات مكتملة</span>`)}
+      <div class="earn-legend">${segs.map((s, i) => `<div><i style="background:${s.c}"></i><div><b>${s.l}</b><span class="num">${revenueAmount(s.v)} ر.س — ${i===0?dn:cn} طلبات</span></div></div>`).join('')}</div>
     </div>
     <div class="earn-chart">
       <div class="earn-eyebrow" style="margin-bottom:6px">الإيراد الشهري منذ يناير</div>
       ${miniArea(REV_MONTH, MONTHS, 430, 132)}
-      <div class="earn-note">${ic('alert', 'width="13" height="13"')}<span>الإيرادات للطلبات بحالة «مكتمل» فقط، والشهري بحسب تاريخ الإغلاق بتوقيت السعودية. قيمة الاشتراكات النشطة معروضة منفصلة، ولا تُضاف الطلبات المشمولة بالباقات.</span></div>
+      <div class="earn-note">${ic('alert', 'width="13" height="13"')}<span>القيم للطلبات بحالة «مكتمل» بصرف النظر عن حالة الدفع، والشهري بحسب تاريخ الإغلاق بتوقيت السعودية. الاشتراكات النشطة منفصلة، ولا تُضاف الطلبات المشمولة بالباقات.${revenue.undated ? ` يوجد ${revenue.undated} طلب مكتمل بلا تاريخ إغلاق؛ يدخل في الإجمالي فقط.` : ''}</span></div>
     </div>
   </section>`;
 }
@@ -429,9 +441,8 @@ function funnel() {
     <div class="fn-foot">${ic('bulb', 'width="14" height="14"')}<span>مرّر على أي مرحلة لمعرفة نسبة انتقالها، واضغطها لفتح طلباتها.</span></div></div>`;
 }
 function topServices() {
-  const m = {}; REQUESTS.forEach((r) => { m[r.service] = (m[r.service] || 0) + 1; });
-  const rows = Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 7); const mx = rows[0]?.[1] || 1;
-  return rows.map(([k, n], i) => `<div class="srv-row" data-a="goService" data-v="${k}"><span class="ell" style="width:150px">${esc(SV(k).name)}</span><div class="hbar grow" style="height:10px"><i class="growX" style="width:${(n / mx) * 100}%;animation-delay:${i * 60}ms;background:${SV(k).c}"></i></div><b class="num" style="width:26px;text-align:end">${n}</b></div>`).join('');
+  const rows=serviceGroups().slice(0,7),mx=rows[0]?.count || 1;
+  return rows.map((s,i)=>`<div class="srv-row" data-a="goService" data-v="${esc(s.key)}" data-kind="${s.kind}" title="${esc(s.name)}"><span class="ell" style="width:150px">${esc(s.name)}</span><div class="hbar grow" style="height:10px"><i class="growX" style="width:${(s.count/mx)*100}%;animation-delay:${i*60}ms;background:${s.color}"></i></div><b class="num" style="width:26px;text-align:end">${s.count}</b></div>`).join('');
 }
 
 /* ---------- جولة تعريفية ---------- */
@@ -543,7 +554,7 @@ HOOKS.push((root) => {
 });
 A.dismissAtt = (el, e) => { e.stopPropagation(); const id = el.dataset.id; S.dismissed.add(id); const row = el.closest('.att'); row.classList.add('collapse-out'); setTimeout(() => { row.remove(); const n = attention().length; $('#attCount') && ($('#attCount').textContent = `${n} ${n > 10 ? 'بندًا' : 'بنود'}`); if (!n) $('#attList').innerHTML = empty('لا شيء عالق', 'كل الطلبات مسندة وضمن مهلها.'); }, 450); toast('أُخفي من قائمة التدخل', { undo: () => { S.dismissed.delete(id); rerender(); } }); };
 A.goStage = (el) => { const v = el.dataset.v; S.f = { status: v }; S.saved = 'all'; S.kind = 'direct'; go('requests'); };
-A.goService = (el) => { S.f = { service: el.dataset.v }; S.saved = 'all'; go(SERVICES.some((s) => s.key === el.dataset.v) ? 'requests' : 'cases'); };
+A.goService = (el) => { S.f = { service_group: el.dataset.v }; S.saved = 'all'; S.q=''; go(el.dataset.kind === 'cases' ? 'cases' : 'requests'); };
 A.goFilter = (el) => { const v = el.dataset.id || el.dataset.v; S.saved = v === 'unassigned' ? 'unassigned' : 'all'; S.f = v === 'pay' ? { payment: 'pending' } : {}; go('requests'); };
 A.goAct = () => { S.bizTab = 'activation'; go('business'); };
 A.openReq = (el) => openReq(el.dataset.id || el.dataset.v);
