@@ -2,6 +2,15 @@
 const LIVE = { ready: false, pending: new Set(), errors: {}, deletes: [], refreshPromise: null, requestVersion: 0, deleteVersion: 0, businessVersion: 0, messageVersion: 0, messagesPromise: null };
 const liveDate = (v) => v && Number.isFinite(new Date(v).getTime()) ? new Date(v) : null;
 const replaceRows = (target, rows) => target.splice(0, target.length, ...rows);
+const mapActivity = l => ({...l,at:liveDate(l.created_at),by:l.created_by,text:l.description || l.title || '',type:({assign:'assigned',close:'closed',status_change:'status',case_followup:'case'})[l.action] || l.action});
+LIVE.activityVersion = 0;
+LIVE.acceptActivity = function(activity) {
+  LIVE.activityVersion++;
+  const row=mapActivity(activity),index=LOG.findIndex(l=>l.id===row.id);
+  if(index<0)LOG.unshift(row);else LOG.splice(index,1,row);
+  LOG.sort((a,b)=>b.at-a.at);
+  if(LIVE.ready && ['home','activity'].includes(S.route) && !$('#modal')?.classList.contains('show') && !$('#drawer')?.classList.contains('show')) rerender();
+};
 const val = (id) => $('#' + id)?.value?.trim() || '';
 async function liveApi(route, body) {
   const { data, error } = await window.opsAuth.auth.getSession();
@@ -88,7 +97,7 @@ LIVE.refresh = async function () {
       team: async()=>{ const rows=await LIVE.store.all('employees'); replaceRows(TEAM, rows.map(mapEmployee)); if(!TEAM.some(t=>t.id===ME)) TEAM.push(mapEmployee({...LIVE.store.user,full_name:LIVE.store.user.name,status:'active'})); },
       requests: async()=>{ const version=LIVE.requestVersion; const rows=await LIVE.store.requests(); if(version!==LIVE.requestVersion || [...LIVE.pending].some(k=>k.startsWith('request:')))return; LIVE.store.rows=Object.fromEntries(rows.map(r=>[String(r.id),r])); replaceRows(REQUESTS,rows.map(mapRequest)); },
       support: async()=>replaceRows(TICKETS,(await LIVE.store.all('support_tickets')).map(t=>({...t,customer:t.name || t.customer_name || '',phone:t.phone || t.customer_phone || '',body:t.problem || t.message || t.details || '',subject:t.subject || 'رسالة دعم',channel:t.channel || 'نموذج الموقع',at:liveDate(t.created_at),status:t.status === 'new' ? 'open' : Object.hasOwn(TK_ST,t.status) ? t.status : 'open'}))),
-      activity: async()=>replaceRows(LOG,(await LIVE.store.all('request_activity_log')).map(l=>({...l,at:liveDate(l.created_at),by:l.created_by,text:l.description || l.title || '',type:({assign:'assigned',close:'closed',status_change:'status',case_followup:'case'})[l.action] || l.action}))),
+      activity: async()=>{const version=LIVE.activityVersion,rows=await LIVE.store.all('request_activity_log');if(version===LIVE.activityVersion)replaceRows(LOG,rows.map(mapActivity));},
       deletes: async()=>{ const version=LIVE.deleteVersion,rows=await LIVE.store.all('request_delete_requests',{status:'pending'});if(version===LIVE.deleteVersion)LIVE.deletes=rows; },
       business: async()=>{const version=LIVE.businessVersion,snapshot=await liveApi('ops-business-snapshot');if(version===LIVE.businessVersion)applyBusiness(snapshot);},
       messages: async()=>{await LIVE.refreshMessages();if(LIVE.errors.messages)throw new Error(LIVE.errors.messages);},
@@ -123,6 +132,7 @@ async function bootLive() {
   try {
     if(!window.sb || !window.opsAuth) throw new Error('تعذر تحميل اتصال Supabase');
     LIVE.store=new window.ArafLiveStore(window.sb,window.opsAuth,liveApi);
+    LIVE.store.onActivity=LIVE.acceptActivity;
     const user=await LIVE.store.verify(); ME=user.id;
     await LIVE.refresh();
     if(LIVE.errors.requests || LIVE.errors.team) throw new Error('تعذر تحميل الطلبات أو الفريق: '+(LIVE.errors.requests || LIVE.errors.team));

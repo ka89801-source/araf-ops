@@ -142,3 +142,10 @@ test('sent-message management uses the authenticated endpoint and retains server
  s.api=async(route,payload)=>{calls.push({route,payload});return {messages:[{id:'9223372036854775807',from_id:'old-employee',is_mine:true}]}};
  const rows=await s.sentMessages();assert.equal(rows[0].is_mine,true);assert.equal(rows[0].id,'9223372036854775807');assert.equal(calls[0].route,'ops-sent-messages');
 });
+
+test('activity supplies UUID like original app and publishes only confirmed inserts',async()=>{
+ let finish;const db=mockDB(op=>{assert.match(op.insert[0].id,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);return new Promise(resolve=>finish=resolve)}),s=store(db),published=[];
+ s.onActivity=row=>published.push(row);const pending=s.audit('r1','close','إغلاق الطلب');await new Promise(r=>setImmediate(r));assert.equal(published.length,0);
+ finish({});assert.equal(await pending,'');assert.equal(published.length,1);assert.equal(published[0].created_by,'e1');assert.equal(published[0].request_id,'r1');assert.equal(published[0].id,db.calls[0].insert[0].id);
+ s.db=mockDB(()=>({error:{code:'42501',message:'permission denied'}}));assert.match(await s.audit('r1','note','ملاحظة'),/permission denied/);assert.equal(published.length,1);
+});
