@@ -2,7 +2,11 @@
 const LIVE = { ready: false, pending: new Set(), errors: {}, deletes: [], refreshPromise: null, requestVersion: 0, deleteVersion: 0, businessVersion: 0, messageVersion: 0, messagesPromise: null };
 const liveDate = (v) => v && Number.isFinite(new Date(v).getTime()) ? new Date(v) : null;
 const replaceRows = (target, rows) => target.splice(0, target.length, ...rows);
-const mapActivity = l => ({...l,at:liveDate(l.created_at),by:l.created_by,text:l.description || l.title || '',type:({assign:'assigned',close:'closed',status_change:'status',case_followup:'case'})[l.action] || l.action});
+const mapActivity = l => {
+  const action=l.action_type || l.action;
+  return {...l,at:liveDate(l.created_at),by:l.actor_id || l.created_by,text:l.description || l.title || '',
+    type:({assign:'assigned',close:'closed',status_change:'status',status_changed:'status',note_added:'note',case_followup:'case'})[action] || action};
+};
 LIVE.activityVersion = 0;
 LIVE.acceptActivity = function(activity) {
   LIVE.activityVersion++;
