@@ -31,9 +31,16 @@
       return this.all('service_requests', filter);
     }
     async audit(id, action, description) {
-      const { error } = await this.db.from('request_activity_log').insert({ request_id: id, action,
-        title: description, description, created_by: this.user.id, created_by_name: this.user.name, created_at: new Date().toISOString() });
-      return error ? 'حُفظ التغيير، لكن تعذر تسجيل النشاط' : '';
+      this.requireUser();
+      // Match the original application's insert contract: the caller supplies id.
+      const activity = {id:crypto.randomUUID(), request_id:id, action,
+        title:description, description, created_by:this.user.id, created_by_name:this.user.name,
+        created_at:new Date().toISOString()};
+      const { error } = await this.db.from('request_activity_log').insert(activity);
+      if (error) return 'حُفظ التغيير، لكن تعذر تسجيل النشاط: '+(error.message || error.code || 'رفض الخادم التسجيل');
+      // Publish only after the database confirms the insert.
+      try { this.onActivity?.(activity); } catch (_) { /* A rendering error must not reclassify a saved audit as failed. */ }
+      return '';
     }
     async patchRequest(id, changes, action = 'status_change', description = 'تحديث الطلب', options = {}) {
       this.requireUser(); const row = this.rows[id];

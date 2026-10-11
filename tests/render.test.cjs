@@ -151,3 +151,8 @@ test('closure note survives reload through existing notes and supersedes legacy 
  assert.equal(vm.runInContext("mapRequest({closing_note:'legacy',notes:[{kind:'closure',text:'latest'}]}).close_note",c),'latest');
  assert.equal(vm.runInContext("mapRequest({closing_note:'legacy'}).close_note",c),'legacy');
 });
+
+test('confirmed activities appear immediately, deduplicate and map action filters',()=>{
+ const c=context();vm.runInContext(`LIVE.acceptActivity({id:'a1',request_id:'r1',action:'close',description:'إغلاق الطلب',created_by:'e1',created_at:'2026-10-11'});LIVE.acceptActivity({id:'a1',action:'close',description:'إغلاق الطلب',created_by:'e1',created_at:'2026-10-11'})`,c);
+ assert.equal(vm.runInContext('LOG.length',c),1);assert.equal(vm.runInContext('LOG[0].type',c),'closed');assert.equal(vm.runInContext('LIVE.activityVersion',c),2);assert.match(vm.runInContext('VIEWS.activity()',c),/إغلاق الطلب/);
+});
