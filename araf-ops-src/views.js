@@ -20,6 +20,7 @@ const SAVED = {
   ],
 };
 const FDEF = {
+  service_group: {l:'الخدمة',opts:(kind)=>serviceGroups().filter(s=>s.kind===kind).map(s=>[s.key,s.name])},
   service: { l: 'النوع', opts: (k) => (k === 'cases' ? CASE_TYPES : SERVICES).map((s) => [s.key, s.name]) },
   status: { l: 'الحالة', opts: () => Object.entries(ST).map(([k, v]) => [k, v.l]) },
   assigned_to: { l: 'المسؤول', opts: () => [['', 'بلا مسؤول']].concat(TEAM.map((t) => [t.id, t.name])) },
@@ -32,6 +33,7 @@ function filtered(kind) {
   let L = (SAVED[kind].find((s) => s[0] === S.saved) || SAVED[kind][0])[2]().slice();
   Object.entries(S.f).forEach(([k, v]) => {
     if (v === undefined) return;
+    if (k === 'service_group') {L=L.filter(r=>serviceGroupKey(r)===v);return;}
     if (k === 'status' && v.includes(',')) { const set = v.split(','); L = L.filter((r) => set.includes(r.status)); return; }
     if (k === 'assigned_to' && v === '') { L = L.filter((r) => !r.assigned_to); return; }
     L = L.filter((r) => r[k] === v);

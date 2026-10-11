@@ -33,15 +33,18 @@ function mapEmployee(row) {
     cap: 12, skills: [], last: liveDate(row.last_login_at), joined: liveDate(row.created_at) };
 }
 function mapRequest(row) {
-  let service = row.service_type === 'أعراف تحقّق' ? row.service_name : row.service_type;
-  service = SERVICES.find(s => s.name === service)?.key || service || 'general';
+  const type=String(row.service_type || '').trim(),savedName=String(row.service_name || '').trim();
+  let service = serviceKey(type === 'أعراف تحقّق' ? savedName : type || savedName) || 'general';
   // Current service type takes precedence over the historical intake source.
-  const direct = SERVICES.some(s=>s.key===service) || row.service_type==='custom_service';
-  const cases = ['case_representation','التوكيل في القضايا'].includes(row.service_type) ||
+  const direct = SERVICES.some(s=>s.key===service) || type==='custom_service';
+  const cases = CASE_TYPES.some(s=>s.key===service) || service==='case_representation' ||
     (!direct && ['cases','custom_case'].includes(row.source));
+  const displayValue=savedName || service;
+  const displayKey=serviceKey(displayValue);
+  const displayName=SERVICE_FALLBACK_NAMES[displayKey] || (/^[a-z][a-z0-9_]*$/i.test(displayValue) ? ([...SERVICES,...CASE_TYPES].find(s=>s.key===displayKey)?.name || savedName || 'خدمة غير محددة') : displayValue);
   const closure = (Array.isArray(row.notes) ? row.notes : []).slice().reverse().find(n => n.kind === 'closure');
   return { ...row, id: String(row.id), customer: row.customer_name || '', phone: row.customer_phone || '',
-    service, service_name: row.service_name || SV(service).name || 'خدمة', kind: cases ? 'cases' : 'direct',
+    service, service_name: displayName, kind: cases ? 'cases' : 'direct',
     status: Object.hasOwn(ST, row.status) ? row.status : 'unknown',
     payment: Object.hasOwn(PAY, row.payment_status) ? row.payment_status : 'unknown',
     priority: Object.hasOwn(PRI, row.priority) ? row.priority : 'normal',
@@ -89,8 +92,9 @@ function rebuildMetrics() {
   const days = last7(); replaceRows(DAY_LABELS, days.map(wd));
   replaceRows(TREND_IN, days.map(d => REQUESTS.filter(r => r.created_at && sameDay(r.created_at,d)).length));
   replaceRows(TREND_CLOSED, days.map(d => REQUESTS.filter(r => r.closed_at && sameDay(r.closed_at,d)).length));
-  replaceRows(MONTHS, MONTH_AR.slice(0, TODAY.getMonth()+1));
-  replaceRows(REV_MONTH, MONTHS.map((_,m) => REQUESTS.filter(r => r.status === 'done' && r.closed_at?.getFullYear() === TODAY.getFullYear() && r.closed_at.getMonth() === m).reduce((n,r)=>n+r.price,0)/1000));
+  const revenue=revenueTotals();
+  replaceRows(MONTHS, MONTH_AR.slice(0, revenue.monthly.length));
+  replaceRows(REV_MONTH, revenue.monthly.map(v=>v/1000));
   const read = new Set(NOTIFS.filter(n=>!n.unread).map(n=>n.id));
   replaceRows(NOTIFS, REQUESTS.filter(r=>isOpen(r) && (!r.assigned_to || isLate(r))).map(r=>({id:'req:'+r.id,g:'urgent',ic:'file',t:esc(r.customer)+' — '+esc(svName(r)),at:r.created_at,unread:!read.has('req:'+r.id),acts:[['فتح الطلب','req:'+r.id]]})));
 }

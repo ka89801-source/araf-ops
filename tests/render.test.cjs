@@ -181,3 +181,36 @@ test('revenue month uses Saudi closure dates and total spans years, excluding un
  vm.runInContext("REQUESTS.splice(0);REQUESTS.push({status:'done',price:75,closed_at:new Date('2026-12-31T21:00:00Z')},{status:'done',price:45,closed_at:new Date('2026-12-31T20:59:59Z')})",c);
  const january=vm.runInContext("revenueTotals(new Date('2027-01-05T09:00:00Z'))",c);assert.equal(january.month,75);assert.equal(january.previousMonth,45);assert.equal(january.total,120);
 });
+
+test('top services group by saved service name and clicking matches exactly the counted requests',()=>{
+ const c=context();vm.runInContext(`REQUESTS.push(...[
+ {id:'1',service_type:'الخدمات المباشرة',service_name:'مراجعة عقد',status:'done'},
+ {id:'2',service_type:'contract_review',service_name:'مراجعة عقد',status:'new'},
+ {id:'3',service_type:'الخدمات المباشرة',service_name:'صياغة خطاب رسمي',status:'cancelled'},
+ {id:'4',service_type:'التوكيل في القضايا',service_name:'قضية عمالية',status:'new'},
+ {id:'5',service_type:'التوكيل في القضايا',service_name:'قضية أحوال شخصية',status:'done'},
+ {id:'6',service_type:'custom_service',service_name:'خدمة خاصة "مختلفة"',status:'new'},
+ {id:'7',service_type:'custom_service',service_name:'',status:'new'},
+ {id:'8',service_type:'خدمات ناجز',service_name:'خدمات ناجز',status:'new'},
+ {id:'9',service_type:'case_representation',service_name:'مراجعة عقد',status:'new'}
+ ].map(mapRequest))`,c);
+ vm.runInContext("go=route=>{location.hash='#/'+route}",c);const groups=vm.runInContext('serviceGroups()',c);assert.equal(groups.reduce((n,g)=>n+g.count,0),9);assert.equal(groups[0].name,'مراجعة عقد');assert.equal(groups[0].count,2);
+ for(const g of groups){c.group=g;vm.runInContext(`S.q='stale search';A.goService({dataset:{v:group.key,kind:group.kind}})`,c);const rows=vm.runInContext('filtered(group.kind)',c);assert.equal(rows.length,g.count);assert.equal(vm.runInContext('S.q',c),'');assert.equal(vm.runInContext('location.hash',c),g.kind==='cases'?'#/cases':'#/requests');assert.ok(rows.every(r=>r.service_name===g.name));}
+ const html=vm.runInContext('topServices()',c);assert.doesNotMatch(html,/>custom_service</);assert.match(html,/&quot;/);assert.equal(vm.runInContext("REQ('8').service",c),'najiz');
+});
+test('revenue chart and totals share Saudi boundaries and keep halalas',()=>{
+ const c=context();vm.runInContext(`nowDate=()=>new Date('2026-10-11T09:00:00Z');REQUESTS.push(...[
+ {id:'1',service_type:'consultation',status:'done',price:'100.25',closed_at:'2026-09-30T21:00:00Z'},
+ {id:'2',service_type:'consultation',status:'done',price:'50.10',closed_at:'2026-09-30T20:59:59Z'},
+ {id:'3',service_type:'consultation',status:'done',price:'0.20',closed_at:null},
+ {id:'4',service_type:'consultation',status:'cancelled',price:'900.00',closed_at:'2026-10-10'}
+ ].map(mapRequest));rebuildMetrics()`,c);
+ const result=vm.runInContext('revenueTotals()',c);assert.equal(result.month,100.25);assert.equal(result.total,150.55);assert.equal(result.undated,1);assert.equal(vm.runInContext('REV_MONTH[9]*1000',c),result.month);assert.equal(vm.runInContext('REV_MONTH[8]*1000',c),50.1);
+ assert.match(vm.runInContext('earnHero()',c),/150\.55/);assert.match(vm.runInContext('earnHero()',c),/بلا تاريخ إغلاق/);
+});
+
+test('saved English service titles are retained and subscriptions do not distort lifetime revenue chart',()=>{
+ const c=context();assert.equal(vm.runInContext("mapRequest({service_type:'custom_service',service_name:'Consulting'}).service_name",c),'Consulting');
+ vm.runInContext("rebuildMetrics();ENTITIES.push({sub:'active',plan:'asas'})",c);
+ const html=vm.runInContext('earnHero()',c);assert.doesNotMatch(html,/من الإيراد<br>متكرر/);assert.match(html,/القيمة الشهرية للباقات النشطة/);assert.match(html,/طلبات مكتملة/);
+});
