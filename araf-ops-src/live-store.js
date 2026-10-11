@@ -32,9 +32,10 @@
     }
     async audit(id, action, description) {
       this.requireUser();
-      // Match the original application's insert contract: the caller supplies id.
-      const activity = {id:crypto.randomUUID(), request_id:id, action,
-        title:description, description, created_by:this.user.id, created_by_name:this.user.name,
+      // Columns verified against the existing production table; no schema migration.
+      const actionType = ({assign:'assigned',close:'closed',status_change:'status_changed',note:'note_added'})[action] || action;
+      const activity = {id:crypto.randomUUID(), request_id:id, action_type:actionType,
+        description, actor_id:this.user.id,
         created_at:new Date().toISOString()};
       const { error } = await this.db.from('request_activity_log').insert(activity);
       if (error) return 'حُفظ التغيير، لكن تعذر تسجيل النشاط: '+(error.message || error.code || 'رفض الخادم التسجيل');

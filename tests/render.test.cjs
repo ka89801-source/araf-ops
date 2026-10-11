@@ -156,3 +156,13 @@ test('confirmed activities appear immediately, deduplicate and map action filter
  const c=context();vm.runInContext(`LIVE.acceptActivity({id:'a1',request_id:'r1',action:'close',description:'إغلاق الطلب',created_by:'e1',created_at:'2026-10-11'});LIVE.acceptActivity({id:'a1',action:'close',description:'إغلاق الطلب',created_by:'e1',created_at:'2026-10-11'})`,c);
  assert.equal(vm.runInContext('LOG.length',c),1);assert.equal(vm.runInContext('LOG[0].type',c),'closed');assert.equal(vm.runInContext('LIVE.activityVersion',c),2);assert.match(vm.runInContext('VIEWS.activity()',c),/إغلاق الطلب/);
 });
+
+test('real activity rows retain actor, description and filters after reload',()=>{
+ const c=context();
+ for(const [action,type] of [['assigned','assigned'],['closed','closed'],['status_changed','status'],['note_added','note']]){
+  c.activity={id:action,actor_id:'e1',action_type:action,description:'Persisted activity',created_at:'2026-10-11'};
+  const row=vm.runInContext('mapActivity(activity)',c);assert.equal(row.by,'e1');assert.equal(row.type,type);assert.equal(row.text,'Persisted activity');
+  vm.runInContext('LIVE.acceptActivity(activity)',c);
+ }
+ vm.runInContext("S.logF='note'",c);assert.match(vm.runInContext('VIEWS.activity()',c),/Persisted activity/);
+});

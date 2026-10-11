@@ -146,6 +146,15 @@ test('sent-message management uses the authenticated endpoint and retains server
 test('activity supplies UUID like original app and publishes only confirmed inserts',async()=>{
  let finish;const db=mockDB(op=>{assert.match(op.insert[0].id,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);return new Promise(resolve=>finish=resolve)}),s=store(db),published=[];
  s.onActivity=row=>published.push(row);const pending=s.audit('r1','close','إغلاق الطلب');await new Promise(r=>setImmediate(r));assert.equal(published.length,0);
- finish({});assert.equal(await pending,'');assert.equal(published.length,1);assert.equal(published[0].created_by,'e1');assert.equal(published[0].request_id,'r1');assert.equal(published[0].id,db.calls[0].insert[0].id);
+ finish({});assert.equal(await pending,'');assert.equal(published.length,1);assert.equal(published[0].actor_id,'e1');assert.equal(published[0].request_id,'r1');assert.equal(published[0].id,db.calls[0].insert[0].id);
  s.db=mockDB(()=>({error:{code:'42501',message:'permission denied'}}));assert.match(await s.audit('r1','note','ملاحظة'),/permission denied/);assert.equal(published.length,1);
+});
+
+// Exact column set from the user's information_schema result, 2026-10-11.
+test('activity uses only actual production columns for every request action',async()=>{
+ const actor='6f9cfe97-9659-4426-a71c-61765519ec3c',request='c851a431-1422-4dce-8a7f-a5a99c2d53d5';
+ const db=mockDB(op=>{const row=op.insert[0];assert.deepEqual(Object.keys(row).sort(),['action_type','actor_id','created_at','description','id','request_id']);assert.equal(row.actor_id,actor);assert.equal(row.request_id,request);assert.ok(row.action_type);return {}}),s=store(db);s.user={...admin,id:actor};
+ for(const [action,type] of [['assign','assigned'],['close','closed'],['status_change','status_changed'],['note','note_added'],['payment','payment'],['case_followup','case_followup'],['delete_request','delete_request']]){
+  assert.equal(await s.audit(request,action,'Activity description'),'');assert.equal(db.calls.at(-1).insert[0].action_type,type);
+ }
 });
