@@ -295,21 +295,37 @@ function miniArea(vals, labels, w = 420, h = 116) {
     ${labels.map((l, i) => `<text x="${pts[i][0]}" y="${h - 4}" text-anchor="middle" style="font-size:9.5px;fill:rgba(233,230,221,${i % 2 ? '.34' : '.55'});font-family:var(--f-ui)">${i % 2 ? i + 1 : l + ' ' + (i + 1)}</text>`).join('')}
     ${hits}</svg>`;
 }
+function revenueTotals(asOf = nowDate()) {
+  // Use the platform's Saudi calendar month even when viewed in another timezone.
+  const parts = new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Riyadh',year:'numeric',month:'numeric'}).formatToParts(asOf);
+  const year=+parts.find(p=>p.type==='year').value,month=+parts.find(p=>p.type==='month').value;
+  const start=Date.UTC(year,month-1,1)-3*3600000,previous=Date.UTC(year,month-2,1)-3*3600000;
+  return REQUESTS.reduce((totals,r)=>{
+    if(r.status!=='done')return totals;
+    const price=Number(r.price);if(!Number.isFinite(price))return totals;
+    totals.total+=price;
+    const closed=r.closed_at ? new Date(r.closed_at).getTime() : NaN;
+    if(closed>=start && closed<=asOf.getTime())totals.month+=price;
+    if(closed>=previous && closed<start)totals.previousMonth+=price;
+    return totals;
+  },{month:0,total:0,previousMonth:0});
+}
 function earnHero() {
+  const revenue=revenueTotals();
   const d = earned('direct'), c = earned('cases');
   const subs = ENTITIES.filter((e) => e.sub === 'active').reduce((a, b) => a + PLANS[b.plan].price, 0);
   const t = d + c + subs;
   const dn = reqList('direct').filter((r) => r.status === 'done').length, cn = reqList('cases').filter((r) => r.status === 'done').length;
-  const prevMonth = REV_MONTH[REV_MONTH.length - 2] * 1000;
   const pend = REQUESTS.filter((r) => payWaiting(r)).reduce((a, b) => a + (+b.price || 0), 0);
   const segs = [{ v: d, c: '#C9A96E', l: 'الخدمات المباشرة' }, { v: c, c: '#7FA3B8', l: 'توكيل القضايا' }, { v: subs, c: '#4D8A6A', l: 'اشتراكات المنشآت' }];
   return `<section class="earn">
     <div class="earn-glow"></div><div class="earn-mark"></div>
     <div class="earn-main">
-      <div class="earn-eyebrow">${ic('wallet', 'width="15" height="15"')}قيم الطلبات المسجلة</div>
-      <div class="earn-label">قيمة المكتمل والاشتراكات النشطة</div>
-      <div class="earn-value">${counter(t)}<small>ر.س</small></div>
-      <div class="row gap8" style="margin-top:2px">${delta(t, prevMonth)}<span style="font-size:12.5px;color:rgba(233,230,221,.6)">مقارنة بالشهر السابق</span></div>
+      <div class="earn-eyebrow">${ic('wallet', 'width="15" height="15"')}إيرادات المنصة</div>
+      <div class="earn-label">الإيرادات منذ بداية الشهر</div>
+      <div class="earn-value" data-revenue="month">${counter(revenue.month)}<small>ر.س</small></div>
+      <div class="row gap8" style="margin-top:2px">${delta(revenue.month, revenue.previousMonth)}<span style="font-size:12.5px;color:rgba(233,230,221,.6)">مقارنة بإجمالي الشهر السابق</span></div>
+      <div class="earn-total"><span>إجمالي إيرادات المنصة</span><div data-revenue="total"><b class="num">${fmt(revenue.total)}</b><small>ر.س</small></div><span class="earn-total-caption">جميع الطلبات المكتملة منذ البداية</span></div>
       <div class="earn-mini">
         <div><span>قيمة الطلبات المكتملة</span><b class="num">${fmt(d + c)}</b></div>
         <div><span>طلبات بانتظار الدفع</span><b class="num" style="color:#E9C98B">${fmt(pend)}</b></div>
@@ -323,7 +339,7 @@ function earnHero() {
     <div class="earn-chart">
       <div class="earn-eyebrow" style="margin-bottom:6px">الإيراد الشهري منذ يناير</div>
       ${miniArea(REV_MONTH, MONTHS, 430, 132)}
-      <div class="earn-note">${ic('alert', 'width="13" height="13"')}<span>تُحتسب الطلبات بحالة «مكتمل» فقط، ولا تدخل الطلبات المشمولة بباقات المنشآت.</span></div>
+      <div class="earn-note">${ic('alert', 'width="13" height="13"')}<span>الإيرادات للطلبات بحالة «مكتمل» فقط، والشهري بحسب تاريخ الإغلاق بتوقيت السعودية. قيمة الاشتراكات النشطة معروضة منفصلة، ولا تُضاف الطلبات المشمولة بالباقات.</span></div>
     </div>
   </section>`;
 }

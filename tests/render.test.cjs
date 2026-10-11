@@ -166,3 +166,18 @@ test('real activity rows retain actor, description and filters after reload',()=
  }
  vm.runInContext("S.logF='note'",c);assert.match(vm.runInContext('VIEWS.activity()',c),/Persisted activity/);
 });
+
+test('revenue month uses Saudi closure dates and total spans years, excluding unfinished requests',()=>{
+ const c=context();vm.runInContext(`REQUESTS.push(...[
+ {status:'done',price:100,closed_at:new Date('2026-09-30T21:00:00Z')},
+ {status:'done',price:50,closed_at:new Date('2026-10-10T10:00:00Z')},
+ {status:'done',price:200,closed_at:new Date('2026-09-30T20:59:59Z')},
+ {status:'done',price:300,closed_at:new Date('2025-10-01T00:00:00Z')},
+ {status:'done',price:25,closed_at:null},
+ {status:'cancelled',price:900,closed_at:new Date('2026-10-10')},
+ {status:'progress',price:700,closed_at:null}]);`,c);
+ const result=vm.runInContext("revenueTotals(new Date('2026-10-11T09:00:00Z'))",c);
+ assert.equal(result.month,150);assert.equal(result.total,675);assert.equal(result.previousMonth,200);
+ vm.runInContext("REQUESTS.splice(0);REQUESTS.push({status:'done',price:75,closed_at:new Date('2026-12-31T21:00:00Z')},{status:'done',price:45,closed_at:new Date('2026-12-31T20:59:59Z')})",c);
+ const january=vm.runInContext("revenueTotals(new Date('2027-01-05T09:00:00Z'))",c);assert.equal(january.month,75);assert.equal(january.previousMonth,45);assert.equal(january.total,120);
+});
