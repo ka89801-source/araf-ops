@@ -4307,7 +4307,7 @@ function mapRequest(row) {
     (!direct && ['cases','custom_case'].includes(row.source));
   const displayValue=savedName || service;
   const displayKey=serviceKey(displayValue);
-  const displayName=SERVICE_FALLBACK_NAMES[displayKey] || (/^[a-z][a-z0-9_]*$/i.test(displayValue) ? ([...SERVICES,...CASE_TYPES].find(s=>s.key===displayKey)?.name || savedName || 'خدمة غير محددة') : displayValue);
+  const displayName=SERVICE_FALLBACK_NAMES[displayValue] || (/^[a-z][a-z0-9_]*$/i.test(displayValue) ? ([...SERVICES,...CASE_TYPES].find(s=>s.key===displayKey)?.name || savedName || 'خدمة غير محددة') : displayValue);
   const closure = (Array.isArray(row.notes) ? row.notes : []).slice().reverse().find(n => n.kind === 'closure');
   return { ...row, id: String(row.id), customer: row.customer_name || '', phone: row.customer_phone || '',
     service, service_name: displayName, kind: cases ? 'cases' : 'direct',

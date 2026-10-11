@@ -214,3 +214,8 @@ test('saved English service titles are retained and subscriptions do not distort
  vm.runInContext("rebuildMetrics();ENTITIES.push({sub:'active',plan:'asas'})",c);
  const html=vm.runInContext('earnHero()',c);assert.doesNotMatch(html,/من الإيراد<br>متكرر/);assert.match(html,/القيمة الشهرية للباقات النشطة/);assert.match(html,/طلبات مكتملة/);
 });
+
+test('saved Arabic service names are not rewritten through catalog aliases',()=>{
+ const c=context();assert.equal(vm.runInContext("mapRequest({service_type:'case_study',service_name:'دراسة قضية والتوكيل'}).service_name",c),'دراسة قضية والتوكيل');
+ assert.equal(vm.runInContext("mapRequest({service_type:'case_study',service_name:''}).service_name",c),'دراسة قضية والتوكيل فيها');
+});
