@@ -383,24 +383,26 @@ function pipeSecInner() {
 }
 const isDark = () => document.documentElement.dataset.theme === 'dark';
 const PIPE = [
-  { k: 'in', l: 'وصل الطلب', c: '#3B6C8C', d: '#6FB4D6', f: () => REQUESTS.length, nav: '' },
-  { k: 'assigned', l: 'أُسند لموظف', c: '#6A5A8C', d: '#A995DA', f: () => REQUESTS.filter((r) => r.assigned_at).length, nav: 'assigned' },
-  { k: 'contacted', l: 'تم التواصل', c: '#C9A96E', d: '#E8CE96', f: () => REQUESTS.filter((r) => r.contacted_at).length, nav: 'contacted' },
-  { k: 'progress', l: 'دخل التنفيذ', c: '#1B3A4B', d: '#4E93B5', f: () => REQUESTS.filter((r) => ['progress', 'review', 'done', 'closed'].includes(r.status)).length, nav: 'progress,review' },
-  { k: 'done', l: 'أُغلق مكتملًا', c: '#3D7759', d: '#63C79C', f: () => REQUESTS.filter((r) => r.status === 'done').length, nav: 'done' },
+  { k: 'in', l: 'إجمالي الطلبات', c: '#3B6C8C', match: () => true },
+  { k: 'assigned', l: 'له إسناد مسجّل', c: '#6A5A8C', match: r => Boolean(r.assigned_at || r.assigned_to) },
+  { k: 'contacted', l: 'له تواصل مسجّل', c: '#A38248', match: r => Boolean(r.contacted_at) },
+  { k: 'progress', l: 'قيد التنفيذ أو المراجعة', c: '#1B3A4B', match: r => ['progress', 'review'].includes(r.status) },
+  { k: 'done', l: 'أُغلق مكتملًا', c: '#3D7759', match: r => r.status === 'done' },
 ];
+const pipeRequests = key => REQUESTS.filter(PIPE.find(p => p.k === key)?.match || (() => false));
+const pipePercent = (count, total) => total ? Math.round(count / total * 1000) / 10 : 0;
 function pipeStats() {
-  const v = PIPE.map((p) => p.f());
+  const v = PIPE.map((p) => pipeRequests(p.k).length);
   const open = REQUESTS.filter(isOpen);
   const groups = [['new', 'pending'], ['assigned'], ['contacted', 'waiting'], ['progress', 'review']];
   const names = ['بانتظار الإسناد', 'مسندة دون تواصل', 'بانتظار العميل والمستندات', 'قيد التنفيذ والمراجعة'];
-  const stalls = groups.map((g, i) => { const rs = open.filter((r) => g.includes(r.status)); const age = rs.length ? rs.reduce((a, r) => a + (nowDate() - r.updated_at) / DAY, 0) / rs.length : 0; return { l: names[i], n: rs.length, days: age, st: g.join(',') }; });
+  const stalls = groups.map((g, i) => { const rs = open.filter((r) => g.includes(r.status)); const age = rs.length ? rs.reduce((a, r) => a + (r.updated_at ? Math.max(0, nowDate() - r.updated_at) / DAY : 0), 0) / rs.length : 0; return { l: names[i], n: rs.length, days: age, st: g.join(',') }; });
   const worst = stalls.slice().sort((a, b) => b.days * b.n - a.days * a.n)[0];
-  const closed = REQUESTS.filter((r) => r.closed_at);
+  const closed = REQUESTS.filter(r => r.closed_at && r.created_at && r.closed_at >= r.created_at && ['done','closed'].includes(r.status));
   const avgClose = closed.length ? Math.round(closed.reduce((a, r) => a + (r.closed_at - r.created_at) / 36e5, 0) / closed.length) : 0;
-  const fastest = (() => { const m = {}; closed.filter((r) => r.status === 'done').forEach((r) => { const h = (r.closed_at - r.created_at) / 36e5; (m[r.service] = m[r.service] || []).push(h); });
+  const fastest = (() => { const m = {}; closed.filter((r) => r.status === 'done').forEach((r) => { const h = (r.closed_at - r.created_at) / 36e5; (m[svName(r)] = m[svName(r)] || []).push(h); });
     const rows = Object.entries(m).map(([k, a]) => [k, a.reduce((x, y) => x + y, 0) / a.length]).sort((a, b) => a[1] - b[1]); return rows[0]; })();
-  return { v, stalls, worst, avgClose, fastest, conv: Math.round((v[4] / (v[0] || 1)) * 100), drop: Math.round(((v[0] - v[1]) / (v[0] || 1)) * 100) };
+  return { v, stalls, worst, avgClose, fastest, conv: pipePercent(v[4], v[0]), drop: Math.round(((v[0] - v[1]) / (v[0] || 1)) * 100) };
 }
 function pipeReport() {
   const s = pipeStats(); const [t, a, c, p, d] = s.v;
@@ -409,11 +411,11 @@ function pipeReport() {
   return `<div class="report">
     ${nw ? `<div class="rp-live"><span class="dot"></span><b>وصل قبل ${hHuman(hoursSince(nw.created_at))}:</b> ${esc(nw.customer)} — ${esc(svName(nw))}${nw.kind === 'cases' ? ' (توكيل)' : ''}<button class="btn btn-sm btn-p" data-a="openReq" data-id="${esc(nw.id)}">${nw.assigned_to ? 'عرض' : 'إسناد الآن'}</button></div>` : ''}
     <p class="rp-lead">من أصل ${chip('in', t + ' طلبًا')} في السجل المحمّل، وصل ${chip('done', d + ' طلبًا')} إلى الإغلاق مكتملًا — أي نسبة إتمام ${s.conv}%.</p>
-    <p>أُسند ${chip('assigned', a + ' طلبًا')} إلى الفريق، وتم التواصل مع العميل في ${chip('contacted', c + ' منها')}، ودخل ${chip('progress', p + ' طلبًا')} مرحلة التنفيذ. أكبر تسرّب يحدث عند الباب الأول: ${s.drop}% من الطلبات لم تُسنَد بعد، وهي الخطوة التي تستغرق أقل من دقيقة لو فُتحت اليوم.</p>
-    <p>أطول توقف في المسار عند <button class="rp-link" data-a="goStage" data-v="${s.worst.st}">«${s.worst.l}»</button>: ${s.worst.n} طلبات متوقفة منذ ${s.worst.days.toFixed(1)} يوم وسطيًا. تحريكها وحدها يرفع نسبة الإتمام أكثر من أي إجراء آخر هذا الأسبوع.</p>
-    <p class="muted" style="font-size:13px">متوسط زمن الإغلاق ${s.avgClose} ساعة لكل طلب مغلق، وأسرع مسار يمر عبر ${s.fastest ? `«${esc(SV(s.fastest[0]).name)}» بمتوسط ${Math.round(s.fastest[1])} ساعة` : 'خدمات أعراف تحقّق'}.</p>
+    <p>يوجد إسناد مسجّل لـ ${chip('assigned', a + ' طلبًا')}، وتاريخ تواصل مسجّل لـ ${chip('contacted', c + ' طلبًا')}. يوجد حاليًا ${chip('progress', p + ' طلبًا')} قيد التنفيذ أو المراجعة. هذه مؤشرات من السجلات المتاحة؛ غياب تاريخ التواصل لا يثبت عدم حدوثه.</p>
+    ${s.worst.n ? `<p>أكبر تراكم بحسب العدد ومدة آخر تحديث عند <button class="rp-link" data-a="goStage" data-v="${s.worst.st}">«${s.worst.l}»</button>: ${s.worst.n} طلبات، بمتوسط ${s.worst.days.toFixed(1)} يوم منذ آخر تحديث مسجّل.</p>` : ''}
+    <p class="muted" style="font-size:13px">متوسط زمن الإغلاق ${s.avgClose} ساعة، للطلبات المغلقة ذات تاريخ وصول وإغلاق صالحين.${s.fastest ? ` أسرع خدمة مكتملة: «${esc(s.fastest[0])}» بمتوسط ${Math.round(s.fastest[1])} ساعة.` : ''}</p>
     <div class="rp-stats">
-      <div><b>${counter(s.conv, '', '%')}</b><span>نسبة الإتمام</span></div>
+      <div><b>${counter(s.conv, '', '%', 1)}</b><span>نسبة الإتمام</span></div>
       <div><b>${counter(s.avgClose)}<small> س</small></b><span>متوسط الإغلاق</span></div>
       <div><b>${counter(Math.round(TREND_IN.reduce((x, y) => x + y, 0) / 7 * 10) / 10, '', '', 1)}</b><span>وصول يومي وسطيًا</span></div>
       <div><b>${counter(REQUESTS.filter(isOpen).length)}</b><span>مفتوح الآن</span></div>
@@ -421,25 +423,22 @@ function pipeReport() {
   </div>`;
 }
 function funnel() {
-  const s = pipeStats(); const v = s.v; const W = 360, BH = 52, GAP = 8, maxW = 300, minW = 96;
-  const w = (n) => minW + (maxW - minW) * (n / (v[0] || 1));
-  const H = PIPE.length * (BH + GAP);
-  const bands = PIPE.map((p, i) => {
-    const y = i * (BH + GAP); const w1 = w(v[i]), w2 = w(v[i + 1] != null ? v[i + 1] : v[i] * 0.94);
-    const pts = `${W / 2 - w1 / 2},${y} ${W / 2 + w1 / 2},${y} ${W / 2 + w2 / 2},${y + BH} ${W / 2 - w2 / 2},${y + BH}`;
-    const pct = Math.round((v[i] / (v[0] || 1)) * 100);
-    const drop = i ? Math.round((v[i] / (v[i - 1] || 1)) * 100) : 100;
-    return `<g class="fn-band" data-st="${p.k}" data-a="goStage" data-v="${p.nav || 'new,pending'}" style="animation-delay:${i * 110}ms"
-      data-tip="${esc(p.l + ': ' + v[i] + ' طلبًا (' + pct + '% من الوارد' + (i ? ' — ' + drop + '% انتقلت من المرحلة السابقة' : '') + ')')}">
-      <polygon points="${pts}" fill="${isDark() ? p.d : p.c}" />
-      <text x="${W / 2}" y="${y + BH / 2 - 3}" text-anchor="middle" class="fn-n">${v[i]}</text>
-      <text x="${W / 2}" y="${y + BH / 2 + 13}" text-anchor="middle" class="fn-l">${p.l}</text>
-      ${i ? `<text x="${W / 2 + w1 / 2 + 12}" y="${y + BH / 2 + 4}" text-anchor="start" class="fn-p">${drop}%</text>` : ''}
-    </g>`;
-  }).join('');
-  return `<div class="funnel-wrap"><svg viewBox="0 0 ${W} ${H}" class="funnel">${bands}</svg>
-    <div class="fn-foot">${ic('bulb', 'width="14" height="14"')}<span>مرّر على أي مرحلة لمعرفة نسبة انتقالها، واضغطها لفتح طلباتها.</span></div></div>`;
+  const total = REQUESTS.length;
+  return `<div class="funnel-wrap"><div class="fn-heading"><span>المؤشر</span><span>العدد</span><span>من الإجمالي</span></div><div class="funnel">${PIPE.map(p => {
+    const n = pipeRequests(p.k).length, pct = pipePercent(n, total);
+    return `<button type="button" class="fn-band" data-st="${p.k}" data-a="goFunnel" data-v="${p.k}" aria-label="${esc(p.l)}: ${n} طلب، ${pct}% من إجمالي ${total}">
+      <span class="fn-label">${esc(p.l)}<span class="fn-track" aria-hidden="true"><i style="width:${pct}%;background:${p.c}"></i></span></span>
+      <b class="fn-count" dir="ltr">${n}</b><span class="fn-percent" dir="ltr">${pct}%</span></button>`;
+  }).join('')}</div><div class="fn-foot">${ic('bulb', 'width="14" height="14"')}<span>كل نسبة من إجمالي ${total} طلبًا في السجل المحمّل، وليست نسبة انتقال من الصف السابق. قد يتكرر الطلب في أكثر من مؤشر. اضغط المؤشر لعرض طلباته.</span></div></div>`;
 }
+A.goFunnel = el => {
+  const p = PIPE.find(p => p.k === el.dataset.v); if (!p) return;
+  openDrawer(() => { const rows = pipeRequests(p.k); return {
+    head: `<h2 class="h2">${esc(p.l)}</h2><p class="muted">${rows.length} طلبًا · ${pipePercent(rows.length, REQUESTS.length)}% من إجمالي الطلبات</p>`,
+    body: rows.map(r => `<button class="li fn-request" data-a="openReq" data-id="${esc(r.id)}"><span class="grow"><b>${esc(r.customer)}</b><small>${esc(r.id)} — ${esc(svName(r))}</small></span>${stBadge(r.status)}</button>`).join('') || '<p class="muted">لا توجد طلبات لهذا المؤشر.</p>',
+    foot: '<button class="btn btn-s" data-a="drClose">إغلاق</button>'
+  }; });
+};
 function topServices() {
   const rows=serviceGroups().slice(0,7),mx=rows[0]?.count || 1;
   return rows.map((s,i)=>`<div class="srv-row" data-a="goService" data-v="${esc(s.key)}" data-kind="${s.kind}" title="${esc(s.name)}"><span class="ell" style="width:150px">${esc(s.name)}</span><div class="hbar grow" style="height:10px"><i class="growX" style="width:${(s.count/mx)*100}%;animation-delay:${i*60}ms;background:${s.color}"></i></div><b class="num" style="width:26px;text-align:end">${s.count}</b></div>`).join('');
@@ -450,7 +449,7 @@ const TOUR = [
   { sel: '.earn', t: 'أين يقف المكتب ماليًا', p: 'قيمة المكتمل والاشتراكات النشطة هذا الشهر، موزعًا على الخدمات المباشرة وتوكيل القضايا واشتراكات المنشآت. تُحتسب الطلبات المكتملة فقط.' },
   { sel: '.kpis', t: 'أربعة أرقام تكفي لبداية اليوم', p: 'كل رقم زر: اضغطه لتصل مباشرة إلى الطلبات التي يمثلها بدل البحث في الجداول.' },
   { sel: '#lettersSec', t: 'رسائل داخلية لفريقك', p: 'أرسل رسالة لأي موظف وتابع الوارد والمرسل وحالة القراءة من هنا.' },
-  { sel: '#pipeSec', t: 'مسار الطلبات مقروءًا ومرسومًا', p: 'التقرير يخبرك أين يتوقف العمل، والقُمع يريك كم طلبًا ينتقل من مرحلة لأخرى. اضغط أي مرحلة لفتح طلباتها.' },
+  { sel: '#pipeSec', t: 'مسار الطلبات مقروءًا ومرسومًا', p: 'التقرير يخبرك أين يتوقف العمل، والقُمع يعرض عدد الطلبات في كل مؤشر ونسبتها من الإجمالي. اضغط أي مرحلة لفتح طلباتها.' },
   { sel: '#attList', t: 'ما يحتاج قرارك الآن', p: 'كل بند هنا له زر إجراء مباشر: توزيع، تذكير، تسعير، تفعيل. الإخفاء لا يحذف شيئًا ويمكن التراجع عنه.' },
   { sel: '.dl-panel', t: 'المهل الداخلية', p: 'إسناد خلال 4 ساعات، وتواصل خلال 24 ساعة. ما يتجاوزها يظهر هنا بالعدّاد وباللون الأحمر في الجداول.' },
   { sel: '.searchbtn', t: 'كل شيء من مكان واحد', p: 'اضغط Ctrl K وابحث برقم الطلب أو اسم العميل أو المنشأة، أو نفّذ أمرًا مثل «توزيع الطلبات غير المسندة».' },

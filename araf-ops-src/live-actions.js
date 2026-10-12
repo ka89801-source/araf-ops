@@ -247,14 +247,29 @@ A.deleteEntity=el=>{
   $('#modal [data-a="liveSave"]')?.classList.add('btn-destructive');
 };
 A.stub=unavailable;
-function downloadCsv(name,rows){
-  const cell=v=>'"'+String(v??'').replace(/^[=+@-]/,"'$&").replace(/"/g,'""')+'"';
-  const blob=new Blob(['\uFEFF'+rows.map(r=>r.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
-  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+function downloadExcel(name,columns,rows){
+  if(!rows.length){toast('لا توجد بيانات للتصدير');return;}
+  try {
+    const blob=OpsExcel.workbook(name,columns,rows),url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download=name+'-'+new Date().toISOString().slice(0,10)+'.xlsx';document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);toast(`تم تصدير ${rows.length} سجلًا إلى Excel`);
+  } catch(error){toast('تعذر التصدير: '+error.message);}
 }
-A.exportRequests=()=>downloadCsv('requests',[['رقم الطلب','العميل','الجوال','الخدمة','الحالة','القيمة'],...filtered(S.kind).map(r=>[r.id,r.customer,r.phone,svName(r),ST[r.status].l,r.price])]);
-A.exportActivity=()=>downloadCsv('activity',[['الوقت','المستخدم','النشاط'],...LOG.map(l=>[l.at?.toISOString(),U(l.by).name,l.text])]);
-A.exportUsage=()=>downloadCsv('usage',[['المنشأة','الباقة','الخدمة','المستهلك'],...ENTITIES.flatMap(e=>Object.entries(e.usage).map(([key,n])=>[e.name,PLANS[e.plan].name,BIZ_SERVICES[key]||key,n]))]);
+const excelCol=(label,type='text',width=24)=>({label,type,width});
+A.exportRequests=()=>downloadExcel(S.kind==='cases'?'طلبات التوكيل':'طلبات الخدمات',[
+  excelCol('رقم الطلب','text',40),excelCol('تاريخ الطلب (الرياض)','date'),excelCol('العميل'),excelCol('الجوال','text',20),
+  excelCol('الخدمة','text',30),excelCol('الحالة'),excelCol('القيمة (ر.س)','money',18),excelCol('حالة الدفع'),
+  excelCol('المسؤول'),excelCol('المصدر'),excelCol('الأولوية'),excelCol('آخر تحديث (الرياض)','date'),
+  excelCol('تاريخ الإغلاق (الرياض)','date'),excelCol('ملاحظة الإغلاق','text',45),
+  ...(S.kind==='cases'?[excelCol('مرحلة القضية'),excelCol('الجلسة القادمة (الرياض)','date'),excelCol('عدد الجلسات','number',16)]:[]),
+  excelCol('التفاصيل','text',60)
+],filtered(S.kind).map(r=>[r.id,r.created_at,r.customer,r.phone,svName(r),ST[r.status].l,r.price,PAY[r.payment].l,
+  r.assigned_to?U(r.assigned_to).name:'غير مسند',SRC[r.source]||r.source,PRI[r.priority].l,r.updated_at,r.closed_at,r.close_note,
+  ...(S.kind==='cases'?[r.stage,r.next_session,r.sessions]:[]),r.details]));
+A.exportActivity=()=>downloadExcel('سجل النشاط',[excelCol('الوقت (الرياض)','date'),excelCol('المستخدم'),excelCol('رقم الطلب','text',40),excelCol('النشاط','text',70)],
+  LOG.filter(l=>S.logF==='all'||l.type===S.logF).map(l=>[l.at,U(l.by).name,l.request_id,l.text]));
+A.exportUsage=()=>downloadExcel('استهلاك المنشآت',[excelCol('المنشأة','text',35),excelCol('الباقة'),excelCol('الخدمة','text',35),excelCol('المستهلك','number',18)],
+  ENTITIES.flatMap(e=>Object.entries(e.usage).map(([key,n])=>[e.name,PLANS[e.plan].name,BIZ_SERVICES[key]||key,n])));
 const panelWithAttachments=reqPanel;
 reqPanel=function(id){const panel=panelWithAttachments(id),r=REQ(id);const label='المرفقات';
   const start=panel.body.indexOf('<div class="dsec"><h4>'+ic('file','width="15" height="15"')+label);

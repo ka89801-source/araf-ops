@@ -988,15 +988,21 @@ select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns
 
 /* ---------- القُمع ---------- */
 .funnel-wrap{background:var(--sheet);border-radius:18px;box-shadow:inset 0 0 0 1px var(--line-2);padding:18px 16px 14px}
-.funnel{width:100%;height:auto;overflow:visible}
-.fn-band{cursor:pointer;animation:fnIn .55s var(--ease-out) both}
-@keyframes fnIn{from{opacity:0;transform:translateY(-10px) scaleX(.9)}}
-.fn-band polygon{transition:opacity .25s,transform .25s var(--ease);transform-origin:center;transform-box:fill-box}
-.funnel.dim .fn-band polygon{opacity:.32}
-.funnel.dim .fn-band.hl polygon{opacity:1;transform:scale(1.03)}
-.fn-n{fill:#fff;font-size:17px;font-weight:700;font-family:var(--f-ui)}
-.fn-l{fill:rgba(255,255,255,.82);font-size:11px;font-family:var(--f-ui)}
-.fn-p{fill:var(--mute);font-size:11px;font-weight:600;font-family:var(--f-ui);direction:ltr}
+.funnel{width:100%;display:grid;gap:6px}
+.fn-heading,.fn-band{display:grid;grid-template-columns:minmax(0,1fr) 52px 72px;gap:10px;align-items:center;text-align:start}
+.fn-heading{font-size:10px;color:var(--mute);padding:0 10px 8px}
+.fn-heading span:not(:first-child){text-align:center}
+.fn-band{width:100%;border:0;border-radius:10px;background:transparent;color:var(--ink);padding:10px;cursor:pointer;font:inherit;transition:background .2s}
+.fn-band:hover,.fn-band.hl{background:var(--sunk)}
+.fn-band:focus-visible{outline:2px solid var(--gold-dk);outline-offset:2px}
+.fn-label{font-size:12px;min-width:0;line-height:1.6}
+.fn-track{display:block;background:var(--sunk);height:9px;margin-top:7px;border-radius:5px;overflow:hidden}
+.fn-track i{display:block;height:100%;border-radius:5px}
+.fn-count,.fn-percent{text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums}
+.fn-count{font-size:19px}.fn-percent{font-size:13px;color:var(--ink-2)}
+.fn-request{width:100%;text-align:start;font:inherit;background:transparent;color:inherit;border:0;border-bottom:1px solid var(--line);cursor:pointer}
+.fn-request small{display:block;color:var(--mute);overflow-wrap:anywhere}
+.request-date{font-size:11.5px;color:var(--ink-2);line-height:1.8;margin-top:5px;white-space:normal}
 .fn-foot{display:flex;gap:8px;align-items:flex-start;font-size:11.5px;color:var(--mute);line-height:1.6;padding:12px 6px 0;margin-top:6px;border-top:1px solid var(--line)}
 .fn-foot svg{flex-shrink:0;margin-top:2px;color:var(--gold-dk)}
 .srv-row{display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:9px;font-size:13px;cursor:pointer;transition:background .15s}
@@ -2810,24 +2816,26 @@ function pipeSecInner() {
 }
 const isDark = () => document.documentElement.dataset.theme === 'dark';
 const PIPE = [
-  { k: 'in', l: 'وصل الطلب', c: '#3B6C8C', d: '#6FB4D6', f: () => REQUESTS.length, nav: '' },
-  { k: 'assigned', l: 'أُسند لموظف', c: '#6A5A8C', d: '#A995DA', f: () => REQUESTS.filter((r) => r.assigned_at).length, nav: 'assigned' },
-  { k: 'contacted', l: 'تم التواصل', c: '#C9A96E', d: '#E8CE96', f: () => REQUESTS.filter((r) => r.contacted_at).length, nav: 'contacted' },
-  { k: 'progress', l: 'دخل التنفيذ', c: '#1B3A4B', d: '#4E93B5', f: () => REQUESTS.filter((r) => ['progress', 'review', 'done', 'closed'].includes(r.status)).length, nav: 'progress,review' },
-  { k: 'done', l: 'أُغلق مكتملًا', c: '#3D7759', d: '#63C79C', f: () => REQUESTS.filter((r) => r.status === 'done').length, nav: 'done' },
+  { k: 'in', l: 'إجمالي الطلبات', c: '#3B6C8C', match: () => true },
+  { k: 'assigned', l: 'له إسناد مسجّل', c: '#6A5A8C', match: r => Boolean(r.assigned_at || r.assigned_to) },
+  { k: 'contacted', l: 'له تواصل مسجّل', c: '#A38248', match: r => Boolean(r.contacted_at) },
+  { k: 'progress', l: 'قيد التنفيذ أو المراجعة', c: '#1B3A4B', match: r => ['progress', 'review'].includes(r.status) },
+  { k: 'done', l: 'أُغلق مكتملًا', c: '#3D7759', match: r => r.status === 'done' },
 ];
+const pipeRequests = key => REQUESTS.filter(PIPE.find(p => p.k === key)?.match || (() => false));
+const pipePercent = (count, total) => total ? Math.round(count / total * 1000) / 10 : 0;
 function pipeStats() {
-  const v = PIPE.map((p) => p.f());
+  const v = PIPE.map((p) => pipeRequests(p.k).length);
   const open = REQUESTS.filter(isOpen);
   const groups = [['new', 'pending'], ['assigned'], ['contacted', 'waiting'], ['progress', 'review']];
   const names = ['بانتظار الإسناد', 'مسندة دون تواصل', 'بانتظار العميل والمستندات', 'قيد التنفيذ والمراجعة'];
-  const stalls = groups.map((g, i) => { const rs = open.filter((r) => g.includes(r.status)); const age = rs.length ? rs.reduce((a, r) => a + (nowDate() - r.updated_at) / DAY, 0) / rs.length : 0; return { l: names[i], n: rs.length, days: age, st: g.join(',') }; });
+  const stalls = groups.map((g, i) => { const rs = open.filter((r) => g.includes(r.status)); const age = rs.length ? rs.reduce((a, r) => a + (r.updated_at ? Math.max(0, nowDate() - r.updated_at) / DAY : 0), 0) / rs.length : 0; return { l: names[i], n: rs.length, days: age, st: g.join(',') }; });
   const worst = stalls.slice().sort((a, b) => b.days * b.n - a.days * a.n)[0];
-  const closed = REQUESTS.filter((r) => r.closed_at);
+  const closed = REQUESTS.filter(r => r.closed_at && r.created_at && r.closed_at >= r.created_at && ['done','closed'].includes(r.status));
   const avgClose = closed.length ? Math.round(closed.reduce((a, r) => a + (r.closed_at - r.created_at) / 36e5, 0) / closed.length) : 0;
-  const fastest = (() => { const m = {}; closed.filter((r) => r.status === 'done').forEach((r) => { const h = (r.closed_at - r.created_at) / 36e5; (m[r.service] = m[r.service] || []).push(h); });
+  const fastest = (() => { const m = {}; closed.filter((r) => r.status === 'done').forEach((r) => { const h = (r.closed_at - r.created_at) / 36e5; (m[svName(r)] = m[svName(r)] || []).push(h); });
     const rows = Object.entries(m).map(([k, a]) => [k, a.reduce((x, y) => x + y, 0) / a.length]).sort((a, b) => a[1] - b[1]); return rows[0]; })();
-  return { v, stalls, worst, avgClose, fastest, conv: Math.round((v[4] / (v[0] || 1)) * 100), drop: Math.round(((v[0] - v[1]) / (v[0] || 1)) * 100) };
+  return { v, stalls, worst, avgClose, fastest, conv: pipePercent(v[4], v[0]), drop: Math.round(((v[0] - v[1]) / (v[0] || 1)) * 100) };
 }
 function pipeReport() {
   const s = pipeStats(); const [t, a, c, p, d] = s.v;
@@ -2836,11 +2844,11 @@ function pipeReport() {
   return `<div class="report">
     ${nw ? `<div class="rp-live"><span class="dot"></span><b>وصل قبل ${hHuman(hoursSince(nw.created_at))}:</b> ${esc(nw.customer)} — ${esc(svName(nw))}${nw.kind === 'cases' ? ' (توكيل)' : ''}<button class="btn btn-sm btn-p" data-a="openReq" data-id="${esc(nw.id)}">${nw.assigned_to ? 'عرض' : 'إسناد الآن'}</button></div>` : ''}
     <p class="rp-lead">من أصل ${chip('in', t + ' طلبًا')} في السجل المحمّل، وصل ${chip('done', d + ' طلبًا')} إلى الإغلاق مكتملًا — أي نسبة إتمام ${s.conv}%.</p>
-    <p>أُسند ${chip('assigned', a + ' طلبًا')} إلى الفريق، وتم التواصل مع العميل في ${chip('contacted', c + ' منها')}، ودخل ${chip('progress', p + ' طلبًا')} مرحلة التنفيذ. أكبر تسرّب يحدث عند الباب الأول: ${s.drop}% من الطلبات لم تُسنَد بعد، وهي الخطوة التي تستغرق أقل من دقيقة لو فُتحت اليوم.</p>
-    <p>أطول توقف في المسار عند <button class="rp-link" data-a="goStage" data-v="${s.worst.st}">«${s.worst.l}»</button>: ${s.worst.n} طلبات متوقفة منذ ${s.worst.days.toFixed(1)} يوم وسطيًا. تحريكها وحدها يرفع نسبة الإتمام أكثر من أي إجراء آخر هذا الأسبوع.</p>
-    <p class="muted" style="font-size:13px">متوسط زمن الإغلاق ${s.avgClose} ساعة لكل طلب مغلق، وأسرع مسار يمر عبر ${s.fastest ? `«${esc(SV(s.fastest[0]).name)}» بمتوسط ${Math.round(s.fastest[1])} ساعة` : 'خدمات أعراف تحقّق'}.</p>
+    <p>يوجد إسناد مسجّل لـ ${chip('assigned', a + ' طلبًا')}، وتاريخ تواصل مسجّل لـ ${chip('contacted', c + ' طلبًا')}. يوجد حاليًا ${chip('progress', p + ' طلبًا')} قيد التنفيذ أو المراجعة. هذه مؤشرات من السجلات المتاحة؛ غياب تاريخ التواصل لا يثبت عدم حدوثه.</p>
+    ${s.worst.n ? `<p>أكبر تراكم بحسب العدد ومدة آخر تحديث عند <button class="rp-link" data-a="goStage" data-v="${s.worst.st}">«${s.worst.l}»</button>: ${s.worst.n} طلبات، بمتوسط ${s.worst.days.toFixed(1)} يوم منذ آخر تحديث مسجّل.</p>` : ''}
+    <p class="muted" style="font-size:13px">متوسط زمن الإغلاق ${s.avgClose} ساعة، للطلبات المغلقة ذات تاريخ وصول وإغلاق صالحين.${s.fastest ? ` أسرع خدمة مكتملة: «${esc(s.fastest[0])}» بمتوسط ${Math.round(s.fastest[1])} ساعة.` : ''}</p>
     <div class="rp-stats">
-      <div><b>${counter(s.conv, '', '%')}</b><span>نسبة الإتمام</span></div>
+      <div><b>${counter(s.conv, '', '%', 1)}</b><span>نسبة الإتمام</span></div>
       <div><b>${counter(s.avgClose)}<small> س</small></b><span>متوسط الإغلاق</span></div>
       <div><b>${counter(Math.round(TREND_IN.reduce((x, y) => x + y, 0) / 7 * 10) / 10, '', '', 1)}</b><span>وصول يومي وسطيًا</span></div>
       <div><b>${counter(REQUESTS.filter(isOpen).length)}</b><span>مفتوح الآن</span></div>
@@ -2848,25 +2856,22 @@ function pipeReport() {
   </div>`;
 }
 function funnel() {
-  const s = pipeStats(); const v = s.v; const W = 360, BH = 52, GAP = 8, maxW = 300, minW = 96;
-  const w = (n) => minW + (maxW - minW) * (n / (v[0] || 1));
-  const H = PIPE.length * (BH + GAP);
-  const bands = PIPE.map((p, i) => {
-    const y = i * (BH + GAP); const w1 = w(v[i]), w2 = w(v[i + 1] != null ? v[i + 1] : v[i] * 0.94);
-    const pts = `${W / 2 - w1 / 2},${y} ${W / 2 + w1 / 2},${y} ${W / 2 + w2 / 2},${y + BH} ${W / 2 - w2 / 2},${y + BH}`;
-    const pct = Math.round((v[i] / (v[0] || 1)) * 100);
-    const drop = i ? Math.round((v[i] / (v[i - 1] || 1)) * 100) : 100;
-    return `<g class="fn-band" data-st="${p.k}" data-a="goStage" data-v="${p.nav || 'new,pending'}" style="animation-delay:${i * 110}ms"
-      data-tip="${esc(p.l + ': ' + v[i] + ' طلبًا (' + pct + '% من الوارد' + (i ? ' — ' + drop + '% انتقلت من المرحلة السابقة' : '') + ')')}">
-      <polygon points="${pts}" fill="${isDark() ? p.d : p.c}" />
-      <text x="${W / 2}" y="${y + BH / 2 - 3}" text-anchor="middle" class="fn-n">${v[i]}</text>
-      <text x="${W / 2}" y="${y + BH / 2 + 13}" text-anchor="middle" class="fn-l">${p.l}</text>
-      ${i ? `<text x="${W / 2 + w1 / 2 + 12}" y="${y + BH / 2 + 4}" text-anchor="start" class="fn-p">${drop}%</text>` : ''}
-    </g>`;
-  }).join('');
-  return `<div class="funnel-wrap"><svg viewBox="0 0 ${W} ${H}" class="funnel">${bands}</svg>
-    <div class="fn-foot">${ic('bulb', 'width="14" height="14"')}<span>مرّر على أي مرحلة لمعرفة نسبة انتقالها، واضغطها لفتح طلباتها.</span></div></div>`;
+  const total = REQUESTS.length;
+  return `<div class="funnel-wrap"><div class="fn-heading"><span>المؤشر</span><span>العدد</span><span>من الإجمالي</span></div><div class="funnel">${PIPE.map(p => {
+    const n = pipeRequests(p.k).length, pct = pipePercent(n, total);
+    return `<button type="button" class="fn-band" data-st="${p.k}" data-a="goFunnel" data-v="${p.k}" aria-label="${esc(p.l)}: ${n} طلب، ${pct}% من إجمالي ${total}">
+      <span class="fn-label">${esc(p.l)}<span class="fn-track" aria-hidden="true"><i style="width:${pct}%;background:${p.c}"></i></span></span>
+      <b class="fn-count" dir="ltr">${n}</b><span class="fn-percent" dir="ltr">${pct}%</span></button>`;
+  }).join('')}</div><div class="fn-foot">${ic('bulb', 'width="14" height="14"')}<span>كل نسبة من إجمالي ${total} طلبًا في السجل المحمّل، وليست نسبة انتقال من الصف السابق. قد يتكرر الطلب في أكثر من مؤشر. اضغط المؤشر لعرض طلباته.</span></div></div>`;
 }
+A.goFunnel = el => {
+  const p = PIPE.find(p => p.k === el.dataset.v); if (!p) return;
+  openDrawer(() => { const rows = pipeRequests(p.k); return {
+    head: `<h2 class="h2">${esc(p.l)}</h2><p class="muted">${rows.length} طلبًا · ${pipePercent(rows.length, REQUESTS.length)}% من إجمالي الطلبات</p>`,
+    body: rows.map(r => `<button class="li fn-request" data-a="openReq" data-id="${esc(r.id)}"><span class="grow"><b>${esc(r.customer)}</b><small>${esc(r.id)} — ${esc(svName(r))}</small></span>${stBadge(r.status)}</button>`).join('') || '<p class="muted">لا توجد طلبات لهذا المؤشر.</p>',
+    foot: '<button class="btn btn-s" data-a="drClose">إغلاق</button>'
+  }; });
+};
 function topServices() {
   const rows=serviceGroups().slice(0,7),mx=rows[0]?.count || 1;
   return rows.map((s,i)=>`<div class="srv-row" data-a="goService" data-v="${esc(s.key)}" data-kind="${s.kind}" title="${esc(s.name)}"><span class="ell" style="width:150px">${esc(s.name)}</span><div class="hbar grow" style="height:10px"><i class="growX" style="width:${(s.count/mx)*100}%;animation-delay:${i*60}ms;background:${s.color}"></i></div><b class="num" style="width:26px;text-align:end">${s.count}</b></div>`).join('');
@@ -2877,7 +2882,7 @@ const TOUR = [
   { sel: '.earn', t: 'أين يقف المكتب ماليًا', p: 'قيمة المكتمل والاشتراكات النشطة هذا الشهر، موزعًا على الخدمات المباشرة وتوكيل القضايا واشتراكات المنشآت. تُحتسب الطلبات المكتملة فقط.' },
   { sel: '.kpis', t: 'أربعة أرقام تكفي لبداية اليوم', p: 'كل رقم زر: اضغطه لتصل مباشرة إلى الطلبات التي يمثلها بدل البحث في الجداول.' },
   { sel: '#lettersSec', t: 'رسائل داخلية لفريقك', p: 'أرسل رسالة لأي موظف وتابع الوارد والمرسل وحالة القراءة من هنا.' },
-  { sel: '#pipeSec', t: 'مسار الطلبات مقروءًا ومرسومًا', p: 'التقرير يخبرك أين يتوقف العمل، والقُمع يريك كم طلبًا ينتقل من مرحلة لأخرى. اضغط أي مرحلة لفتح طلباتها.' },
+  { sel: '#pipeSec', t: 'مسار الطلبات مقروءًا ومرسومًا', p: 'التقرير يخبرك أين يتوقف العمل، والقُمع يعرض عدد الطلبات في كل مؤشر ونسبتها من الإجمالي. اضغط أي مرحلة لفتح طلباتها.' },
   { sel: '#attList', t: 'ما يحتاج قرارك الآن', p: 'كل بند هنا له زر إجراء مباشر: توزيع، تذكير، تسعير، تفعيل. الإخفاء لا يحذف شيئًا ويمكن التراجع عنه.' },
   { sel: '.dl-panel', t: 'المهل الداخلية', p: 'إسناد خلال 4 ساعات، وتواصل خلال 24 ساعة. ما يتجاوزها يظهر هنا بالعدّاد وباللون الأحمر في الجداول.' },
   { sel: '.searchbtn', t: 'كل شيء من مكان واحد', p: 'اضغط Ctrl K وابحث برقم الطلب أو اسم العميل أو المنشأة، أو نفّذ أمرًا مثل «توزيع الطلبات غير المسندة».' },
@@ -3052,7 +3057,7 @@ function requestsPage(kind) {
   return `<div class="page-h"><div><h1 class="h-disp h1">${cases ? 'طلبات توكيل القضايا' : 'الخدمات المباشرة'}</h1>
     <div class="sub">${L.length} طلبًا، منها ${L.filter(isOpen).length} مفتوح${lateN ? ` و<b style="color:var(--red)">${lateN}</b> تجاوز المهلة الداخلية` : ''}${cases ? '. تظهر بمسمى القضية الفعلي' : ''}</div></div>
     <div class="tools"><div class="seg">${views.map(([v, l, i]) => `<button class="${S.view === v ? 'on' : ''}" data-a="seg" data-k="view" data-v="${v}">${ic(i)}${l}</button>`).join('')}</div>
-    <button class="btn btn-s" data-a="exportRequests">${ic('download')}تصدير</button>
+    <button class="btn btn-s" data-a="exportRequests">${ic('download')}تصدير Excel</button>
     <button class="btn btn-p" data-a="quick" data-k="ext" data-kind="${kind}">${ic('plus')}طلب خارجي</button></div></div>
   <div class="saved">${SAVED[kind].map(([k, l, f]) => `<button class="${S.saved === k ? 'on' : ''}" data-a="savedPick" data-v="${k}">${l}<span class="n" ${k === 'late' && f().length ? 'style="color:var(--red);font-weight:600"' : ''}>${f().length}</span></button>`).join('')}</div>
   <div class="toolbar">
@@ -3089,11 +3094,16 @@ function reqTable(L) {
     <div class="cell c-date">${rel(r.created_at)}<small>${hm(r.created_at)}</small></div>
     <button class="icon-btn more" data-a="reqMenu" data-id="${esc(r.id)}">${ic('more')}</button></div>`).join('')}</div>`;
 }
+function requestDateLabel(r) {
+  if (!r.created_at || !Number.isFinite(+new Date(r.created_at))) return 'غير مسجّل';
+  return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', {timeZone:'Asia/Riyadh', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hourCycle:'h23'}).format(r.created_at);
+}
+function requestDateLine(r) { return `<div class="request-date">تاريخ الطلب: <time dir="auto">${esc(requestDateLabel(r))}</time></div>`; }
 function caseTable(L) {
   return `<div class="clist"><div class="chead cs"><span></span><span>العميل والقضية</span><span>نوع القضية</span><span>الأتعاب</span><span>المرحلة</span><span class="c-sess">الجلسة القادمة</span><span>المحامي</span><span></span></div>
   ${L.map((r) => `<div class="crow cs ${pendingDelete(r.id)?'delete-pending':''}" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}" data-peek="${esc(r.id)}">
     <span class="pri" style="background:${PRI[r.priority].c};${r.priority === 'normal' ? 'opacity:.35' : ''}"></span>
-    <div style="min-width:0" class="row gap8">${custAv(r)}<div style="min-width:0"><div class="ttl ell">${esc(r.customer)}${lexBadge(r.id)}</div><div class="par ell"><span class="ltr num">${esc(r.id)}</span> — ${esc(r.details.slice(0, 46))}…</div>${deleteMarker(r.id)}</div></div>
+    <div style="min-width:0" class="row gap8">${custAv(r)}<div style="min-width:0"><div class="ttl ell">${esc(r.customer)}${lexBadge(r.id)}</div><div class="par ell"><span class="ltr num">${esc(r.id)}</span> — ${esc(r.details.slice(0, 46))}…</div>${requestDateLine(r)}${deleteMarker(r.id)}</div></div>
     <div class="cell"><span class="st" style="--c:${SV(r.service).c}">${esc(svName(r))}</span></div>
     <div class="cell">${r.price ? `<b class="num" style="font-weight:600">${fmt(r.price)}</b>` : `<span class="badge b-gold">بانتظار التسعير</span>`}<small>${r.price ? PAY[r.payment].l : ''}</small></div>
     <div class="cell"><b style="font-weight:500">${esc(r.stage || ST[r.status].l)}</b><small>${r.sessions ? `${r.sessions} جلسات محضورة` : 'لم تبدأ الجلسات'}</small></div>
@@ -3105,7 +3115,7 @@ function caseCards(L) {
   return `<div class="cards">${L.map((r, i) => `<div class="ccard ${pendingDelete(r.id)?'delete-pending':''}" style="animation:rbIn .5s var(--ease-out) ${i * 30}ms both" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}">
     <div class="row"><span class="st" style="--c:${SV(r.service).c}">${esc(svName(r))}</span><span style="margin-inline-start:auto">${stBadge(r.status)}</span></div>
     <div class="row gap8">${custAv(r, 'lg')}<div style="min-width:0"><div class="ttl ell">${esc(r.customer)}</div><div class="muted" style="font-size:12px">${esc(r.id)}</div>${deleteMarker(r.id)}</div></div>
-    <div class="muted" style="font-size:12.5px;line-height:1.6">${esc(r.stage || 'لم تُحدد المرحلة بعد')}</div>
+    ${requestDateLine(r)}<div class="muted" style="font-size:12.5px;line-height:1.6">${esc(r.stage || 'لم تُحدد المرحلة بعد')}</div>
     <div class="foot">${ic('cal', 'width="14" height="14"')}<span class="grow">${r.next_session ? `${rel(r.next_session)} — ${hm(r.next_session)}` : 'لا جلسة محددة'}</span>${r.assigned_to ? av(r.assigned_to, 'sm') : '<span class="badge b-amber">بلا محامٍ</span>'}</div></div>`).join('')}</div>`;
 }
 function reqBoard(L, kind) {
@@ -3113,7 +3123,7 @@ function reqBoard(L, kind) {
   return `<div class="kanban">${cols.map((k) => { const rs = L.filter((r) => r.status === k);
     return `<div class="kcol" data-drop="req" data-v="${k}"><div class="kcol-h"><i style="background:${ST[k].c}"></i>${ST[k].l}<span class="n">${rs.length}</span></div><div class="kcards">${rs.map((r) => `<div class="kcard ${pendingDelete(r.id)?'delete-pending':''}" draggable="true" data-drag="${esc(r.id)}" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}">
       <div class="row" style="margin-bottom:6px"><span class="pri-dot" style="background:${PRI[r.priority].c}"></span><span class="m grow ell">${esc(svName(r))}</span>${isLate(r) ? `<span style="color:var(--red)" data-tip="تجاوز المهلة">${ic('alert', 'width="13" height="13"')}</span>` : ''}</div>
-      <div class="ttl">${esc(r.customer)}</div>${deleteMarker(r.id)}
+      <div class="ttl">${esc(r.customer)}</div>${kind === 'cases' ? requestDateLine(r) : ''}${deleteMarker(r.id)}
       <div class="row" style="margin-top:10px"><span class="m grow">${r.price ? fmt(r.price) + ' ر.س' : 'غير مسعّر'} — ${rel(r.created_at)}</span>${r.assigned_to ? av(r.assigned_to, 'sm') : `<span class="badge b-amber" style="height:20px">بلا مسؤول</span>`}</div></div>`).join('') || '<div class="muted" style="font-size:12px;text-align:center;padding:20px 0">اسحب طلبًا إلى هنا</div>'}</div></div>`; }).join('')}</div>`;
 }
 window.PEEK = (el) => {
@@ -3364,7 +3374,7 @@ VIEWS.activity = () => {
   const L = LOG.filter((l) => S.logF === 'all' || l.type === S.logF);
   const groups = {}; L.forEach((l) => { const k = sod(l.at).getTime(); (groups[k] = groups[k] || []).push(l); });
   return `<div class="page-h"><div><h1 class="h-disp h1">سجل النشاط</h1><div class="sub">كل عملية في النظام مسجَّلة باسم منفّذها ووقتها، ولا يمكن تعديلها أو حذفها</div></div>
-    <div class="tools"><button class="btn btn-s" data-a="exportActivity">${ic('download')}تصدير</button></div></div>
+    <div class="tools"><button class="btn btn-s" data-a="exportActivity">${ic('download')}تصدير Excel</button></div></div>
   <div class="saved">${types.map(([k, l]) => `<button class="${S.logF === k ? 'on' : ''}" data-a="seg" data-k="logF" data-v="${k}">${l}<span class="n">${LOG.filter((x) => k === 'all' || x.type === k).length}</span></button>`).join('')}</div>
   ${Object.entries(groups).map(([k, items]) => `<div class="agenda-d"><h5>${rel(new Date(+k))} — ${wd(new Date(+k))} ${dm(new Date(+k))}</h5><div class="feed">${items.map((f) => logItem(f)).join('')}</div></div>`).join('') || empty('لا نشاط بهذا التصنيف', 'غيّر التصنيف لعرض بقية العمليات.')}`;
 };
@@ -4429,6 +4439,61 @@ async function bootLive() {
 }
 A.refreshLive=()=>LIVE.refresh();
 
+/* Offline XLSX export: typed cells, no formula evaluation or external resources.
+   OOXML uses inline strings; ZIP entries are stored with CRC-32 (no dependency). */
+const OpsExcel = (() => {
+  const xml = value => String(value ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]/g, '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
+  const column = n => { let s=''; for(n++;n;n=Math.floor((n-1)/26))s=String.fromCharCode(65+(n-1)%26)+s; return s; };
+  const crcTable = Array.from({length:256},(_,n)=>{for(let k=0;k<8;k++)n=n&1?0xedb88320^(n>>>1):n>>>1;return n>>>0;});
+  function zip(files) {
+    const encoder=new TextEncoder(),parts=[],central=[];let offset=0,centralSize=0;
+    const header=size=>{const bytes=new Uint8Array(size);return {bytes,view:new DataView(bytes.buffer)};};
+    for(const [path,content] of Object.entries(files)) {
+      const name=encoder.encode(path),data=encoder.encode(content);let crc=0xffffffff;
+      for(const b of data)crc=crcTable[(crc^b)&255]^(crc>>>8);crc=(crc^0xffffffff)>>>0;
+      const h=header(30),v=h.view;v.setUint32(0,0x04034b50,true);v.setUint16(4,20,true);v.setUint16(12,33,true);
+      v.setUint32(14,crc,true);v.setUint32(18,data.length,true);v.setUint32(22,data.length,true);v.setUint16(26,name.length,true);
+      parts.push(h.bytes,name,data);
+      const c=header(46),w=c.view;w.setUint32(0,0x02014b50,true);w.setUint16(4,20,true);w.setUint16(6,20,true);w.setUint16(14,33,true);
+      w.setUint32(16,crc,true);w.setUint32(20,data.length,true);w.setUint32(24,data.length,true);w.setUint16(28,name.length,true);w.setUint32(42,offset,true);
+      central.push(c.bytes,name);centralSize+=46+name.length;offset+=30+name.length+data.length;
+    }
+    const e=header(22),v=e.view,n=Object.keys(files).length;v.setUint32(0,0x06054b50,true);v.setUint16(8,n,true);v.setUint16(10,n,true);v.setUint32(12,centralSize,true);v.setUint32(16,offset,true);
+    return new Blob([...parts,...central,e.bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  }
+  function workbook(sheetName, columns, rows) {
+    if(!columns.length || columns.length>16384 || rows.length>1048575)throw new Error('حجم البيانات يتجاوز سعة ورقة Excel');
+    const cell=(value,col,row,type)=>{
+      const ref=column(col)+row;
+      if(value===null || value===undefined || value==='')return `<c r="${ref}"/>`;
+      if(type==='date'){
+        const ms=+new Date(value);if(!Number.isFinite(ms))return `<c r="${ref}"/>`;
+        // Excel stores wall time without a zone. All exported timestamps use Riyadh (UTC+3).
+        return `<c r="${ref}" s="3"><v>${(ms+3*3600000)/86400000+25569}</v></c>`;
+      }
+      if(type==='number' || type==='money'){
+        const n=Number(value);if(!Number.isFinite(n))throw new Error('توجد قيمة رقمية غير صالحة للتصدير');
+        return `<c r="${ref}" s="${type==='money'?4:2}"><v>${n}</v></c>`;
+      }
+      if(String(value).length>32767)throw new Error('يوجد نص يتجاوز سعة خلية Excel (32767 حرفًا)');
+      return `<c r="${ref}" t="inlineStr" s="${type==='header'?1:0}"><is><t xml:space="preserve">${xml(value)}</t></is></c>`;
+    };
+    const last=column(columns.length-1)+(rows.length+1),ns='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+    const sheet=`<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="${ns}"><dimension ref="A1:${last}"/><sheetViews><sheetView workbookViewId="0" rightToLeft="1" showGridLines="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="32"/><cols>${columns.map((c,i)=>`<col min="${i+1}" max="${i+1}" width="${c.width||24}" customWidth="1"/>`).join('')}</cols><sheetData><row r="1" ht="34" customHeight="1">${columns.map((c,i)=>cell(c.label,i,1,'header')).join('')}</row>${rows.map((row,i)=>`<row r="${i+2}" ht="${Math.min(150,Math.max(32,...columns.map((c,j)=>Math.ceil(String(row[j]??'').length/(c.width||24))*15+10)))}" customHeight="1">${columns.map((c,j)=>cell(row[j],j,i+2,c.type)).join('')}</row>`).join('')}</sheetData><autoFilter ref="A1:${last}"/><pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.2" footer="0.2"/><pageSetup orientation="landscape" paperSize="9"/></worksheet>`;
+    const relNs='http://schemas.openxmlformats.org/package/2006/relationships',officeRel='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+    const styles=`<styleSheet xmlns="${ns}"><numFmts count="1"><numFmt numFmtId="164" formatCode="yyyy-mm-dd hh:mm"/></numFmts><fonts count="2"><font><sz val="11"/><color rgb="FF1B3A4B"/><name val="Arial"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Arial"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1B3A4B"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5">${[49,0,3,164,4].map((fmt,i)=>`<xf numFmtId="${fmt}" fontId="${i===1?1:0}" fillId="${i===1?2:0}" borderId="0" xfId="0" applyAlignment="1" applyNumberFormat="1"><alignment horizontal="${i>1?'center':'right'}" vertical="center" wrapText="1" readingOrder="${i>1?1:2}"/></xf>`).join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+    return zip({
+      '[Content_Types].xml':`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`,
+      '_rels/.rels':`<Relationships xmlns="${relNs}"><Relationship Id="rId1" Type="${officeRel}/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
+      'xl/workbook.xml':`<workbook xmlns="${ns}" xmlns:r="${officeRel}"><bookViews><workbookView/></bookViews><sheets><sheet name="${xml(sheetName.replace(/[\\/*?:\[\]]/g,' ').slice(0,31))}" sheetId="1" r:id="rId1"/></sheets></workbook>`,
+      'xl/_rels/workbook.xml.rels':`<Relationships xmlns="${relNs}"><Relationship Id="rId1" Type="${officeRel}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="${officeRel}/styles" Target="styles.xml"/></Relationships>`,
+      'xl/styles.xml':styles,'xl/worksheets/sheet1.xml':sheet
+    });
+  }
+  return {workbook};
+})();
+if(typeof module!=='undefined' && module.exports)module.exports=OpsExcel;
+
 /* All mutations are confirmed by the existing backend before UI success. */
 function liveBusy(button, label='جارٍ الحفظ…') {
   const controls=$$('#modal.show button, #modal.show input, #modal.show textarea, #modal.show select');
@@ -4678,14 +4743,29 @@ A.deleteEntity=el=>{
   $('#modal [data-a="liveSave"]')?.classList.add('btn-destructive');
 };
 A.stub=unavailable;
-function downloadCsv(name,rows){
-  const cell=v=>'"'+String(v??'').replace(/^[=+@-]/,"'$&").replace(/"/g,'""')+'"';
-  const blob=new Blob(['\uFEFF'+rows.map(r=>r.map(cell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});
-  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+function downloadExcel(name,columns,rows){
+  if(!rows.length){toast('لا توجد بيانات للتصدير');return;}
+  try {
+    const blob=OpsExcel.workbook(name,columns,rows),url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download=name+'-'+new Date().toISOString().slice(0,10)+'.xlsx';document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),60000);toast(`تم تصدير ${rows.length} سجلًا إلى Excel`);
+  } catch(error){toast('تعذر التصدير: '+error.message);}
 }
-A.exportRequests=()=>downloadCsv('requests',[['رقم الطلب','العميل','الجوال','الخدمة','الحالة','القيمة'],...filtered(S.kind).map(r=>[r.id,r.customer,r.phone,svName(r),ST[r.status].l,r.price])]);
-A.exportActivity=()=>downloadCsv('activity',[['الوقت','المستخدم','النشاط'],...LOG.map(l=>[l.at?.toISOString(),U(l.by).name,l.text])]);
-A.exportUsage=()=>downloadCsv('usage',[['المنشأة','الباقة','الخدمة','المستهلك'],...ENTITIES.flatMap(e=>Object.entries(e.usage).map(([key,n])=>[e.name,PLANS[e.plan].name,BIZ_SERVICES[key]||key,n]))]);
+const excelCol=(label,type='text',width=24)=>({label,type,width});
+A.exportRequests=()=>downloadExcel(S.kind==='cases'?'طلبات التوكيل':'طلبات الخدمات',[
+  excelCol('رقم الطلب','text',40),excelCol('تاريخ الطلب (الرياض)','date'),excelCol('العميل'),excelCol('الجوال','text',20),
+  excelCol('الخدمة','text',30),excelCol('الحالة'),excelCol('القيمة (ر.س)','money',18),excelCol('حالة الدفع'),
+  excelCol('المسؤول'),excelCol('المصدر'),excelCol('الأولوية'),excelCol('آخر تحديث (الرياض)','date'),
+  excelCol('تاريخ الإغلاق (الرياض)','date'),excelCol('ملاحظة الإغلاق','text',45),
+  ...(S.kind==='cases'?[excelCol('مرحلة القضية'),excelCol('الجلسة القادمة (الرياض)','date'),excelCol('عدد الجلسات','number',16)]:[]),
+  excelCol('التفاصيل','text',60)
+],filtered(S.kind).map(r=>[r.id,r.created_at,r.customer,r.phone,svName(r),ST[r.status].l,r.price,PAY[r.payment].l,
+  r.assigned_to?U(r.assigned_to).name:'غير مسند',SRC[r.source]||r.source,PRI[r.priority].l,r.updated_at,r.closed_at,r.close_note,
+  ...(S.kind==='cases'?[r.stage,r.next_session,r.sessions]:[]),r.details]));
+A.exportActivity=()=>downloadExcel('سجل النشاط',[excelCol('الوقت (الرياض)','date'),excelCol('المستخدم'),excelCol('رقم الطلب','text',40),excelCol('النشاط','text',70)],
+  LOG.filter(l=>S.logF==='all'||l.type===S.logF).map(l=>[l.at,U(l.by).name,l.request_id,l.text]));
+A.exportUsage=()=>downloadExcel('استهلاك المنشآت',[excelCol('المنشأة','text',35),excelCol('الباقة'),excelCol('الخدمة','text',35),excelCol('المستهلك','number',18)],
+  ENTITIES.flatMap(e=>Object.entries(e.usage).map(([key,n])=>[e.name,PLANS[e.plan].name,BIZ_SERVICES[key]||key,n])));
 const panelWithAttachments=reqPanel;
 reqPanel=function(id){const panel=panelWithAttachments(id),r=REQ(id);const label='المرفقات';
   const start=panel.body.indexOf('<div class="dsec"><h4>'+ic('file','width="15" height="15"')+label);
