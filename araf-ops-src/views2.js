@@ -128,7 +128,7 @@ VIEWS.activity = () => {
   const L = LOG.filter((l) => S.logF === 'all' || l.type === S.logF);
   const groups = {}; L.forEach((l) => { const k = sod(l.at).getTime(); (groups[k] = groups[k] || []).push(l); });
   return `<div class="page-h"><div><h1 class="h-disp h1">سجل النشاط</h1><div class="sub">كل عملية في النظام مسجَّلة باسم منفّذها ووقتها، ولا يمكن تعديلها أو حذفها</div></div>
-    <div class="tools"><button class="btn btn-s" data-a="exportActivity">${ic('download')}تصدير</button></div></div>
+    <div class="tools"><button class="btn btn-s" data-a="exportActivity">${ic('download')}تصدير Excel</button></div></div>
   <div class="saved">${types.map(([k, l]) => `<button class="${S.logF === k ? 'on' : ''}" data-a="seg" data-k="logF" data-v="${k}">${l}<span class="n">${LOG.filter((x) => k === 'all' || x.type === k).length}</span></button>`).join('')}</div>
   ${Object.entries(groups).map(([k, items]) => `<div class="agenda-d"><h5>${rel(new Date(+k))} — ${wd(new Date(+k))} ${dm(new Date(+k))}</h5><div class="feed">${items.map((f) => logItem(f)).join('')}</div></div>`).join('') || empty('لا نشاط بهذا التصنيف', 'غيّر التصنيف لعرض بقية العمليات.')}`;
 };

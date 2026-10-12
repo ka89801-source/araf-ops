@@ -54,7 +54,7 @@ function requestsPage(kind) {
   return `<div class="page-h"><div><h1 class="h-disp h1">${cases ? 'طلبات توكيل القضايا' : 'الخدمات المباشرة'}</h1>
     <div class="sub">${L.length} طلبًا، منها ${L.filter(isOpen).length} مفتوح${lateN ? ` و<b style="color:var(--red)">${lateN}</b> تجاوز المهلة الداخلية` : ''}${cases ? '. تظهر بمسمى القضية الفعلي' : ''}</div></div>
     <div class="tools"><div class="seg">${views.map(([v, l, i]) => `<button class="${S.view === v ? 'on' : ''}" data-a="seg" data-k="view" data-v="${v}">${ic(i)}${l}</button>`).join('')}</div>
-    <button class="btn btn-s" data-a="exportRequests">${ic('download')}تصدير</button>
+    <button class="btn btn-s" data-a="exportRequests">${ic('download')}تصدير Excel</button>
     <button class="btn btn-p" data-a="quick" data-k="ext" data-kind="${kind}">${ic('plus')}طلب خارجي</button></div></div>
   <div class="saved">${SAVED[kind].map(([k, l, f]) => `<button class="${S.saved === k ? 'on' : ''}" data-a="savedPick" data-v="${k}">${l}<span class="n" ${k === 'late' && f().length ? 'style="color:var(--red);font-weight:600"' : ''}>${f().length}</span></button>`).join('')}</div>
   <div class="toolbar">
@@ -91,11 +91,16 @@ function reqTable(L) {
     <div class="cell c-date">${rel(r.created_at)}<small>${hm(r.created_at)}</small></div>
     <button class="icon-btn more" data-a="reqMenu" data-id="${esc(r.id)}">${ic('more')}</button></div>`).join('')}</div>`;
 }
+function requestDateLabel(r) {
+  if (!r.created_at || !Number.isFinite(+new Date(r.created_at))) return 'غير مسجّل';
+  return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', {timeZone:'Asia/Riyadh', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hourCycle:'h23'}).format(r.created_at);
+}
+function requestDateLine(r) { return `<div class="request-date">تاريخ الطلب: <time dir="auto">${esc(requestDateLabel(r))}</time></div>`; }
 function caseTable(L) {
   return `<div class="clist"><div class="chead cs"><span></span><span>العميل والقضية</span><span>نوع القضية</span><span>الأتعاب</span><span>المرحلة</span><span class="c-sess">الجلسة القادمة</span><span>المحامي</span><span></span></div>
   ${L.map((r) => `<div class="crow cs ${pendingDelete(r.id)?'delete-pending':''}" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}" data-peek="${esc(r.id)}">
     <span class="pri" style="background:${PRI[r.priority].c};${r.priority === 'normal' ? 'opacity:.35' : ''}"></span>
-    <div style="min-width:0" class="row gap8">${custAv(r)}<div style="min-width:0"><div class="ttl ell">${esc(r.customer)}${lexBadge(r.id)}</div><div class="par ell"><span class="ltr num">${esc(r.id)}</span> — ${esc(r.details.slice(0, 46))}…</div>${deleteMarker(r.id)}</div></div>
+    <div style="min-width:0" class="row gap8">${custAv(r)}<div style="min-width:0"><div class="ttl ell">${esc(r.customer)}${lexBadge(r.id)}</div><div class="par ell"><span class="ltr num">${esc(r.id)}</span> — ${esc(r.details.slice(0, 46))}…</div>${requestDateLine(r)}${deleteMarker(r.id)}</div></div>
     <div class="cell"><span class="st" style="--c:${SV(r.service).c}">${esc(svName(r))}</span></div>
     <div class="cell">${r.price ? `<b class="num" style="font-weight:600">${fmt(r.price)}</b>` : `<span class="badge b-gold">بانتظار التسعير</span>`}<small>${r.price ? PAY[r.payment].l : ''}</small></div>
     <div class="cell"><b style="font-weight:500">${esc(r.stage || ST[r.status].l)}</b><small>${r.sessions ? `${r.sessions} جلسات محضورة` : 'لم تبدأ الجلسات'}</small></div>
@@ -107,7 +112,7 @@ function caseCards(L) {
   return `<div class="cards">${L.map((r, i) => `<div class="ccard ${pendingDelete(r.id)?'delete-pending':''}" style="animation:rbIn .5s var(--ease-out) ${i * 30}ms both" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}">
     <div class="row"><span class="st" style="--c:${SV(r.service).c}">${esc(svName(r))}</span><span style="margin-inline-start:auto">${stBadge(r.status)}</span></div>
     <div class="row gap8">${custAv(r, 'lg')}<div style="min-width:0"><div class="ttl ell">${esc(r.customer)}</div><div class="muted" style="font-size:12px">${esc(r.id)}</div>${deleteMarker(r.id)}</div></div>
-    <div class="muted" style="font-size:12.5px;line-height:1.6">${esc(r.stage || 'لم تُحدد المرحلة بعد')}</div>
+    ${requestDateLine(r)}<div class="muted" style="font-size:12.5px;line-height:1.6">${esc(r.stage || 'لم تُحدد المرحلة بعد')}</div>
     <div class="foot">${ic('cal', 'width="14" height="14"')}<span class="grow">${r.next_session ? `${rel(r.next_session)} — ${hm(r.next_session)}` : 'لا جلسة محددة'}</span>${r.assigned_to ? av(r.assigned_to, 'sm') : '<span class="badge b-amber">بلا محامٍ</span>'}</div></div>`).join('')}</div>`;
 }
 function reqBoard(L, kind) {
@@ -115,7 +120,7 @@ function reqBoard(L, kind) {
   return `<div class="kanban">${cols.map((k) => { const rs = L.filter((r) => r.status === k);
     return `<div class="kcol" data-drop="req" data-v="${k}"><div class="kcol-h"><i style="background:${ST[k].c}"></i>${ST[k].l}<span class="n">${rs.length}</span></div><div class="kcards">${rs.map((r) => `<div class="kcard ${pendingDelete(r.id)?'delete-pending':''}" draggable="true" data-drag="${esc(r.id)}" data-a="openReq" data-id="${esc(r.id)}" data-ctx="req:${esc(r.id)}">
       <div class="row" style="margin-bottom:6px"><span class="pri-dot" style="background:${PRI[r.priority].c}"></span><span class="m grow ell">${esc(svName(r))}</span>${isLate(r) ? `<span style="color:var(--red)" data-tip="تجاوز المهلة">${ic('alert', 'width="13" height="13"')}</span>` : ''}</div>
-      <div class="ttl">${esc(r.customer)}</div>${deleteMarker(r.id)}
+      <div class="ttl">${esc(r.customer)}</div>${kind === 'cases' ? requestDateLine(r) : ''}${deleteMarker(r.id)}
       <div class="row" style="margin-top:10px"><span class="m grow">${r.price ? fmt(r.price) + ' ر.س' : 'غير مسعّر'} — ${rel(r.created_at)}</span>${r.assigned_to ? av(r.assigned_to, 'sm') : `<span class="badge b-amber" style="height:20px">بلا مسؤول</span>`}</div></div>`).join('') || '<div class="muted" style="font-size:12px;text-align:center;padding:20px 0">اسحب طلبًا إلى هنا</div>'}</div></div>`; }).join('')}</div>`;
 }
 window.PEEK = (el) => {

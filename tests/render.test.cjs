@@ -1,5 +1,5 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');const vm=require('node:vm');const fs=require('node:fs');const path=require('node:path');
-const files=['data','core','app','views','views2','views3','letters','lex','automatic-legal','live-store','live','live-actions'];
+const files=['data','core','app','views','views2','views3','letters','lex','automatic-legal','live-store','live','excel','live-actions'];
 function context(){const c=vm.createContext({console,URL,URLSearchParams,Intl,Date,Set,Map,AbortController,Blob,setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},localStorage:{getItem:()=>null,setItem(){}},document:{addEventListener(){},querySelector:()=>null,querySelectorAll:()=>[],documentElement:{dataset:{theme:'light'}}},window:{addEventListener(){}},location:{hash:''},navigator:{}});vm.runInContext(files.map(f=>fs.readFileSync(path.join(__dirname,'../araf-ops-src',f+'.js'),'utf8')).join('\n'),c);return c;}
 test('empty real database renders every view without mock rows',()=>{const c=context();vm.runInContext('rebuildMetrics()',c);assert.equal(vm.runInContext('REQUESTS.length+TEAM.length+ENTITIES.length+ACTIVATIONS.length+TICKETS.length',c),0);for(const name of ['home','requests','cases','team','activity','support','business','flow']){const html=vm.runInContext(`VIEWS.${name}()`,c);assert.equal(typeof html,'string');const bad=html.match(/.{0,60}(?:NaN|undefined|EMP-00|فهد المطيري).{0,60}/);assert.equal(bad?.[0],undefined,name+': '+bad?.[0]);}});
 test('automatic report UI exposes persisted states and escapes report text and request summaries',()=>{
@@ -218,4 +218,40 @@ test('saved English service titles are retained and subscriptions do not distort
 test('saved Arabic service names are not rewritten through catalog aliases',()=>{
  const c=context();assert.equal(vm.runInContext("mapRequest({service_type:'case_study',service_name:'دراسة قضية والتوكيل'}).service_name",c),'دراسة قضية والتوكيل');
  assert.equal(vm.runInContext("mapRequest({service_type:'case_study',service_name:''}).service_name",c),'دراسة قضية والتوكيل فيها');
+});
+test('funnel uses the same total denominator with non-nested historical records and exact drilldown',()=>{
+ const c=context();vm.runInContext(`REQUESTS.push(...[
+ {id:'f1',status:'done',service_type:'consultation'},
+ {id:'f2',status:'progress',service_type:'case_representation',contacted_at:'2026-10-01'},
+ {id:'f3',status:'closed',service_type:'case_representation',assigned_to:'e'}
+ ].map(mapRequest))`,c);
+ assert.deepEqual(Array.from(vm.runInContext('pipeStats().v',c)),[3,1,1,1,1]);
+ assert.equal(vm.runInContext('pipeStats().conv',c),33.3);
+ assert.equal(vm.runInContext("pipeRequests('in').length",c),3);
+ assert.equal(vm.runInContext("pipeRequests('progress')[0].id",c),'f2');
+ const html=vm.runInContext('funnel()',c);assert.match(html,/33.3%/);assert.doesNotMatch(html,/انتقلت من المرحلة السابقة|<text/);
+ vm.runInContext(`openDrawer=fn=>{globalThis.opened=fn()};A.goFunnel({dataset:{v:'in'}})`,c);
+ assert.equal((c.opened.body.match(/data-a="openReq"/g)||[]).length,3);
+ assert.match(c.opened.body,/f2/); // Case requests are not silently excluded.
+});
+test('empty funnel percentages are zero and missing dates do not become elapsed times',()=>{
+ const c=context();const html=vm.runInContext('funnel()',c);assert.equal((html.match(/class="fn-percent" dir="ltr">0%/g)||[]).length,5);
+ vm.runInContext(`REQUESTS.push(mapRequest({id:'x',status:'done',closed_at:'2026-10-01'}))`,c);
+ assert.equal(vm.runInContext('pipeStats().avgClose',c),0);
+});
+test('case creation dates are visible in list cards and board in Riyadh Gregorian time',()=>{
+ const c=context();vm.runInContext(`REQUESTS.push(mapRequest({id:'case1',service_type:'case_representation',status:'new',created_at:'2026-10-01T22:30:00Z'}))`,c);
+ for(const expression of ['caseTable(REQUESTS)','caseCards(REQUESTS)',"reqBoard(REQUESTS,'cases')"]){const html=vm.runInContext(expression,c);assert.match(html,/تاريخ الطلب/);assert.match(html,/2026/);assert.match(html,/01:30/);}
+ assert.equal(vm.runInContext('requestDateLabel({created_at:null})',c),'غير مسجّل');
+});
+test('Excel export uses visible filtered requests and exports typed operational fields',()=>{
+ const c=context();vm.runInContext(`REQUESTS.push(...[
+ {id:'visible',service_type:'case_representation',status:'done',customer_phone:'0500123456',price:120.5,created_at:'2026-10-01T22:30:00Z'},
+ {id:'hidden',service_type:'case_representation',status:'new'},
+ {id:'direct',service_type:'consultation',status:'done'}].map(mapRequest));
+ S.kind='cases';S.saved='all';S.f={status:'done'};downloadExcel=(name,columns,rows)=>{globalThis.exported={name,columns,rows}};A.exportRequests();`,c);
+ assert.equal(c.exported.rows.length,1);assert.equal(c.exported.rows[0][0],'visible');assert.equal(c.exported.rows[0][3],'0500123456');
+ assert.equal(c.exported.rows[0][6],120.5);assert.equal(c.exported.columns[1].type,'date');assert.equal(c.exported.columns[6].type,'money');
+ vm.runInContext(`LOG.push(mapActivity({id:'l',request_id:'visible',action_type:'closed',description:'Closed'}));S.logF='closed';A.exportActivity()`,c);
+ assert.equal(c.exported.rows[0][2],'visible');
 });
