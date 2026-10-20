@@ -2,7 +2,7 @@
 const SUPABASE_URL='https://yuoforvbxpwislmdrvvb.supabase.co';
 // A narrow server action over the existing table. Membership comes from
 // business_admins and ownership from sender_auth_id, never editable UI identity.
-async function messageAction(req,res,listSent=false){
+async function messageAction(req,res,listSent=false,notifyUrgent=false){
   if(req.method!=='POST')return res.status(405).json({error:'طريقة غير مسموحة'});
   const token=req.headers.authorization || '';
   if(!/^Bearer \S+$/.test(token))return res.status(401).json({error:'سجّل الدخول أولًا'});
@@ -12,7 +12,7 @@ async function messageAction(req,res,listSent=false){
   if(!(listSent&&id==null) && (typeof id!=='string' || !/^[1-9][0-9]{0,18}$/.test(id) || BigInt(id)>9223372036854775807n))
     return res.status(400).json({error:'معرّف الرسالة غير صالح'});
   const key=process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if(!key)return res.status(503).json({error:'يلزم إعداد مفتاح خدمة Supabase في خادم المنصة لتفعيل حذف الرسائل'});
+  if(!key)return res.status(503).json({error:notifyUrgent?'خدمة تنبيهات البريد غير مفعّلة؛ تواصل مع مسؤول المنصة':'يلزم إعداد مفتاح خدمة Supabase في خادم المنصة لتفعيل حذف الرسائل'});
   try{
     const auth=await fetch(SUPABASE_URL+'/auth/v1/user',{redirect:'error',signal:AbortSignal.timeout(6000),headers:{apikey:key,Authorization:token}});
     if(!auth.ok)return res.status(401).json({error:'انتهت جلسة الدخول؛ سجّل الدخول مجددًا'});
@@ -24,6 +24,18 @@ async function messageAction(req,res,listSent=false){
     const actors=await membership.json();
     if(!Array.isArray(actors)||actors.length!==1||!['admin','manager','employee'].includes(actors[0].admin_role))
       return res.status(403).json({error:'حساب العمليات غير مفعّل'});
+    if(notifyUrgent){
+      const result=await fetch(SUPABASE_URL+'/rest/v1/ops_v2_messages?'+new URLSearchParams({
+        select:'id::text,to_id,from_name,to_name,subject,urgent,created_at',id:'eq.'+id,sender_auth_id:'eq.'+user.id,limit:'1'
+      }),{headers,redirect:'error',signal:AbortSignal.timeout(6000)});
+      if(!result.ok)throw new Error('message unavailable');
+      const rows=await result.json();
+      if(!Array.isArray(rows)||rows.length!==1)return res.status(404).json({error:'الرسالة غير موجودة أو لست مرسلها؛ حدّث صندوق الرسائل'});
+      // Only a persisted urgent message owned by this authenticated sender may
+      // cause email. Ignore all client-supplied recipient/content/urgency fields.
+      const outcome=await require('./ops-urgent-email')(rows[0],headers);
+      return res.status(outcome.status).json(outcome.body);
+    }
     if(listSent){
       const query=new URLSearchParams({select:'id::text,from_id,to_id,from_name,to_name,subject,body,urgent,created_at,read_at',sender_auth_id:'eq.'+user.id,order:'id.desc',limit:'200'});
       if(id!=null)query.set('id','lt.'+id);
@@ -40,8 +52,9 @@ async function messageAction(req,res,listSent=false){
     if(!Array.isArray(rows))throw new Error('invalid result');
     if(rows.length!==1)return res.status(404).json({error:'الرسالة غير موجودة أو لست مرسلها؛ حدّث صندوق الرسائل'});
     return res.status(200).json({ok:true,id});
-  }catch{return res.status(502).json({error:listSent?'تعذر تحميل الرسائل المرسلة؛ أعد المحاولة':'تعذر تأكيد حذف الرسالة؛ حدّث صندوق الرسائل ثم أعد المحاولة'});}
+  }catch{return res.status(502).json({error:notifyUrgent?'تعذر تأكيد إرسال التنبيه البريدي؛ يمكنك إعادة محاولة التنبيه':listSent?'تعذر تحميل الرسائل المرسلة؛ أعد المحاولة':'تعذر تأكيد حذف الرسالة؛ حدّث صندوق الرسائل ثم أعد المحاولة'});}
 };
 
 module.exports=(req,res)=>messageAction(req,res);
 module.exports.listSent=(req,res)=>messageAction(req,res,true);
+module.exports.notifyUrgent=(req,res)=>messageAction(req,res,false,true);
