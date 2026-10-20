@@ -72,6 +72,17 @@ test('v2 unavailable schema is explicit and message failures never look successf
  await assert.rejects(s.messages(),/بانتظار تفعيل/);
  await assert.rejects(s.sendMessage('e2','Subject','Body',false,'nonce'),/بانتظار تفعيل/);
 });
+test('urgent notification sends only the saved message ID and requires provider acceptance',async()=>{
+ const s=store(mockDB(()=>{throw Error('notification must not write directly')})),calls=[];
+ s.api=async(route,payload)=>{calls.push({route,payload});return {ok:true,id:payload.id,email_status:'accepted'}};
+ const id='9223372036854775807';await s.notifyUrgentMessage(id);
+ assert.deepEqual(calls,[{route:'ops-notify-urgent-message',payload:{id}}]);
+ for(const result of [{},{ok:true,id:'wrong',email_status:'accepted'},{ok:true,id,email_status:'pending'}]){
+  s.api=async()=>result;await assert.rejects(s.notifyUrgentMessage(id),/لم تؤكد/);
+ }
+ s.api=async()=>{throw Error('البريد غير مفعّل')};await assert.rejects(s.notifyUrgentMessage(id),/البريد غير مفعّل/);
+ s.user=null;await assert.rejects(s.notifyUrgentMessage(id),/سجّل الدخول/);
+});
 test('entity deletion requires admin role, exact confirmation and server response',async()=>{
  const calls=[],s=store(mockDB(()=>{throw new Error('anonymous client must not be used')}));s.auth={rpc:async(name,payload)=>{calls.push({name,payload});return {data:{ok:true,entity_id:'org'}};}};
  await assert.rejects(async()=>s.deleteEntity({id:'org',code:'TEST'},'WRONG'),/رمز المنشأة/);assert.equal(calls.length,0);

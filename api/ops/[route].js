@@ -13,6 +13,7 @@ module.exports = async function handler(req, res) {
   const route = req.query?.route;
   if (route === 'ops-sent-messages') return require('../../server/ops-messages').listSent(req,res);
   if (route === 'ops-delete-message') return require('../../server/ops-messages')(req,res);
+  if (route === 'ops-notify-urgent-message') return require('../../server/ops-messages').notifyUrgent(req,res);
   if (!Object.hasOwn(ROUTES, route || '')) return res.status(404).json({ error: 'مسار غير متاح' });
   if (req.method !== ROUTES[route]) return res.status(405).json({ error: 'طريقة غير مسموحة' });
   const token = req.headers.authorization || '';

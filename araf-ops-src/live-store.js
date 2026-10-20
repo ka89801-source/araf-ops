@@ -170,9 +170,17 @@
       }
     }
     sendMessage(to, subject, body, urgent, nonce) {
+      this.requireUser();
       if (!to || to === this.user.id) throw new Error('اختر موظفًا آخر');
       if (!body.trim() || body.trim().length > 4000 || subject.trim().length > 120) throw new Error('اكتب رسالة حتى ٤٠٠٠ حرف وموضوعًا حتى ١٢٠ حرفًا');
       return this.v2Rpc('ops_v2_send_message', { p_recipient: to, p_subject: subject.trim() || 'رسالة', p_body: body.trim(), p_urgent: !!urgent, p_nonce: nonce });
+    }
+    async notifyUrgentMessage(id) {
+      this.requireUser();
+      const result = await this.api('ops-notify-urgent-message', {id:String(id)});
+      if (!result?.ok || String(result.id)!==String(id) || result.email_status!=='accepted')
+        throw new Error('لم تؤكد خدمة البريد إرسال التنبيه');
+      return result;
     }
     async sentMessages() {
       this.requireUser();const rows=[];let before=null;

@@ -49,20 +49,42 @@ A.openLetter=async el=>{
   }
 };
 function composeLetter(to='',subject=''){
-  closeDrawer();let pick=to,nonce=crypto.randomUUID(),lastPayload='';
+  closeDrawer();let pick=to,nonce=crypto.randomUUID(),lastPayload='',savedMessage=null;
   const people=()=>TEAM.filter(t=>String(t.id)!==String(ME)&&t.status==='active').map(t=>`<button type="button" class="to-chip ${pick===t.id?'on':''}" data-a="pickTo" data-id="${esc(t.id)}">${av(t.id,'sm',true)}<span><b>${esc(t.name)}</b><small>${esc(t.role)}</small></span>${pick===t.id?`<i class="tick">${ic('check')}</i>`:''}</button>`).join('')||'<p class="muted">لا يوجد موظف آخر نشط.</p>';
-  openModal(`<div class="m-h"><div class="grow"><h3 class="h2">رسالة جديدة</h3><p class="muted" style="font-size:13px">تظهر في صندوق الموظف داخل المنصة.</p></div><button class="icon-btn" data-a="mClose">${ic('x')}</button></div><div class="m-b">${messageIssue()}<div class="field" style="margin-bottom:14px"><label>إلى الموظف</label><div class="to-row" id="toRow">${people()}</div></div><div class="field" style="margin-bottom:12px"><label>الموضوع</label><input class="inp" id="ltSubject" maxlength="120" value="${esc(subject)}" placeholder="مثال: متابعة طلبات اليوم"></div><div class="field"><label>الرسالة</label><textarea class="inp" id="ltBody" rows="5" maxlength="4000" placeholder="اكتب رسالتك…"></textarea></div><label class="switch-row" style="margin-top:14px"><input type="checkbox" id="ltUrgent"><span class="switch"></span><span>تمييزها كعاجلة</span></label><div class="lt-err" id="ltError" role="alert"></div></div><div class="m-f"><button class="btn btn-q" data-a="mClose">إلغاء</button><button class="btn btn-p send-main" data-a="sendLetter">${ic('send')}إرسال الرسالة</button></div>`,'lg');
-  A.pickTo=el=>{pick=el.dataset.id;$('#toRow').innerHTML=people();};
+  openModal(`<div class="m-h"><div class="grow"><h3 class="h2">رسالة جديدة</h3><p class="muted" style="font-size:13px">تظهر في صندوق الموظف داخل المنصة.</p></div><button class="icon-btn" data-a="mClose">${ic('x')}</button></div><div class="m-b">${messageIssue()}<div class="field" style="margin-bottom:14px"><label>إلى الموظف</label><div class="to-row" id="toRow">${people()}</div></div><div class="field" style="margin-bottom:12px"><label>الموضوع</label><input class="inp" id="ltSubject" maxlength="120" value="${esc(subject)}" placeholder="مثال: متابعة طلبات اليوم"></div><div class="field"><label>الرسالة</label><textarea class="inp" id="ltBody" rows="5" maxlength="4000" placeholder="اكتب رسالتك…"></textarea></div><label class="switch-row" style="margin-top:14px"><input type="checkbox" id="ltUrgent"><span class="switch"></span><span>عاجلة — إرسال تنبيه إلى بريد الموظف</span></label><div class="lt-err" id="ltError" role="alert"></div></div><div class="m-f"><button class="btn btn-q" data-a="mClose">إلغاء</button><button class="btn btn-p send-main" data-a="sendLetter">${ic('send')}إرسال الرسالة</button></div>`,'lg');
+  const composeModal=$('#modal .modal');
+  A.pickTo=el=>{if(savedMessage||LIVE.pending.has('send-letter'))return;pick=el.dataset.id;$('#toRow').innerHTML=people();};
   A.sendLetter=async button=>{
     if(LIVE.pending.has('send-letter'))return;
     const body=val('ltBody'),subject=val('ltSubject'),urgent=$('#ltUrgent').checked,errorBox=$('#ltError');
-    if(!pick||!body){errorBox.textContent=!pick?'اختر موظفًا':'اكتب نص الرسالة';return;}
+    if(!savedMessage&&(!pick||!body)){errorBox.textContent=!pick?'اختر موظفًا':'اكتب نص الرسالة';return;}
     const payload=JSON.stringify([pick,subject,body,urgent]);if(lastPayload&&payload!==lastPayload)nonce=crypto.randomUUID();lastPayload=payload;
-    LIVE.pending.add('send-letter');const restore=liveBusy(button,'جارٍ الإرسال…');errorBox.textContent='';
+    LIVE.pending.add('send-letter');const restore=liveBusy(button,savedMessage?'جارٍ إرسال التنبيه…':'جارٍ الإرسال…');errorBox.textContent='';
+    let notificationFailed=false;
     try{
-      const row=await LIVE.store.sendMessage(pick,subject,body,urgent,nonce);
-      OWN_MESSAGE_IDS.add(String(row.id));upsertLetter({...row,is_mine:true});closeModal();refreshLettersQuiet();toast('أُرسلت الرسالة إلى '+U(pick).name);
-    }catch(e){errorBox.textContent=e.message;}finally{LIVE.pending.delete('send-letter');restore();}
+      if(!savedMessage){
+        savedMessage=await LIVE.store.sendMessage(pick,subject,body,urgent,nonce);
+        OWN_MESSAGE_IDS.add(String(savedMessage.id));upsertLetter({...savedMessage,is_mine:true});refreshLettersQuiet();
+      }
+      if(savedMessage.urgent){
+        button.innerHTML=ic('clock')+'جارٍ إرسال التنبيه البريدي…';
+        await LIVE.store.notifyUrgentMessage(savedMessage.id);
+      }
+      if(composeModal.isConnected)closeModal();
+      toast(savedMessage.urgent?'أُرسلت الرسالة وأُرسل التنبيه البريدي':'أُرسلت الرسالة إلى '+U(pick).name);
+    }catch(e){
+      notificationFailed=!!savedMessage;
+      const message=savedMessage?'حُفظت الرسالة داخل المنصة. '+e.message:e.message;
+      if(composeModal.isConnected)errorBox.textContent=message;else toast(message,{info:true});
+    }finally{
+      LIVE.pending.delete('send-letter');restore();
+      if(notificationFailed&&composeModal.isConnected){
+        // A retry sends only the email for the saved ID, never a second message.
+        composeModal.querySelectorAll('#toRow button, input, textarea').forEach(el=>el.disabled=true);
+        composeModal.querySelector('.m-f [data-a="mClose"]').textContent='إغلاق';
+        button.innerHTML=ic('send')+'إعادة محاولة التنبيه البريدي';
+      }
+    }
   };
   $('#modal').onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();$('#modal [data-a="sendLetter"]')?.click();}};
 }
